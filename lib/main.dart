@@ -1,3 +1,4 @@
+import 'package:event_planner/event_planning_app.dart';
 import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 
@@ -11,13 +12,8 @@ class VendorPortalApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Vendor Portal',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF6B7C5C)),
-        useMaterial3: true,
-      ),
-      home: const LoginScreen(),
+      
+      home: EventPlanningApp(),
     );
   }
 }

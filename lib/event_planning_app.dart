@@ -1,0 +1,15 @@
+import 'package:flutter/material.dart';
+
+class EventPlanningApp extends StatefulWidget {
+  const EventPlanningApp({super.key});
+
+  @override
+  State<EventPlanningApp> createState() => _EventPlanningAppState();
+}
+
+class _EventPlanningAppState extends State<EventPlanningApp> {
+  @override
+  Widget build(BuildContext context) {
+    return const Placeholder();
+  }
+}
