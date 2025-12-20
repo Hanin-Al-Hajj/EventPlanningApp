@@ -1,3 +1,4 @@
+import 'package:event_planner/screens/Tabs_screen.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -9,6 +10,6 @@ class EventFlowApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(home: Text('hello'));
+    return MaterialApp(home: TabsScreen());
   }
 }
