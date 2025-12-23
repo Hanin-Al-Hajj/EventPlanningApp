@@ -63,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             // Header
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
               decoration: const BoxDecoration(color: Color(0xFF586041)),
               child: Column(
                 children: [
@@ -107,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   // Search Bar inside header
                   TextField(
                     decoration: InputDecoration(
@@ -128,11 +128,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderSide: BorderSide.none,
                       ),
                       enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide.none,
                       ),
                     ),
                   ),
+                  SizedBox(height: 4),
                 ],
               ),
             ),
@@ -145,7 +146,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 1),
 
                       // Stats Cards (now dynamic)
                       Row(
@@ -154,7 +155,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFFFFF),
+                                color: const Color.fromARGB(255, 255, 255, 255),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(color: Colors.grey.shade300),
                               ),
@@ -180,12 +181,12 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: Container(
-                              padding: const EdgeInsets.all(16),
+                              padding: const EdgeInsets.all(15.7),
                               decoration: BoxDecoration(
-                                color: const Color(0xFFFFFFF),
+                                color: const Color.fromARGB(255, 255, 255, 255),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(color: Colors.grey.shade300),
                               ),
@@ -213,7 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 15),
 
                       // Upcoming Events Section
                       Row(
@@ -308,6 +309,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         mainAxisSpacing: 12,
                         shrinkWrap: true,
                         physics: const NeverScrollableScrollPhysics(),
+                        childAspectRatio: 1.6,
                         children: [
                           QuickActionButton(
                             icon: Icons.add,
