@@ -5,8 +5,15 @@ import 'package:event_planner/widgets/event_card.dart';
 import 'package:event_planner/widgets/quick_action_button.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
-
+  const HomeScreen({
+    super.key,
+    required this.onAddEvent,
+    required this.onDeleteEvent,
+    required this.registeredEvents,
+  });
+  final Function(Event) onAddEvent;
+  final Function(Event) onDeleteEvent;
+  final List<Event> registeredEvents;
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -16,24 +23,10 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Event> registeredEvents = [];
 
   // Method to add a new event (will be connected to "New Event" button)
-  void _addNewEvent(Event event) {
-    setState(() {
-      registeredEvents.add(event);
-      // TODO: Later, we'll also call insertEvent(event) here
-    });
-  }
-
-  // Method to delete an event
-  void _deleteEvent(Event event) {
-    setState(() {
-      registeredEvents.remove(event);
-      // TODO: Later, we'll also call deleteEvent(event) here
-    });
-  }
 
   // Calculate active events count
   int get activeEventsCount {
-    return registeredEvents
+    return widget.registeredEvents
         .where(
           (event) =>
               event.status == 'In Progress' || event.status == 'Planning',
@@ -287,7 +280,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   padding: const EdgeInsets.only(bottom: 12),
                                   child: EventCard(
                                     event: event,
-                                    onDelete: () => _deleteEvent(event),
+                                    onDelete: () => widget.onDeleteEvent(event),
                                   ),
                                 );
                               }).toList(),
