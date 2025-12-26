@@ -18,12 +18,10 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
+
+
+
 class _HomeScreenState extends State<HomeScreen> {
-  // This list will hold all events (initially empty)
-  List<Event> registeredEvents = [];
-
-  // Method to add a new event (will be connected to "New Event" button)
-
   // Calculate active events count
   int get activeEventsCount {
     return widget.registeredEvents
@@ -36,16 +34,45 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Calculate days until next event
   int get daysUntilNextEvent {
-    if (registeredEvents.isEmpty) return 0;
+    if (widget.registeredEvents.isEmpty) return 0;
 
     final now = DateTime.now();
     final upcomingEvents =
-        registeredEvents.where((event) => event.date.isAfter(now)).toList()
+        widget.registeredEvents
+            .where((event) => event.date.isAfter(now))
+            .toList()
           ..sort((a, b) => a.date.compareTo(b.date));
 
     if (upcomingEvents.isEmpty) return 0;
 
     return upcomingEvents.first.date.difference(now).inDays;
+  }
+
+  // Navigate to Create Event screen and handle result
+  void _navigateToCreateEvent() async {
+    final newEvent = await Navigator.push<Event>(
+      context,
+      MaterialPageRoute(builder: (context) => const CreateEventScreen()),
+    );
+
+    if (newEvent != null) {
+      widget.onAddEvent(newEvent);
+    }
+  }
+
+  // Navigate to Edit Event screen
+  void _editEvent(Event event) async {
+    final updatedEvent = await Navigator.push<Event>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => CreateEventScreen(eventToEdit: event),
+      ),
+    );
+
+    if (updatedEvent != null) {
+      widget.onDeleteEvent(event); // Remove old version
+      widget.onAddEvent(updatedEvent); // Add updated version
+    }
   }
 
   @override
@@ -240,7 +267,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 16),
 
                       // Show events or empty state
-                      registeredEvents.isEmpty
+                      widget.registeredEvents.isEmpty
                           ? Center(
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
@@ -275,12 +302,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             )
                           : Column(
-                              children: registeredEvents.map((event) {
+                              children: widget.registeredEvents.map((event) {
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: 12),
                                   child: EventCard(
                                     event: event,
                                     onDelete: () => widget.onDeleteEvent(event),
+                                    onTap: () => _editEvent(event),
                                   ),
                                 );
                               }).toList(),
@@ -307,16 +335,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           QuickActionButton(
                             icon: Icons.add,
                             label: 'New Event',
-                            onTap: () {
-                              // Navigate to Create Event screen
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const CreateEventScreen(),
-                                ),
-                              );
-                            },
+                            onTap: _navigateToCreateEvent,
                           ),
                           QuickActionButton(
                             icon: Icons.group_add_outlined,

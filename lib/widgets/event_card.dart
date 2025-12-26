@@ -1,36 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
+import 'package:intl/intl.dart';
 
 class EventCard extends StatelessWidget {
+  const EventCard({
+    super.key,
+    required this.event,
+    required this.onDelete,
+    this.onTap,
+  });
+
   final Event event;
   final VoidCallback onDelete;
+  final VoidCallback? onTap;
 
-  const EventCard({super.key, required this.event, required this.onDelete});
-
-  Color get statusColor {
-    switch (event.status) {
-      case 'In Progress':
-      case 'in progress':
-      case 'inProgress':
-        return const Color(0xFF545A3B);
-      case 'Planning':
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
       case 'planning':
-        return const Color(0xFFFCFFF2);
-      case 'Completed':
+        return Colors.orange;
+      case 'in progress':
+        return Colors.blue;
       case 'completed':
-        return const Color(0xFFCFD2C3);
+        return Colors.green;
       default:
         return Colors.grey;
     }
-  }
-
-  Color get statusTextColor {
-    if (event.status == 'In Progress' ||
-        event.status == 'in progress' ||
-        event.status == 'inProgress') {
-      return Colors.white;
-    }
-    return const Color(0xFF151910);
   }
 
   @override
@@ -38,95 +32,119 @@ class EventCard extends StatelessWidget {
     return Dismissible(
       key: Key(event.id),
       direction: DismissDirection.endToStart,
-      onDismissed: (direction) => onDelete(),
+      onDismissed: (direction) {
+        onDelete();
+      },
       background: Container(
-        decoration: BoxDecoration(
-          color: Colors.red.shade400,
-          borderRadius: BorderRadius.circular(12),
-        ),
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
-        child: const Icon(Icons.delete, color: Colors.white),
-      ),
-      child: Container(
-        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFFF0F0D8),
+          color: Colors.red,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    event.title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+        child: const Icon(Icons.delete, color: Colors.white, size: 28),
+      ),
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Row - Title and Status
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      event.title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF151910),
+                      ),
                     ),
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 4,
+                  const SizedBox(width: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(event.status),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      event.status,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    borderRadius: BorderRadius.circular(12),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Date and Location
+              Text(
+                '${DateFormat('MMM dd, yyyy').format(event.date)} • ${event.location}',
+                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 8),
+
+              // Guests and Budget Row
+              Row(
+                children: [
+                  Text(
+                    '${event.guests} Guests',
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                   ),
-                  child: Text(
-                    event.status.toString(),
-                    style: TextStyle(fontSize: 12, color: statusTextColor),
+                  const SizedBox(width: 16),
+                  Text(
+                    '\$${event.budget.toStringAsFixed(0)} Budget',
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${event.date.day}/${event.date.month}/${event.date.year} • ${event.location}',
-              style: const TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Text(
-                  '${event.guests} Guests',
-                  style: const TextStyle(fontSize: 12),
-                ),
-                const SizedBox(width: 8),
-                const Text('•', style: TextStyle(color: Colors.grey)),
-                const SizedBox(width: 8),
-                Text(
-                  '\$${event.budget.toStringAsFixed(0)} Budget',
-                  style: const TextStyle(fontSize: 12),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                LinearProgressIndicator(
-                  value: event.progress,
-                  backgroundColor: Colors.grey.shade300,
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    Color(0xFF545A3B),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Progress Bar
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${(event.progress * 100).toInt()}% Complete',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                  minHeight: 6,
-                  borderRadius: BorderRadius.circular(3),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${(event.progress * 100).toInt()}% Complete',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-              ],
-            ),
-          ],
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: LinearProgressIndicator(
+                      value: event.progress,
+                      backgroundColor: Colors.grey.shade200,
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                        Color(0xFF586041),
+                      ),
+                      minHeight: 6,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

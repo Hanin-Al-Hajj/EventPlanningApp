@@ -1,7 +1,18 @@
+import 'dart:io';
+
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:event_planner/event_planning_app.dart';
 import 'package:flutter/material.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // ✅ REQUIRED for Windows / macOS / Linux
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    sqfliteFfiInit();
+    databaseFactory = databaseFactoryFfi;
+  }
+
   runApp(const VendorPortalApp());
 }
 
@@ -10,6 +21,6 @@ class VendorPortalApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(home: EventPlanningApp());
+    return const MaterialApp(home: EventPlanningApp());
   }
 }
