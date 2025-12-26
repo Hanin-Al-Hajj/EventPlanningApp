@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/widgets/event_card.dart';
 import 'package:event_planner/widgets/quick_action_button.dart';
+import 'package:event_planner/db/event_storage.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -17,9 +18,6 @@ class HomeScreen extends StatefulWidget {
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
-
-
-
 
 class _HomeScreenState extends State<HomeScreen> {
   // Calculate active events count
@@ -71,7 +69,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (updatedEvent != null) {
       widget.onDeleteEvent(event); // Remove old version
-      widget.onAddEvent(updatedEvent); // Add updated version
+      widget.onAddEvent(updatedEvent);
+      updateEvent(updatedEvent); // Add updated version
     }
   }
 

@@ -1,3 +1,4 @@
+import 'package:event_planner/db/event_storage.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/screens/Events_screen.dart';
 import 'package:event_planner/screens/Messages_screen.dart';
@@ -15,7 +16,31 @@ class TabsScreen extends StatefulWidget {
 class _TabsScreenState extends State<TabsScreen> {
   int _selectedIndex = 0;
 
+  bool _isloading = true;
   List<Event> registeredEvents = [];
+
+  void initState() {
+    super.initState();
+    _LoadFromDataBase();
+  }
+
+  Future<void> _LoadFromDataBase() async {
+    setState(() {
+      _isloading = true;
+    });
+    try {
+      final events = await loadEvents();
+      setState(() {
+        registeredEvents = events;
+        _isloading = false;
+      });
+    } catch (e) {
+      print('Error loading events:$e');
+      setState(() {
+        _isloading = false;
+      });
+    }
+  }
 
   void _selectPage(int index) {
     setState(() {
@@ -29,6 +54,7 @@ class _TabsScreenState extends State<TabsScreen> {
       registeredEvents.add(event);
       // TODO: Later, add insertEvent(event) here for database
     });
+    insertEvent(event);
   }
 
   // Method to delete an event
@@ -37,10 +63,19 @@ class _TabsScreenState extends State<TabsScreen> {
       registeredEvents.remove(event);
       // TODO: Later, add deleteEvent(event) here for database
     });
+    deleteEvent(event);
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isloading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: Color(0xFF586041)),
+        ),
+      );
+    }
+
     // Define which screen to show based on selected index
     Widget activePage = HomeScreen(
       registeredEvents: registeredEvents,
