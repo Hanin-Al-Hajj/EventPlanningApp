@@ -21,6 +21,17 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   String? _selectedEventType;
   DateTime? _selectedDate;
 
+  void initState() {
+    super.initState();
+    if (widget.eventToEdit != null) {
+      _eventNameController.text = widget.eventToEdit!.title;
+      _guestsController.text = widget.eventToEdit!.guests.toString();
+      _budgetController.text = widget.eventToEdit!.budget.toString();
+      _locationController.text = widget.eventToEdit!.location;
+      _selectedDate = widget.eventToEdit!.date;
+    }
+  }
+
   final List<String> _eventTypes = [
     'Wedding',
     'Birthday',
@@ -82,7 +93,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
       // Create new event matching your Event model
       final newEvent = Event(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id:
+            widget.eventToEdit?.id ??
+            DateTime.now().millisecondsSinceEpoch.toString(),
         title: _eventNameController.text,
         date: _selectedDate!,
         location: _locationController.text.isEmpty
@@ -90,8 +103,10 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             : _locationController.text,
         guests: int.parse(_guestsController.text),
         budget: double.parse(_budgetController.text),
-        progress: 0.0, // Initial progress is 0
-        status: 'Planning', // New events start as Planning
+        progress: widget.eventToEdit?.progress ?? 0.0, // Initial progress is 0
+        status:
+            widget.eventToEdit?.status ??
+            'Planning', // New events start as Planning
       );
 
       // Return the new event to the previous screen
@@ -101,11 +116,12 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.eventToEdit != null;
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color(0xFF586041),
         foregroundColor: Colors.white,
-        title: const Text('Create New Event'),
+        title: Text(isEditing ? 'Edit Event' : 'Create New Event'),
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -364,8 +380,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       ),
                       elevation: 0,
                     ),
-                    child: const Text(
-                      'Save Event',
+                    child: Text(
+                      isEditing ? 'Update Event' : 'Save Event',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
