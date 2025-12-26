@@ -1,4 +1,5 @@
-import 'package:event_planner/screens/home_screen.dart';
+import 'package:event_planner/screens/Tabs_screen.dart';
+
 import 'package:flutter/material.dart';
 
 class EventPlanningApp extends StatefulWidget {
@@ -19,7 +20,7 @@ class _EventPlanningAppState extends State<EventPlanningApp> {
 
         scaffoldBackgroundColor: Color(0xFFF0F0D8),
       ),
-      home: const HomeScreen(),
+      home: const TabsScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
