@@ -20,7 +20,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   String? _selectedEventType;
   DateTime? _selectedDate;
-
+  @override
   void initState() {
     super.initState();
     if (widget.eventToEdit != null) {
