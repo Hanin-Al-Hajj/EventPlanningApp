@@ -8,9 +8,8 @@ class MessagesScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text('Messages')),
       body: const Center(
-        child: const Center(child: Text('this is the messages screen')),
+        child: Center(child: Text('this is the messages screen')),
       ),
     );
-    ;
   }
 }

@@ -11,7 +11,6 @@ class EventPlanningApp extends StatefulWidget {
 
 class _EventPlanningAppState extends State<EventPlanningApp> {
   @override
-  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'EventFlow',

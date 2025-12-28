@@ -21,6 +21,10 @@ class VendorPortalApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(home: EventPlanningApp());
+    return const MaterialApp(
+      debugShowCheckedModeBanner: false,
+
+      home: const EventPlanningApp(),
+    );
   }
 }

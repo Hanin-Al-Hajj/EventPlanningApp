@@ -1,3 +1,4 @@
+import 'package:event_planner/screens/GuestList_screen.dart';
 import 'package:event_planner/screens/create_event_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
@@ -72,6 +73,78 @@ class _HomeScreenState extends State<HomeScreen> {
       widget.onAddEvent(updatedEvent);
       updateEvent(updatedEvent); // Add updated version
     }
+  }
+
+  void navigateToGuestList() {
+    // If no events, show a SnackBar
+
+    if (widget.registeredEvents.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Create an event first before adding guests'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // If only one event, go directly to its guest list
+    if (widget.registeredEvents.length == 1) {
+      final event = widget.registeredEvents.first;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) =>
+              GuestListScreen(eventID: event.id, eventName: event.title),
+        ),
+      );
+      return;
+    }
+
+    // If multiple events, **show a dialog to select one**
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Event'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: widget.registeredEvents.length,
+            itemBuilder: (context, index) {
+              final event = widget.registeredEvents[index];
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: const Color(0xFF545A3B),
+                  child: const Icon(Icons.event, color: Colors.white, size: 20),
+                ),
+                title: Text(event.title),
+                subtitle: Text(event.location),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () {
+                  Navigator.pop(context); // Close dialog
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => GuestListScreen(
+                        eventID: event.id,
+                        eventName: event.title,
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -339,7 +412,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           QuickActionButton(
                             icon: Icons.group_add_outlined,
                             label: 'Add Guests',
-                            onTap: () {},
+                            onTap: navigateToGuestList,
                           ),
                           QuickActionButton(
                             icon: Icons.search,
