@@ -5,6 +5,7 @@ import 'package:event_planner/models/event.dart';
 import 'package:event_planner/widgets/event_card.dart';
 import 'package:event_planner/widgets/quick_action_button.dart';
 import 'package:event_planner/db/event_storage.dart';
+import 'package:event_planner/screens/budget_tracker_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -21,6 +22,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  bool _isLoadingEvents = false;
+
   // Calculate active events count
   int get activeEventsCount {
     return widget.registeredEvents
@@ -47,8 +50,35 @@ class _HomeScreenState extends State<HomeScreen> {
     return upcomingEvents.first.date.difference(now).inDays;
   }
 
+  // Refresh events with calculated progress
+  Future<void> _refreshEvents() async {
+    setState(() {
+      _isLoadingEvents = true;
+    });
+
+    try {
+      // Load events with dynamically calculated progress
+      final updatedEvents = await loadEventsWithCalculatedProgress();
+
+      // Clear and re-add all events with updated progress
+      for (var event in widget.registeredEvents.toList()) {
+        widget.onDeleteEvent(event);
+      }
+
+      for (var event in updatedEvents) {
+        widget.onAddEvent(event);
+      }
+    } catch (e) {
+      print('Error refreshing events: $e');
+    } finally {
+      setState(() {
+        _isLoadingEvents = false;
+      });
+    }
+  }
+
   // Navigate to Create Event screen and handle result
-  void _navigateToCreateEvent() async {
+  Future<void> _navigateToCreateEvent() async {
     final newEvent = await Navigator.push<Event>(
       context,
       MaterialPageRoute(builder: (context) => const CreateEventScreen()),
@@ -56,11 +86,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (newEvent != null) {
       widget.onAddEvent(newEvent);
+      // Refresh to ensure progress is calculated
+      await _refreshEvents();
     }
   }
 
   // Navigate to Edit Event screen
-  void _editEvent(Event event) async {
+  Future<void> _editEvent(Event event) async {
     final updatedEvent = await Navigator.push<Event>(
       context,
       MaterialPageRoute(
@@ -72,12 +104,13 @@ class _HomeScreenState extends State<HomeScreen> {
       widget.onDeleteEvent(event); // Remove old version
       widget.onAddEvent(updatedEvent);
       updateEvent(updatedEvent); // Add updated version
+      // Refresh to ensure progress is updated
+      await _refreshEvents();
     }
   }
 
-  void navigateToGuestList() {
+  Future<void> navigateToGuestList() async {
     // If no events, show a SnackBar
-
     if (widget.registeredEvents.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -91,17 +124,19 @@ class _HomeScreenState extends State<HomeScreen> {
     // If only one event, go directly to its guest list
     if (widget.registeredEvents.length == 1) {
       final event = widget.registeredEvents.first;
-      Navigator.push(
+      await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) =>
               GuestListScreen(eventID: event.id, eventName: event.title),
         ),
       );
+      // Refresh events after returning from guest list
+      await _refreshEvents();
       return;
     }
 
-    // If multiple events, **show a dialog to select one**
+    // If multiple events, show a dialog to select one
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -121,9 +156,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 title: Text(event.title),
                 subtitle: Text(event.location),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
+                onTap: () async {
                   Navigator.pop(context); // Close dialog
-                  Navigator.push(
+                  await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => GuestListScreen(
@@ -132,6 +167,87 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   );
+                  // Refresh events after returning from guest list
+                  await _refreshEvents();
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Load events with calculated progress on init
+    _refreshEvents();
+  }
+
+  // 🆕 UPDATED: Navigate to Budget Tracker with refresh after return
+  Future<void> navigateToBudgetTracker() async {
+    // If no events, show a SnackBar
+    if (widget.registeredEvents.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Create an event first before tracking budget'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    // If only one event, go directly to its budget tracker
+    if (widget.registeredEvents.length == 1) {
+      final event = widget.registeredEvents.first;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => BudgetTrackerScreen(event: event),
+        ),
+      );
+      // 🆕 Refresh events after returning from budget tracker
+      await _refreshEvents();
+      return;
+    }
+
+    // If multiple events, show a dialog to select one
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Event'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: widget.registeredEvents.length,
+            itemBuilder: (context, index) {
+              final event = widget.registeredEvents[index];
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: const Color(0xFF545A3B),
+                  child: const Icon(Icons.event, color: Colors.white, size: 20),
+                ),
+                title: Text(event.title),
+                subtitle: Text('Budget: \$${event.budget.toStringAsFixed(0)}'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () async {
+                  Navigator.pop(context); // Close dialog
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => BudgetTrackerScreen(event: event),
+                    ),
+                  );
+                  // 🆕 Refresh events after returning from budget tracker
+                  await _refreshEvents();
                 },
               );
             },
@@ -172,6 +288,25 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       Row(
                         children: [
+                          // Refresh button
+                          IconButton(
+                            icon: _isLoadingEvents
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.refresh,
+                                    color: Colors.white,
+                                  ),
+                            onPressed: _isLoadingEvents ? null : _refreshEvents,
+                          ),
                           IconButton(
                             icon: const Icon(
                               Icons.notifications_outlined,
@@ -232,201 +367,220 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // Content
             Expanded(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 1),
+              child: RefreshIndicator(
+                onRefresh: _refreshEvents,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 1),
 
-                      // Stats Cards (now dynamic)
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Container(
-                              padding: EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: const Color.fromARGB(255, 255, 255, 255),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '$activeEventsCount',
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF151910),
-                                    ),
+                        // Stats Cards (now dynamic)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                padding: EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: const Color.fromARGB(
+                                    255,
+                                    255,
+                                    255,
+                                    255,
                                   ),
-                                  const Text(
-                                    'Active Events',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
                                   ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.all(15.7),
-                              decoration: BoxDecoration(
-                                color: const Color.fromARGB(255, 255, 255, 255),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.grey.shade300),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '$daysUntilNextEvent',
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF151910),
-                                    ),
-                                  ),
-                                  const Text(
-                                    'Days Until Next Event',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 15),
-
-                      // Upcoming Events Section
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Upcoming Events',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {},
-                            style: TextButton.styleFrom(
-                              backgroundColor: const Color(0xFF545A3B),
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                            ),
-                            child: const Text('View All'),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Show events or empty state
-                      widget.registeredEvents.isEmpty
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 32,
                                 ),
                                 child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Icon(
-                                      Icons.event_outlined,
-                                      size: 64,
-                                      color: Colors.grey.shade400,
-                                    ),
-                                    const SizedBox(height: 16),
                                     Text(
-                                      'No events yet',
+                                      '$activeEventsCount',
                                       style: TextStyle(
-                                        fontSize: 16,
-                                        color: Colors.grey.shade600,
-                                        fontWeight: FontWeight.w500,
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF151910),
                                       ),
                                     ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Create your first event to get started',
+                                    const Text(
+                                      'Active Events',
                                       style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.grey.shade500,
+                                        fontSize: 12,
+                                        color: Colors.grey,
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                            )
-                          : Column(
-                              children: widget.registeredEvents.map((event) {
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 12),
-                                  child: EventCard(
-                                    event: event,
-                                    onDelete: () => widget.onDeleteEvent(event),
-                                    onTap: () => _editEvent(event),
-                                  ),
-                                );
-                              }).toList(),
                             ),
-                      const SizedBox(height: 24),
-
-                      // Quick Actions Section
-                      const Text(
-                        'Quick Actions',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.all(15.7),
+                                decoration: BoxDecoration(
+                                  color: const Color.fromARGB(
+                                    255,
+                                    255,
+                                    255,
+                                    255,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.grey.shade300,
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '$daysUntilNextEvent',
+                                      style: TextStyle(
+                                        fontSize: 28,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF151910),
+                                      ),
+                                    ),
+                                    const Text(
+                                      'Days Until Next Event',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      GridView.count(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        childAspectRatio: 1.6,
-                        children: [
-                          QuickActionButton(
-                            icon: Icons.add,
-                            label: 'New Event',
-                            onTap: _navigateToCreateEvent,
+                        const SizedBox(height: 15),
+
+                        // Upcoming Events Section
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'Upcoming Events',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: () {},
+                              style: TextButton.styleFrom(
+                                backgroundColor: const Color(0xFF545A3B),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                              ),
+                              child: const Text('View All'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Show events or empty state
+                        widget.registeredEvents.isEmpty
+                            ? Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 32,
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Icon(
+                                        Icons.event_outlined,
+                                        size: 64,
+                                        color: Colors.grey.shade400,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'No events yet',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.grey.shade600,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Create your first event to get started',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey.shade500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : Column(
+                                children: widget.registeredEvents.map((event) {
+                                  return Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: EventCard(
+                                      event: event,
+                                      onDelete: () =>
+                                          widget.onDeleteEvent(event),
+                                      onTap: () => _editEvent(event),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                        const SizedBox(height: 24),
+
+                        // Quick Actions Section
+                        const Text(
+                          'Quick Actions',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
                           ),
-                          QuickActionButton(
-                            icon: Icons.group_add_outlined,
-                            label: 'Add Guests',
-                            onTap: navigateToGuestList,
-                          ),
-                          QuickActionButton(
-                            icon: Icons.search,
-                            label: 'Find Vendors',
-                            onTap: () {},
-                          ),
-                          QuickActionButton(
-                            icon: Icons.attach_money,
-                            label: 'Track Budget',
-                            onTap: () {},
-                          ),
-                        ],
-                      ),
-                    ],
+                        ),
+                        const SizedBox(height: 16),
+                        GridView.count(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          childAspectRatio: 1.6,
+                          children: [
+                            QuickActionButton(
+                              icon: Icons.add,
+                              label: 'New Event',
+                              onTap: _navigateToCreateEvent,
+                            ),
+                            QuickActionButton(
+                              icon: Icons.group_add_outlined,
+                              label: 'Add Guests',
+                              onTap: navigateToGuestList,
+                            ),
+                            QuickActionButton(
+                              icon: Icons.search,
+                              label: 'Find Vendors',
+                              onTap: () {},
+                            ),
+                            QuickActionButton(
+                              icon: Icons.attach_money,
+                              label: 'Track Budget',
+                              onTap: navigateToBudgetTracker,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),

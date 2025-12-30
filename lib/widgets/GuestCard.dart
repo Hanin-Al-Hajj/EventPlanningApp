@@ -5,6 +5,7 @@ class Guestcard extends StatelessWidget {
   final Guest guest;
   final VoidCallback onTap;
   final VoidCallback onDelete;
+
   const Guestcard({
     super.key,
     required this.guest,
@@ -86,6 +87,7 @@ class Guestcard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Name
                     Text(
                       guest.name,
                       style: const TextStyle(
@@ -96,19 +98,102 @@ class Guestcard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
 
-                    if (guest.tableNumber.isNotEmpty) ...[
+                    // Email (if exists)
+                    if (guest.email != null && guest.email!.isNotEmpty) ...[
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.email_outlined,
+                            size: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              guest.email!,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey.shade600,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 4),
-                      Text(
-                        guest.tableNumber,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade500,
-                        ),
+                    ],
+
+                    // Phone Number (if exists)
+                    if (guest.phoneNumber != null &&
+                        guest.phoneNumber!.isNotEmpty) ...[
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.phone_outlined,
+                            size: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Tel: ${guest.phoneNumber}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                    ],
+
+                    // Table Number (if exists)
+                    if (guest.tableNumber != null &&
+                        guest.tableNumber!.isNotEmpty) ...[
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.table_restaurant_outlined,
+                            size: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Table ${guest.tableNumber}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+
+                    // Plus Ones (if exists)
+                    if (guest.plusOnes != null && guest.plusOnes! > 0) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.person_add_outlined,
+                            size: 14,
+                            color: Colors.grey.shade600,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            '+${guest.plusOnes} guest${guest.plusOnes! > 1 ? 's' : ''}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ],
                 ),
               ),
+              const SizedBox(width: 12),
+              // Status Badge
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
