@@ -3,45 +3,46 @@ enum GuestStatus { accepted, declined, pending }
 class Guest {
   final String id;
   final String name;
-  final String? email;
-  final String tableNumber;
+  final String? email; // 👈 Optional
+  final String? tableNumber; // 👈 Optional
   final GuestStatus status;
-  final String phoneNumber;
-  final int? plusOnes;
+  final String? phoneNumber; // 👈 Optional
+  final int? plusOnes; // 👈 Optional
 
   Guest({
     required this.id,
     required this.name,
-    required this.email,
-    required this.tableNumber,
+    this.email, // 👈 NOT required
+    this.tableNumber, // 👈 NOT required
     required this.status,
-    required this.phoneNumber,
-    required this.plusOnes,
+    this.phoneNumber, // 👈 NOT required
+    this.plusOnes, // 👈 NOT required
   });
+
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'name': name,
-      'email': email,
-      'tableNumber': tableNumber,
-      'phoneNumber': phoneNumber,
-      'plusOnes': plusOnes,
+      'email': email, // Can be null
+      'tableNumber': tableNumber, // Can be null
+      'phoneNumber': phoneNumber, // Can be null
+      'plusOnes': plusOnes, // Can be null
       'status': status.toString().split('.').last,
     };
   }
 
   factory Guest.fromMap(Map<String, dynamic> map) {
     return Guest(
-      id: map['id'],
-      name: map['name'],
-      email: map['email'],
-      tableNumber: map['tableNumber'] ?? '',
+      id: map['id'] as String,
+      name: map['name'] as String,
+      email: map['email'] as String?,
+      tableNumber: map['tableNumber'] as String?,
       status: GuestStatus.values.firstWhere(
         (e) => e.toString().split('.').last == map['status'],
         orElse: () => GuestStatus.pending,
       ),
-      phoneNumber: map['phoneNumber'],
-      plusOnes: map['plusOnes'],
+      phoneNumber: map['phoneNumber'] as String?,
+      plusOnes: map['plusOnes'] as int?,
     );
   }
 

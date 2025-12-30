@@ -136,7 +136,7 @@ class _GuestlistScreenState extends State<GuestListScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F0D8),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1C1C1C),
+        backgroundColor: const Color(0xFF586041),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
@@ -144,7 +144,10 @@ class _GuestlistScreenState extends State<GuestListScreen> {
         title: const Text('Guest List', style: TextStyle(color: Colors.white)),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: Color(0xFF586041)),
+            icon: const Icon(
+              Icons.add,
+              color: Color.fromARGB(255, 255, 255, 255),
+            ),
             onPressed: _addGuest,
           ),
         ],
@@ -158,7 +161,7 @@ class _GuestlistScreenState extends State<GuestListScreen> {
                 // 1. SEARCH BAR
                 Container(
                   padding: const EdgeInsets.all(16),
-                  color: const Color(0xFF1C1C1C),
+                  color: const Color(0xFF586041),
                   child: TextField(
                     controller: _searchController,
                     decoration: InputDecoration(

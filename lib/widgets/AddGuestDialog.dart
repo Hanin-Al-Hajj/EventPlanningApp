@@ -40,22 +40,35 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
   }
 
   void _save() {
-    if (_nameController.text.isEmpty || _phoneController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in name and phonenumber')),
-      );
+    // Only name is required now
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please enter a name')));
       return;
     }
+
     final guest = Guest(
       id: widget.guest?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-
-      name: _nameController.text,
-      email: _emailContoller.text.isEmpty ? null : _emailContoller.text,
-      tableNumber: _tableController.text,
+      name: _nameController.text.trim(),
       status: _selectedStatus,
-      phoneNumber: _phoneController.text,
+
+      // All optional - only add if not empty
+      email: _emailContoller.text.trim().isEmpty
+          ? null
+          : _emailContoller.text.trim(),
+
+      tableNumber: _tableController.text.trim().isEmpty
+          ? null
+          : _tableController.text.trim(),
+
+      phoneNumber: _phoneController.text.trim().isEmpty
+          ? null
+          : _phoneController.text.trim(),
+
       plusOnes: null,
     );
+
     widget.onAdd(guest);
     Navigator.pop(context);
   }
