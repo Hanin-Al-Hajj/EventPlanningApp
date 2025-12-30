@@ -1,5 +1,6 @@
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/widgets/event_card.dart';
+import 'package:event_planner/screens/event_detail_screen.dart';
 import 'package:flutter/material.dart';
 
 class EventsScreen extends StatelessWidget {
@@ -57,6 +58,16 @@ class EventsScreen extends StatelessWidget {
                   child: EventCard(
                     event: event,
                     onDelete: () => onDeleteEvent(event),
+                    onTap: () {
+                      // Navigate to Event Details Screen
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              EventDetailsScreen(event: event),
+                        ),
+                      );
+                    },
                   ),
                 );
               },

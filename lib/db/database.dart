@@ -54,6 +54,19 @@ class EventDatabase {
             FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
           )
         ''');
+
+        // Timeline tasks table
+        await db.execute('''
+          CREATE TABLE timeline_tasks(
+            id TEXT PRIMARY KEY,
+            eventId TEXT NOT NULL,
+            title TEXT NOT NULL,
+            timeframe TEXT NOT NULL,
+            daysBeforeEvent INTEGER NOT NULL,
+            isCompleted INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
+          )
+        ''');
       },
 
       onUpgrade: (db, oldVersion, newVersion) async {
@@ -105,8 +118,23 @@ class EventDatabase {
             )
           ''');
         }
+
+        // Version 5 - Add timeline tasks table
+        if (oldVersion < 5) {
+          await db.execute('''
+            CREATE TABLE IF NOT EXISTS timeline_tasks(
+              id TEXT PRIMARY KEY,
+              eventId TEXT NOT NULL,
+              title TEXT NOT NULL,
+              timeframe TEXT NOT NULL,
+              daysBeforeEvent INTEGER NOT NULL,
+              isCompleted INTEGER NOT NULL DEFAULT 0,
+              FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
+            )
+          ''');
+        }
       },
-      version: 4, // Updated to version 4
+      version: 5, // Updated to version 5
     );
 
     return db;
