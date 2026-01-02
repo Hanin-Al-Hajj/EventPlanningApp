@@ -67,6 +67,20 @@ class EventDatabase {
             FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
           )
         ''');
+
+        await db.execute('''
+          CREATE TABLE vendors(
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            category TEXT NOT NULL,
+            rating DOUBLE NOT NULL,
+            imageIcon TEXT NOT NULL,
+            phoneNumber TEXT,
+            email TEXT,
+            website TEXT,
+            description TEXT
+          )
+        ''');
       },
 
       onUpgrade: (db, oldVersion, newVersion) async {
@@ -133,8 +147,26 @@ class EventDatabase {
             )
           ''');
         }
+
+        if (oldVersion < 10) {
+          // Drop and recreate vendors table to remove duplicates
+          await db.execute('DROP TABLE IF EXISTS vendors');
+          await db.execute('''
+    CREATE TABLE vendors(
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      rating DOUBLE NOT NULL,
+      imageIcon TEXT NOT NULL,
+      phoneNumber TEXT,
+      email TEXT,
+      website TEXT,
+      description TEXT
+    )
+  ''');
+        }
       },
-      version: 5, // Updated to version 5
+      version: 10,
     );
 
     return db;
