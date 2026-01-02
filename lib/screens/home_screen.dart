@@ -6,6 +6,7 @@ import 'package:event_planner/widgets/event_card.dart';
 import 'package:event_planner/widgets/quick_action_button.dart';
 import 'package:event_planner/db/event_storage.dart';
 import 'package:event_planner/screens/budget_tracker_screen.dart';
+import 'package:event_planner/screens/vendors_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -570,7 +571,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             QuickActionButton(
                               icon: Icons.search,
                               label: 'Find Vendors',
-                              onTap: () {},
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const VendorsScreen(),
+                                  ),
+                                );
+                              },
                             ),
                             QuickActionButton(
                               icon: Icons.attach_money,
