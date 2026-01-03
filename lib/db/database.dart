@@ -23,13 +23,86 @@ class EventDatabase {
     Database db = await openDatabase(
       join(dbPath, 'eventflow.db'),
       onCreate: (db, version) async {
-        // Events table
+        // 👇 ADD eventType to CREATE TABLE
         await db.execute(
-          'CREATE TABLE events(id TEXT PRIMARY KEY, title TEXT, date INT, location TEXT, guests INT, budget DOUBLE, progress DOUBLE, status TEXT)',
+          'CREATE TABLE events(id TEXT PRIMARY KEY, title TEXT, date INT, location TEXT, guests INT, budget DOUBLE, progress DOUBLE, status TEXT, eventType TEXT)',
         );
 
-        // Guests table
+        // Guests table (unchanged)
         await db.execute('''
+        CREATE TABLE guests(
+          id TEXT PRIMARY KEY,
+          eventId TEXT NOT NULL,
+          name TEXT NOT NULL,
+          email TEXT,
+          tableNumber TEXT,
+          status TEXT NOT NULL,
+          phoneNumber TEXT,
+          plusOnes INTEGER,
+          FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
+        )
+      ''');
+
+        // Budget expenses table (unchanged)
+        await db.execute('''
+        CREATE TABLE budget_expenses(
+          id TEXT PRIMARY KEY,
+          eventId TEXT NOT NULL,
+          category TEXT NOT NULL,
+          allocatedAmount DOUBLE NOT NULL,
+          amountSpent DOUBLE NOT NULL,
+          FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
+        )
+      ''');
+
+        // Timeline tasks table (unchanged)
+        await db.execute('''
+        CREATE TABLE timeline_tasks(
+          id TEXT PRIMARY KEY,
+          eventId TEXT NOT NULL,
+          title TEXT NOT NULL,
+          timeframe TEXT NOT NULL,
+          daysBeforeEvent INTEGER NOT NULL,
+          isCompleted INTEGER NOT NULL DEFAULT 0,
+          FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
+        )
+      ''');
+
+        await db.execute('''
+        CREATE TABLE vendors(
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          category TEXT NOT NULL,
+          rating DOUBLE NOT NULL,
+          imageIcon TEXT NOT NULL,
+          phoneNumber TEXT,
+          email TEXT,
+          website TEXT,
+          description TEXT
+        )
+      ''');
+      },
+
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute('''
+          CREATE TABLE IF NOT EXISTS guests(
+            id TEXT PRIMARY KEY,
+            eventId TEXT NOT NULL,
+            name TEXT NOT NULL,
+            email TEXT,
+            tableNumber TEXT,
+            status TEXT NOT NULL,
+            phoneNumber TEXT,
+            plusOnes INTEGER,
+            FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
+          )
+        ''');
+        }
+
+        if (oldVersion < 3) {
+          await db.execute('DROP TABLE IF EXISTS guests');
+          await db.execute('''
           CREATE TABLE guests(
             id TEXT PRIMARY KEY,
             eventId TEXT NOT NULL,
@@ -42,10 +115,11 @@ class EventDatabase {
             FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
           )
         ''');
+        }
 
-        // Budget expenses table
-        await db.execute('''
-          CREATE TABLE budget_expenses(
+        if (oldVersion < 4) {
+          await db.execute('''
+          CREATE TABLE IF NOT EXISTS budget_expenses(
             id TEXT PRIMARY KEY,
             eventId TEXT NOT NULL,
             category TEXT NOT NULL,
@@ -54,10 +128,11 @@ class EventDatabase {
             FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
           )
         ''');
+        }
 
-        // Timeline tasks table
-        await db.execute('''
-          CREATE TABLE timeline_tasks(
+        if (oldVersion < 5) {
+          await db.execute('''
+          CREATE TABLE IF NOT EXISTS timeline_tasks(
             id TEXT PRIMARY KEY,
             eventId TEXT NOT NULL,
             title TEXT NOT NULL,
@@ -67,8 +142,11 @@ class EventDatabase {
             FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
           )
         ''');
+        }
 
-        await db.execute('''
+        if (oldVersion < 10) {
+          await db.execute('DROP TABLE IF EXISTS vendors');
+          await db.execute('''
           CREATE TABLE vendors(
             id TEXT PRIMARY KEY,
             name TEXT NOT NULL,
@@ -81,92 +159,14 @@ class EventDatabase {
             description TEXT
           )
         ''');
-      },
-
-      onUpgrade: (db, oldVersion, newVersion) async {
-        if (oldVersion < 2) {
-          await db.execute('''
-            CREATE TABLE IF NOT EXISTS guests(
-              id TEXT PRIMARY KEY,
-              eventId TEXT NOT NULL,
-              name TEXT NOT NULL,
-              email TEXT,
-              tableNumber TEXT,
-              status TEXT NOT NULL,
-              phoneNumber TEXT,
-              plusOnes INTEGER,
-              FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
-            )
-          ''');
         }
 
-        // Version 3 - Recreate guests table with optional fields
-        if (oldVersion < 3) {
-          await db.execute('DROP TABLE IF EXISTS guests');
-
-          await db.execute('''
-            CREATE TABLE guests(
-              id TEXT PRIMARY KEY,
-              eventId TEXT NOT NULL,
-              name TEXT NOT NULL,
-              email TEXT,
-              tableNumber TEXT,
-              status TEXT NOT NULL,
-              phoneNumber TEXT,
-              plusOnes INTEGER,
-              FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
-            )
-          ''');
-        }
-
-        // Version 4 - Add budget expenses table
-        if (oldVersion < 4) {
-          await db.execute('''
-            CREATE TABLE IF NOT EXISTS budget_expenses(
-              id TEXT PRIMARY KEY,
-              eventId TEXT NOT NULL,
-              category TEXT NOT NULL,
-              allocatedAmount DOUBLE NOT NULL,
-              amountSpent DOUBLE NOT NULL,
-              FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
-            )
-          ''');
-        }
-
-        // Version 5 - Add timeline tasks table
-        if (oldVersion < 5) {
-          await db.execute('''
-            CREATE TABLE IF NOT EXISTS timeline_tasks(
-              id TEXT PRIMARY KEY,
-              eventId TEXT NOT NULL,
-              title TEXT NOT NULL,
-              timeframe TEXT NOT NULL,
-              daysBeforeEvent INTEGER NOT NULL,
-              isCompleted INTEGER NOT NULL DEFAULT 0,
-              FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
-            )
-          ''');
-        }
-
-        if (oldVersion < 10) {
-          // Drop and recreate vendors table to remove duplicates
-          await db.execute('DROP TABLE IF EXISTS vendors');
-          await db.execute('''
-    CREATE TABLE vendors(
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      category TEXT NOT NULL,
-      rating DOUBLE NOT NULL,
-      imageIcon TEXT NOT NULL,
-      phoneNumber TEXT,
-      email TEXT,
-      website TEXT,
-      description TEXT
-    )
-  ''');
+        // 👇 ADD THIS: Version 11 - Add eventType column
+        if (oldVersion < 11) {
+          await db.execute('ALTER TABLE events ADD COLUMN eventType TEXT');
         }
       },
-      version: 10,
+      version: 11, // 👈 CHANGED from 10 to 11
     );
 
     return db;

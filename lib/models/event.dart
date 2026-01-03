@@ -6,7 +6,8 @@ class Event {
   final int guests;
   final double budget;
   final double progress;
-  final String status; // Keep as String, not enum
+  final String status;
+  final String? eventType; // 👈 ADD THIS
 
   Event({
     required this.id,
@@ -17,6 +18,7 @@ class Event {
     required this.budget,
     required this.progress,
     required this.status,
+    this.eventType, // 👈 ADD THIS (optional)
   });
 
   // Convert Event to Map for database storage
@@ -29,7 +31,8 @@ class Event {
       'guests': guests,
       'budget': budget,
       'progress': progress,
-      'status': status, // Store as string directly
+      'status': status,
+      'eventType': eventType, // 👈 ADD THIS
     };
   }
 }

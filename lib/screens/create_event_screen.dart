@@ -20,6 +20,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   String? _selectedEventType;
   DateTime? _selectedDate;
+
   @override
   void initState() {
     super.initState();
@@ -29,6 +30,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       _budgetController.text = widget.eventToEdit!.budget.toString();
       _locationController.text = widget.eventToEdit!.location;
       _selectedDate = widget.eventToEdit!.date;
+      _selectedEventType = widget.eventToEdit!.eventType;
     }
   }
 
@@ -53,13 +55,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   Future<void> _selectDate() async {
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: ColorScheme.light(
+            colorScheme: const ColorScheme.light(
               primary: Color(0xFF586041),
               onPrimary: Colors.white,
               onSurface: Color(0xFF151910),
@@ -91,7 +93,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         return;
       }
 
-      // Create new event matching your Event model
       final newEvent = Event(
         id:
             widget.eventToEdit?.id ??
@@ -103,13 +104,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             : _locationController.text,
         guests: int.parse(_guestsController.text),
         budget: double.parse(_budgetController.text),
-        progress: widget.eventToEdit?.progress ?? 0.0, // Initial progress is 0
-        status:
-            widget.eventToEdit?.status ??
-            'Planning', // New events start as Planning
+        progress: widget.eventToEdit?.progress ?? 0.0,
+        status: widget.eventToEdit?.status ?? 'Planning',
+        eventType: _selectedEventType,
       );
 
-      // Return the new event to the previous screen
       Navigator.pop(context, newEvent);
     }
   }
@@ -240,11 +239,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           style: TextStyle(
                             color: _selectedDate == null
                                 ? Colors.grey.shade600
-                                : Color(0xFF151910),
+                                : const Color(0xFF151910),
                             fontSize: 16,
                           ),
                         ),
-                        Icon(
+                        const Icon(
                           Icons.calendar_today,
                           color: Color(0xFF586041),
                           size: 20,
@@ -382,7 +381,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                     ),
                     child: Text(
                       isEditing ? 'Update Event' : 'Save Event',
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
