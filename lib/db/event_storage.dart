@@ -26,6 +26,7 @@ Future<List<Event>> loadEvents() async {
       budget: row['budget'] as double,
       progress: row['progress'] as double,
       status: row['status'] as String,
+      eventType: row['eventType'] as String?,
     );
   }).toList();
 
@@ -62,30 +63,25 @@ Future<Map<String, int>> getBudgetStatsByEvent(String eventId) async {
   }
 }
 
-// 🔧 FIXED: Binary completion - each feature is 25% (all or nothing)
+// Calculate event progress
 Future<double> calculateEventProgress(String eventId) async {
   try {
     double totalProgress = 0.0;
 
-    // ✅ Guest Invitations: 25% if ANY guests exist (binary completion)
+    // Guest Invitations: 25% if ANY guests exist
     final guestStats = await GuestStorage.getGuestStatsByEvent(eventId);
     final totalGuests = guestStats['total'] ?? 0;
     if (totalGuests > 0) {
-      totalProgress += 0.25; // 25% just for having guests
+      totalProgress += 0.25;
     }
 
-    // ✅ Budget Tracking: 25% if ANY expenses exist (binary completion)
+    // Budget Tracking: 25% if ANY expenses exist
     final budgetStats = await getBudgetStatsByEvent(eventId);
     final totalExpenses = budgetStats['total'] ?? 0;
     if (totalExpenses > 0) {
-      totalProgress += 0.25; // 25% just for tracking budget
+      totalProgress += 0.25;
     }
 
-    // 🔜 TODO: Add future features (each worth 25%)
-    // - Venue booking: +0.25
-    // - Vendor contracts: +0.25
-
-    // Clamp between 0 and 1
     return totalProgress.clamp(0.0, 1.0);
   } catch (e) {
     print('Error calculating progress: $e');
@@ -98,22 +94,18 @@ String determineEventStatus(double progress, DateTime eventDate) {
   final now = DateTime.now();
   final daysUntilEvent = eventDate.difference(now).inDays;
 
-  // If event date has passed, mark as completed
   if (daysUntilEvent < 0) {
     return 'Completed';
   }
 
-  // If progress is high (80%+), mark as "Completed"
   if (progress >= 0.80) {
     return 'Completed';
   }
 
-  // If progress is moderate (10%+), mark as "In Progress"
   if (progress >= 0.10) {
     return 'In Progress';
   }
 
-  // If little to no progress, keep as "Planning"
   return 'Planning';
 }
 
@@ -123,7 +115,6 @@ Future<void> updateEventProgress(String eventId) async {
     EventDatabase database = EventDatabase();
     final db = await database.getDatabase();
 
-    // Get the event's date
     final eventResult = await db.query(
       'events',
       where: 'id = ?',
@@ -136,13 +127,9 @@ Future<void> updateEventProgress(String eventId) async {
       eventResult.first['date'] as int,
     );
 
-    // Calculate new progress
     final newProgress = await calculateEventProgress(eventId);
-
-    // Determine new status based on progress and date
     final newStatus = determineEventStatus(newProgress, eventDate);
 
-    // Update both progress and status
     await db.update(
       'events',
       {'progress': newProgress, 'status': newStatus},
@@ -166,13 +153,9 @@ Future<List<Event>> loadEventsWithCalculatedProgress() async {
     final eventId = row['id'] as String;
     final eventDate = DateTime.fromMillisecondsSinceEpoch(row['date'] as int);
 
-    // Calculate current progress based on guest data and budget data
     final calculatedProgress = await calculateEventProgress(eventId);
-
-    // Determine status based on progress and date
     final newStatus = determineEventStatus(calculatedProgress, eventDate);
 
-    // Create event with calculated progress and status
     resultList.add(
       Event(
         id: eventId,
@@ -181,12 +164,12 @@ Future<List<Event>> loadEventsWithCalculatedProgress() async {
         location: row['location'] as String,
         guests: row['guests'] as int,
         budget: row['budget'] as double,
-        progress: calculatedProgress, // Use calculated progress
-        status: newStatus, // Use calculated status
+        progress: calculatedProgress,
+        status: newStatus,
+        eventType: row['eventType'] as String?,
       ),
     );
 
-    // Also update the database with the new progress and status
     await db.update(
       'events',
       {'progress': calculatedProgress, 'status': newStatus},
@@ -214,13 +197,14 @@ Future<List<Event>> loadUpcomingEvents() async {
       budget: row['budget'] as double,
       progress: row['progress'] as double,
       status: row['status'] as String,
+      eventType: row['eventType'] as String?,
     );
   }).toList();
 
   return resultList;
 }
 
-// Get count of active events (planning or inProgress)
+// Get count of active events
 Future<int> getActiveEventsCount() async {
   EventDatabase database = EventDatabase();
   final db = await database.getDatabase();

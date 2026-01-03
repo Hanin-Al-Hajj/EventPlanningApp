@@ -1,6 +1,5 @@
 import 'package:event_planner/db/database.dart';
 import 'package:event_planner/models/vendor.dart';
-import 'package:flutter/widgets.dart';
 
 // Insert a vendor
 Future<void> insertVendor(Vendor vendor) async {
