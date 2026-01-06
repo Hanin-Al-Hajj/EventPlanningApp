@@ -1,3 +1,4 @@
+import 'package:event_planner/screens/vendors_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/models/timeline_task.dart';
@@ -337,10 +338,21 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
               fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Coming soon',
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const VendorsScreen()),
+              );
+            },
+            icon: const Icon(Icons.business),
+            label: const Text('Manage Vendors'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF586041),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
           ),
         ],
       ),

@@ -15,7 +15,8 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
   late TextEditingController _tableController;
   late TextEditingController _phoneController;
   late GuestStatus _selectedStatus;
-
+  String? _nameError;
+  String? _phoneError;
   @override
   void initState() {
     super.initState();
@@ -25,7 +26,7 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
       text: widget.guest?.tableNumber ?? '',
     );
     _phoneController = TextEditingController(
-      text: widget.guest?.phoneNumber ?? '',
+      text: widget.guest != null ? widget.guest!.phoneNumber : '',
     );
     _selectedStatus = widget.guest?.status ?? GuestStatus.pending;
   }
@@ -40,20 +41,33 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
   }
 
   void _save() {
-    
+    setState(() {
+      _nameError = null;
+      _phoneError = null;
+    });
+
+    bool hasError = false;
+
     if (_nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Please enter a name')));
+      setState(() {
+        _nameError = 'Please enter a name';
+      });
+      hasError = true;
+    }
+    if (_phoneController.text.trim().isEmpty) {
+      setState(() {
+        _phoneError = 'Please enter a phone number';
+      });
+      hasError = true;
+    }
+    if (hasError) {
       return;
     }
-
     final guest = Guest(
       id: widget.guest?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
       name: _nameController.text.trim(),
       status: _selectedStatus,
 
-      
       email: _emailContoller.text.trim().isEmpty
           ? null
           : _emailContoller.text.trim(),
@@ -62,9 +76,7 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
           ? null
           : _tableController.text.trim(),
 
-      phoneNumber: _phoneController.text.trim().isEmpty
-          ? null
-          : _phoneController.text.trim(),
+      phoneNumber: _phoneController.text.trim(),
 
       plusOnes: null,
     );
@@ -83,16 +95,24 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
           children: [
             TextField(
               controller: _nameController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Name *',
                 border: OutlineInputBorder(),
+                errorText: _nameError,
               ),
+              onChanged: (value) {
+                if (_nameError != null) {
+                  setState(() {
+                    _nameError = null;
+                  });
+                }
+              },
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _emailContoller,
               decoration: const InputDecoration(
-                labelText: 'Email ',
+                labelText: 'Email',
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.emailAddress,
@@ -100,11 +120,19 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
             const SizedBox(height: 16),
             TextField(
               controller: _phoneController,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Phone Number *',
                 border: OutlineInputBorder(),
+                errorText: _phoneError,
               ),
               keyboardType: TextInputType.phone,
+              onChanged: (value) {
+                if (_phoneError != null) {
+                  setState(() {
+                    _phoneError = null;
+                  });
+                }
+              },
             ),
             const SizedBox(height: 16),
             TextField(

@@ -120,12 +120,14 @@ class _GuestlistScreenState extends State<GuestListScreen> {
   }
 
   void _importFromExcel() {
+    if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Excel import coming soon!')));
   }
 
   void _sendInvites() {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Sending invites to $pendingCount guests...')),
     );
