@@ -6,7 +6,7 @@ class Guest {
   final String? email; // 👈 Optional
   final String? tableNumber; // 👈 Optional
   final GuestStatus status;
-  final String? phoneNumber; // 👈 Optional
+  final String phoneNumber; // 👈 Optional
   final int? plusOnes; // 👈 Optional
 
   Guest({
@@ -15,7 +15,7 @@ class Guest {
     this.email, // 👈 NOT required
     this.tableNumber, // 👈 NOT required
     required this.status,
-    this.phoneNumber, // 👈 NOT required
+    required this.phoneNumber, // 👈 NOT required
     this.plusOnes, // 👈 NOT required
   });
 
@@ -41,7 +41,7 @@ class Guest {
         (e) => e.toString().split('.').last == map['status'],
         orElse: () => GuestStatus.pending,
       ),
-      phoneNumber: map['phoneNumber'] as String?,
+      phoneNumber: (map['phoneNumber'] as String?) ?? '',
       plusOnes: map['plusOnes'] as int?,
     );
   }

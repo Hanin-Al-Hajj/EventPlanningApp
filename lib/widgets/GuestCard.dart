@@ -97,6 +97,23 @@ class Guestcard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.phone_android_outlined,
+                          size: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Tel:${guest.phoneNumber}',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
 
                     // Email (if exists)
                     if (guest.email != null && guest.email!.isNotEmpty) ...[
