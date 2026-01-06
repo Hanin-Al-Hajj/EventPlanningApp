@@ -7,7 +7,7 @@ class Event {
   final double budget;
   final double progress;
   final String status;
-  final String? eventType; // 👈 ADD THIS
+  final String? eventType;
 
   Event({
     required this.id,
@@ -18,10 +18,10 @@ class Event {
     required this.budget,
     required this.progress,
     required this.status,
-    this.eventType, // 👈 ADD THIS (optional)
+    this.eventType,
   });
-
-  // Convert Event to Map for database storage
+  
+  
   Map<String, dynamic> get eventMap {
     return {
       'id': id,
@@ -32,7 +32,7 @@ class Event {
       'budget': budget,
       'progress': progress,
       'status': status,
-      'eventType': eventType, // 👈 ADD THIS
+      'eventType': eventType,
     };
   }
 }

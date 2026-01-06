@@ -56,7 +56,7 @@ class EventCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header Row - Title and Status
+             
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -94,14 +94,14 @@ class EventCard extends StatelessWidget {
               ),
               const SizedBox(height: 8),
 
-              // Date and Location
+              
               Text(
                 '${DateFormat('MMM dd, yyyy').format(event.date)} • ${event.location}',
                 style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
               ),
               const SizedBox(height: 8),
 
-              // Guests and Budget Row
+              
               Row(
                 children: [
                   Text(
@@ -117,7 +117,7 @@ class EventCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
 
-              // Progress Bar
+              
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

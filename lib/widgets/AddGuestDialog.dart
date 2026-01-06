@@ -40,7 +40,7 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
   }
 
   void _save() {
-    // Only name is required now
+    
     if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(
         context,
@@ -53,7 +53,7 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
       name: _nameController.text.trim(),
       status: _selectedStatus,
 
-      // All optional - only add if not empty
+      
       email: _emailContoller.text.trim().isEmpty
           ? null
           : _emailContoller.text.trim(),

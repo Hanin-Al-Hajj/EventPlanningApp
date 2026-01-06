@@ -1,11 +1,9 @@
-import 'package:event_planner/screens/GuestList_screen.dart';
 import 'package:event_planner/screens/create_event_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/widgets/event_card.dart';
 import 'package:event_planner/widgets/quick_action_button.dart';
 import 'package:event_planner/db/event_storage.dart';
-import 'package:event_planner/screens/budget_tracker_screen.dart';
 import 'package:event_planner/screens/vendors_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -25,7 +23,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   bool _isLoadingEvents = false;
 
-  // Calculate active events count
   int get activeEventsCount {
     return widget.registeredEvents
         .where(
@@ -35,7 +32,6 @@ class _HomeScreenState extends State<HomeScreen> {
         .length;
   }
 
-  // Calculate days until next event
   int get daysUntilNextEvent {
     if (widget.registeredEvents.isEmpty) return 0;
 
@@ -51,17 +47,14 @@ class _HomeScreenState extends State<HomeScreen> {
     return upcomingEvents.first.date.difference(now).inDays;
   }
 
-  // Refresh events with calculated progress
   Future<void> _refreshEvents() async {
     setState(() {
       _isLoadingEvents = true;
     });
 
     try {
-      // Load events with dynamically calculated progress
       final updatedEvents = await loadEventsWithCalculatedProgress();
 
-      // Clear and re-add all events with updated progress
       for (var event in widget.registeredEvents.toList()) {
         widget.onDeleteEvent(event);
       }
@@ -78,7 +71,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Navigate to Create Event screen and handle result
   Future<void> _navigateToCreateEvent() async {
     final newEvent = await Navigator.push<Event>(
       context,
@@ -87,12 +79,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (newEvent != null) {
       widget.onAddEvent(newEvent);
-      // Refresh to ensure progress is calculated
       await _refreshEvents();
     }
   }
 
-  // Navigate to Edit Event screen
   Future<void> _editEvent(Event event) async {
     final updatedEvent = await Navigator.push<Event>(
       context,
@@ -102,166 +92,17 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (updatedEvent != null) {
-      widget.onDeleteEvent(event); // Remove old version
+      widget.onDeleteEvent(event);
       widget.onAddEvent(updatedEvent);
-      updateEvent(updatedEvent); // Add updated version
-      // Refresh to ensure progress is updated
+      updateEvent(updatedEvent);
       await _refreshEvents();
     }
-  }
-
-  Future<void> navigateToGuestList() async {
-    // If no events, show a SnackBar
-    if (widget.registeredEvents.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Create an event first before adding guests'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    // If only one event, go directly to its guest list
-    if (widget.registeredEvents.length == 1) {
-      final event = widget.registeredEvents.first;
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) =>
-              GuestListScreen(eventID: event.id, eventName: event.title),
-        ),
-      );
-      // Refresh events after returning from guest list
-      await _refreshEvents();
-      return;
-    }
-
-    // If multiple events, show a dialog to select one
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Event'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: widget.registeredEvents.length,
-            itemBuilder: (context, index) {
-              final event = widget.registeredEvents[index];
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: const Color(0xFF545A3B),
-                  child: const Icon(Icons.event, color: Colors.white, size: 20),
-                ),
-                title: Text(event.title),
-                subtitle: Text(event.location),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () async {
-                  Navigator.pop(context); // Close dialog
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => GuestListScreen(
-                        eventID: event.id,
-                        eventName: event.title,
-                      ),
-                    ),
-                  );
-                  // Refresh events after returning from guest list
-                  await _refreshEvents();
-                },
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
   void initState() {
     super.initState();
-    // Load events with calculated progress on init
     _refreshEvents();
-  }
-
-  // 🆕 UPDATED: Navigate to Budget Tracker with refresh after return
-  Future<void> navigateToBudgetTracker() async {
-    // If no events, show a SnackBar
-    if (widget.registeredEvents.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Create an event first before tracking budget'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
-    // If only one event, go directly to its budget tracker
-    if (widget.registeredEvents.length == 1) {
-      final event = widget.registeredEvents.first;
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => BudgetTrackerScreen(event: event),
-        ),
-      );
-      // 🆕 Refresh events after returning from budget tracker
-      await _refreshEvents();
-      return;
-    }
-
-    // If multiple events, show a dialog to select one
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Event'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: widget.registeredEvents.length,
-            itemBuilder: (context, index) {
-              final event = widget.registeredEvents[index];
-              return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: const Color(0xFF545A3B),
-                  child: const Icon(Icons.event, color: Colors.white, size: 20),
-                ),
-                title: Text(event.title),
-                subtitle: Text('Budget: \$${event.budget.toStringAsFixed(0)}'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () async {
-                  Navigator.pop(context); // Close dialog
-                  await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => BudgetTrackerScreen(event: event),
-                    ),
-                  );
-                  // 🆕 Refresh events after returning from budget tracker
-                  await _refreshEvents();
-                },
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -272,126 +113,46 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             // Header
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: const BoxDecoration(color: Color(0xFF586041)),
               child: Column(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'EventFlow',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          // Refresh button
-                          IconButton(
-                            icon: _isLoadingEvents
-                                ? const SizedBox(
-                                    width: 20,
-                                    height: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(
-                                        Colors.white,
-                                      ),
-                                    ),
-                                  )
-                                : const Icon(
-                                    Icons.refresh,
-                                    color: Colors.white,
-                                  ),
-                            onPressed: _isLoadingEvents ? null : _refreshEvents,
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.notifications_outlined,
-                              color: Colors.white,
-                            ),
-                            onPressed: () {},
-                          ),
-                          const SizedBox(width: 8),
-                          CircleAvatar(
-                            backgroundColor: const Color.fromARGB(
-                              255,
-                              124,
-                              132,
-                              92,
-                            ),
-                            child: const Text(
-                              'JD',
-                              style: TextStyle(
-                                color: Color.fromARGB(255, 255, 255, 255),
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  // Search Bar inside header
-                  TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Search events, vendors...',
-                      hintStyle: TextStyle(color: Colors.grey.shade500),
-                      prefixIcon: Icon(
-                        Icons.search,
-                        color: Colors.grey.shade600,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 6,
-                        horizontal: 12,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
+                  // App Title (left aligned)
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'EventFlow',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
 
-            // Content
+            // Main Content
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _refreshEvents,
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   child: Padding(
-                    padding: EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(20),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 1),
-
-                        // Stats Cards (now dynamic)
+                        // Stats Cards
                         Row(
                           children: [
                             Expanded(
                               child: Container(
-                                padding: EdgeInsets.all(16),
+                                padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: const Color.fromARGB(
-                                    255,
-                                    255,
-                                    255,
-                                    255,
-                                  ),
+                                  color: Colors.white,
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: Colors.grey.shade300,
@@ -402,7 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   children: [
                                     Text(
                                       '$activeEventsCount',
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         fontSize: 28,
                                         fontWeight: FontWeight.bold,
                                         color: Color(0xFF151910),
@@ -422,14 +183,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             const SizedBox(width: 8),
                             Expanded(
                               child: Container(
-                                padding: const EdgeInsets.all(15.7),
+                                padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: const Color.fromARGB(
-                                    255,
-                                    255,
-                                    255,
-                                    255,
-                                  ),
+                                  color: Colors.white,
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
                                     color: Colors.grey.shade300,
@@ -440,7 +196,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   children: [
                                     Text(
                                       '$daysUntilNextEvent',
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         fontSize: 28,
                                         fontWeight: FontWeight.bold,
                                         color: Color(0xFF151910),
@@ -459,9 +215,9 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 15),
+                        const SizedBox(height: 24),
 
-                        // Upcoming Events Section
+                        // Upcoming Events Header
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -491,7 +247,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Show events or empty state
+                        // Events List
                         widget.registeredEvents.isEmpty
                             ? Center(
                                 child: Padding(
@@ -541,7 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                         const SizedBox(height: 24),
 
-                        // Quick Actions Section
+                        // Quick Actions
                         const Text(
                           'Quick Actions',
                           style: TextStyle(
@@ -564,11 +320,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               onTap: _navigateToCreateEvent,
                             ),
                             QuickActionButton(
-                              icon: Icons.group_add_outlined,
-                              label: 'Add Guests',
-                              onTap: navigateToGuestList,
-                            ),
-                            QuickActionButton(
                               icon: Icons.search,
                               label: 'Find Vendors',
                               onTap: () {
@@ -579,11 +330,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 );
                               },
-                            ),
-                            QuickActionButton(
-                              icon: Icons.attach_money,
-                              label: 'Track Budget',
-                              onTap: navigateToBudgetTracker,
                             ),
                           ],
                         ),

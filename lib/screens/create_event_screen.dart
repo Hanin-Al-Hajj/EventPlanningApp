@@ -131,7 +131,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Event Type Dropdown
+                // event type matra7 ldropdawn
                 const Text(
                   'Event Type',
                   style: TextStyle(
@@ -156,6 +156,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                       border: InputBorder.none,
                       hintText: 'Select event type',
                     ),
+                    // ignore: deprecated_member_use
                     value: _selectedEventType,
                     items: _eventTypes.map((type) {
                       return DropdownMenuItem(value: type, child: Text(type));
@@ -169,7 +170,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Event Name
+                // event name luser bina2e
                 const Text(
                   'Event Name',
                   style: TextStyle(
@@ -205,7 +206,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Event Date
+                // event date
                 const Text(
                   'Event Date',
                   style: TextStyle(
@@ -254,7 +255,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Location
+                // location
                 const Text(
                   'Location (Optional)',
                   style: TextStyle(
@@ -284,7 +285,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Number of Guests
+                // nb of guests
                 const Text(
                   'Number of Guests',
                   style: TextStyle(
@@ -324,7 +325,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 ),
                 const SizedBox(height: 20),
 
-                // Budget
+                // budget
                 const Text(
                   'Budget',
                   style: TextStyle(
@@ -365,7 +366,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // Save Button
+                // matra7 lsave button
                 SizedBox(
                   width: double.infinity,
                   height: 50,
