@@ -3,14 +3,12 @@ import 'package:event_planner/models/event.dart';
 import 'package:event_planner/db/guest_storage.dart';
 import 'package:event_planner/db/budget_storage.dart';
 
-// Insert a new event into the database
 void insertEvent(Event event) async {
   EventDatabase database = EventDatabase();
   final db = await database.getDatabase();
   db.insert('events', event.eventMap);
 }
 
-// Load all events from the database
 Future<List<Event>> loadEvents() async {
   EventDatabase database = EventDatabase();
   final db = await database.getDatabase();
@@ -33,21 +31,18 @@ Future<List<Event>> loadEvents() async {
   return resultList;
 }
 
-// Delete an event from the database
 void deleteEvent(Event event) async {
   EventDatabase database = EventDatabase();
   final db = await database.getDatabase();
   db.delete('events', where: 'id = ?', whereArgs: [event.id]);
 }
 
-// Update an existing event in the database
 void updateEvent(Event event) async {
   EventDatabase database = EventDatabase();
   final db = await database.getDatabase();
   db.update('events', event.eventMap, where: 'id = ?', whereArgs: [event.id]);
 }
 
-// Get budget expense statistics for an event
 Future<Map<String, int>> getBudgetStatsByEvent(String eventId) async {
   try {
     final expenses = await BudgetStorage.getExpensesByEvent(eventId);
@@ -63,19 +58,16 @@ Future<Map<String, int>> getBudgetStatsByEvent(String eventId) async {
   }
 }
 
-// Calculate event progress
 Future<double> calculateEventProgress(String eventId) async {
   try {
     double totalProgress = 0.0;
 
-    // Guest Invitations: 25% if ANY guests exist
     final guestStats = await GuestStorage.getGuestStatsByEvent(eventId);
     final totalGuests = guestStats['total'] ?? 0;
     if (totalGuests > 0) {
       totalProgress += 0.25;
     }
 
-    // Budget Tracking: 25% if ANY expenses exist
     final budgetStats = await getBudgetStatsByEvent(eventId);
     final totalExpenses = budgetStats['total'] ?? 0;
     if (totalExpenses > 0) {
@@ -89,7 +81,6 @@ Future<double> calculateEventProgress(String eventId) async {
   }
 }
 
-// Determine event status based on progress
 String determineEventStatus(double progress, DateTime eventDate) {
   final now = DateTime.now();
   final daysUntilEvent = eventDate.difference(now).inDays;
@@ -109,7 +100,6 @@ String determineEventStatus(double progress, DateTime eventDate) {
   return 'Planning';
 }
 
-// Update event progress automatically
 Future<void> updateEventProgress(String eventId) async {
   try {
     EventDatabase database = EventDatabase();
@@ -141,7 +131,6 @@ Future<void> updateEventProgress(String eventId) async {
   }
 }
 
-// Load events with dynamically calculated progress
 Future<List<Event>> loadEventsWithCalculatedProgress() async {
   EventDatabase database = EventDatabase();
   final db = await database.getDatabase();
@@ -181,7 +170,6 @@ Future<List<Event>> loadEventsWithCalculatedProgress() async {
   return resultList;
 }
 
-// Get upcoming events (sorted by date)
 Future<List<Event>> loadUpcomingEvents() async {
   EventDatabase database = EventDatabase();
   final db = await database.getDatabase();
@@ -204,7 +192,6 @@ Future<List<Event>> loadUpcomingEvents() async {
   return resultList;
 }
 
-// Get count of active events
 Future<int> getActiveEventsCount() async {
   EventDatabase database = EventDatabase();
   final db = await database.getDatabase();
@@ -216,7 +203,6 @@ Future<int> getActiveEventsCount() async {
   return result.length;
 }
 
-// Get days until the nearest upcoming event
 Future<int> getDaysUntilNextEvent() async {
   EventDatabase database = EventDatabase();
   final db = await database.getDatabase();

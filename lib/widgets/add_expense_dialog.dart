@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:event_planner/db/budget_storage.dart';
+import 'package:event_planner/models/budget.dart';
 
 class AddExpenseDialog extends StatefulWidget {
   final String eventId;

@@ -2,8 +2,8 @@ class TimelineTask {
   final String id;
   final String eventId;
   final String title;
-  final String timeframe; // e.g., "3 months before", "1 week before"
-  final int daysBeforeEvent; // Number of days before event (for sorting)
+  final String timeframe; 
+  final int daysBeforeEvent; 
   final bool isCompleted;
 
   TimelineTask({
@@ -55,7 +55,7 @@ class TimelineTask {
     );
   }
 
-  // Pre-defined timeline tasks for events
+  
   static List<TimelineTask> getDefaultTasks(String eventId) {
     return [
       TimelineTask(

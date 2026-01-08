@@ -8,7 +8,7 @@ import 'package:event_planner/db/vendor_storage.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ✅ REQUIRED for Windows / macOS / Linux
+
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;

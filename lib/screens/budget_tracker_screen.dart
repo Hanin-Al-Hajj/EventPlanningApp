@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/db/budget_storage.dart';
-import 'package:event_planner/db/event_storage.dart'; // ✅ ADDED THIS IMPORT
+import 'package:event_planner/db/event_storage.dart';
 import 'package:event_planner/widgets/add_expense_dialog.dart';
+import 'package:event_planner/models/budget.dart';
 
 class BudgetTrackerScreen extends StatefulWidget {
   final Event event;

@@ -3,30 +3,30 @@ enum GuestStatus { accepted, declined, pending }
 class Guest {
   final String id;
   final String name;
-  final String? email; // 👈 Optional
-  final String? tableNumber; // 👈 Optional
+  final String? email; 
+  final String? tableNumber; 
   final GuestStatus status;
-  final String phoneNumber; // 👈 Optional
-  final int? plusOnes; // 👈 Optional
+  final String phoneNumber; 
+  final int? plusOnes; 
 
   Guest({
     required this.id,
     required this.name,
-    this.email, // 👈 NOT required
-    this.tableNumber, // 👈 NOT required
+    this.email, 
+    this.tableNumber, 
     required this.status,
-    required this.phoneNumber, // 👈 NOT required
-    this.plusOnes, // 👈 NOT required
+    required this.phoneNumber, 
+    this.plusOnes, 
   });
 
   Map<String, dynamic> toMap() {
     return {
       'id': id,
       'name': name,
-      'email': email, // Can be null
-      'tableNumber': tableNumber, // Can be null
-      'phoneNumber': phoneNumber, // Can be null
-      'plusOnes': plusOnes, // Can be null
+      'email': email, 
+      'tableNumber': tableNumber, 
+      'phoneNumber': phoneNumber, 
+      'plusOnes': plusOnes, 
       'status': status.toString().split('.').last,
     };
   }
