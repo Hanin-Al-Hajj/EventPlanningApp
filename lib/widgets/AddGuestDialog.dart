@@ -14,6 +14,8 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
   late TextEditingController _emailContoller;
   late TextEditingController _tableController;
   late TextEditingController _phoneController;
+  late TextEditingController _plusOnesController;
+
   late GuestStatus _selectedStatus;
   String? _nameError;
   String? _phoneError;
@@ -28,6 +30,12 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
     _phoneController = TextEditingController(
       text: widget.guest != null ? widget.guest!.phoneNumber : '',
     );
+    _plusOnesController = TextEditingController(
+      text: widget.guest?.plusOnes != null
+          ? widget.guest!.plusOnes.toString()
+          : '0',
+    );
+
     _selectedStatus = widget.guest?.status ?? GuestStatus.pending;
   }
 
@@ -37,6 +45,8 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
     _emailContoller.dispose();
     _tableController.dispose();
     _phoneController.dispose();
+    _plusOnesController.dispose();
+
     super.dispose();
   }
 
@@ -78,7 +88,7 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
 
       phoneNumber: _phoneController.text.trim(),
 
-      plusOnes: null,
+      plusOnes: int.tryParse(_plusOnesController.text.trim()) ?? 0,
     );
 
     widget.onAdd(guest);
@@ -141,6 +151,15 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
                 labelText: 'Table Number',
                 border: OutlineInputBorder(),
               ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _plusOnesController,
+              decoration: const InputDecoration(
+                labelText: 'Plus Ones',
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.number,
             ),
           ],
         ),

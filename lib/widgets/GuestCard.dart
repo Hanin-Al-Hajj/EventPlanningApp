@@ -97,23 +97,6 @@ class Guestcard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.phone_android_outlined,
-                          size: 14,
-                          color: Colors.grey.shade600,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Tel:${guest.phoneNumber}',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
 
                     // Email (if exists)
                     if (guest.email != null && guest.email!.isNotEmpty) ...[
@@ -139,29 +122,24 @@ class Guestcard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                     ],
-
-                    // Phone Number (if exists)
-                    if (guest.phoneNumber != null &&
-                        guest.phoneNumber!.isNotEmpty) ...[
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.phone_outlined,
-                            size: 14,
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.phone_outlined,
+                          size: 14,
+                          color: Colors.grey.shade600,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Tel: ${guest.phoneNumber}',
+                          style: TextStyle(
+                            fontSize: 13,
                             color: Colors.grey.shade600,
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            'Tel: ${guest.phoneNumber}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                    ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
 
                     // Table Number (if exists)
                     if (guest.tableNumber != null &&
@@ -184,7 +162,6 @@ class Guestcard extends StatelessWidget {
                         ],
                       ),
                     ],
-
                     // Plus Ones (if exists)
                     if (guest.plusOnes != null && guest.plusOnes! > 0) ...[
                       const SizedBox(height: 4),
