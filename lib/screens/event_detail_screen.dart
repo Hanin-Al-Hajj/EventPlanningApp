@@ -39,10 +39,10 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
   Future<void> _loadTimelineTasks() async {
     setState(() => _isLoading = true);
     try {
-      // Ensure default tasks exist for this event
+     
       await TimelineStorage.ensureDefaultTasks(widget.event.id);
 
-      // Load tasks
+      
       final tasks = await TimelineStorage.getTasksByEvent(widget.event.id);
       setState(() {
         _timelineTasks = tasks;
@@ -61,7 +61,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
   Future<void> _toggleTaskCompletion(TimelineTask task) async {
     await TimelineStorage.toggleTaskCompletion(task.id);
     await _loadTimelineTasks();
-    // Update event progress after timeline change
+    
     await updateEventProgress(widget.event.id);
   }
 
@@ -77,7 +77,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
           IconButton(
             icon: const Icon(Icons.edit),
             onPressed: () {
-              // TODO: Navigate to edit event screen
+             
             },
           ),
         ],
@@ -193,13 +193,13 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                // Timeline Tab
+               
                 _buildTimelineTab(),
-                // Guests Tab
+                
                 _buildGuestsTab(),
-                // Vendors Tab
+               
                 _buildVendorsTab(),
-                // Budget Tab
+                
                 _buildBudgetTab(),
               ],
             ),

@@ -45,11 +45,9 @@ class TimelineStorage {
     await db.delete('timeline_tasks', where: 'id = ?', whereArgs: [taskId]);
   }
 
-  
   static Future<void> toggleTaskCompletion(String taskId) async {
     final db = await EventDatabase().getDatabase();
 
-    
     final List<Map<String, dynamic>> maps = await db.query(
       'timeline_tasks',
       where: 'id = ?',
@@ -63,68 +61,15 @@ class TimelineStorage {
     }
   }
 
-  //ensure that it belongs to an event
+  //ensure that everyevent has default tasks
   static Future<void> ensureDefaultTasks(String eventId) async {
     final existingTasks = await getTasksByEvent(eventId);
 
-    //if no tasks exist, create default tasks
     if (existingTasks.isEmpty) {
       final defaultTasks = TimelineTask.getDefaultTasks(eventId);
       for (final task in defaultTasks) {
         await insertTask(task);
       }
     }
-  }
-
-  /// Get completion percentage for an event's timeline
-  static Future<double> getTimelineProgress(String eventId) async {
-    final tasks = await getTasksByEvent(eventId);
-
-    if (tasks.isEmpty) return 0.0;
-
-    final completedTasks = tasks.where((task) => task.isCompleted).length;
-    return completedTasks / tasks.length;
-  }
-
-  /// Delete all tasks for an event (called when event is deleted)
-  static Future<void> deleteTasksByEvent(String eventId) async {
-    final db = await EventDatabase().getDatabase();
-    await db.delete(
-      'timeline_tasks',
-      where: 'eventId = ?',
-      whereArgs: [eventId],
-    );
-  }
-
-  /// Get count of completed and total tasks
-  static Future<Map<String, int>> getTaskCounts(String eventId) async {
-    final tasks = await getTasksByEvent(eventId);
-    final completedCount = tasks.where((task) => task.isCompleted).length;
-
-    return {
-      'total': tasks.length,
-      'completed': completedCount,
-      'remaining': tasks.length - completedCount,
-    };
-  }
-
-  /// Check if all tasks are completed
-  static Future<bool> areAllTasksCompleted(String eventId) async {
-    final tasks = await getTasksByEvent(eventId);
-    if (tasks.isEmpty) return false;
-    return tasks.every((task) => task.isCompleted);
-  }
-
-  /// Get tasks that are due soon (within specified days)
-  static Future<List<TimelineTask>> getUpcomingTasks(
-    String eventId,
-    int withinDays,
-  ) async {
-    final tasks = await getTasksByEvent(eventId);
-    return tasks
-        .where(
-          (task) => !task.isCompleted && task.daysBeforeEvent <= withinDays,
-        )
-        .toList();
   }
 }

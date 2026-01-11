@@ -1,20 +1,20 @@
 import 'package:event_planner/db/database.dart';
 import 'package:event_planner/models/vendor.dart';
 
-// Insert a vendor
+
 Future<void> insertVendor(Vendor vendor) async {
   final db = await EventDatabase().getDatabase();
   await db.insert('vendors', vendor.toMap());
 }
 
-// Load all vendors
+
 Future<List<Vendor>> loadVendors() async {
   final db = await EventDatabase().getDatabase();
   final List<Map<String, dynamic>> maps = await db.query('vendors');
   return List.generate(maps.length, (i) => Vendor.fromMap(maps[i]));
 }
 
-// Load vendors by category
+
 Future<List<Vendor>> loadVendorsByCategory(String category) async {
   final db = await EventDatabase().getDatabase();
   final List<Map<String, dynamic>> maps = await db.query(
@@ -25,7 +25,7 @@ Future<List<Vendor>> loadVendorsByCategory(String category) async {
   return List.generate(maps.length, (i) => Vendor.fromMap(maps[i]));
 }
 
-// Search vendors by name
+
 Future<List<Vendor>> searchVendors(String query) async {
   final db = await EventDatabase().getDatabase();
   final List<Map<String, dynamic>> maps = await db.query(
@@ -36,7 +36,7 @@ Future<List<Vendor>> searchVendors(String query) async {
   return List.generate(maps.length, (i) => Vendor.fromMap(maps[i]));
 }
 
-// Update a vendor
+
 Future<void> updateVendor(Vendor vendor) async {
   final db = await EventDatabase().getDatabase();
   await db.update(
@@ -47,7 +47,7 @@ Future<void> updateVendor(Vendor vendor) async {
   );
 }
 
-// Delete a vendor
+
 Future<void> deleteVendor(Vendor vendor) async {
   final db = await EventDatabase().getDatabase();
   await db.delete('vendors', where: 'id = ?', whereArgs: [vendor.id]);

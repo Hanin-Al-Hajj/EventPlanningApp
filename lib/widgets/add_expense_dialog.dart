@@ -29,7 +29,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
 
   double get remainingBudget => widget.totalBudget - widget.currentSpent;
 
-  // Calculate remaining after this expense
+  //calculated remaining after the user gives the allocated
   double get remainingAfterExpense {
     final allocated = double.tryParse(_allocatedController.text.trim()) ?? 0.0;
     return remainingBudget - allocated;
@@ -146,7 +146,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
             ),
             const SizedBox(height: 24),
 
-            // Category Dropdown
+            //category dropdown
             const Text(
               'Category',
               style: TextStyle(
@@ -204,7 +204,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
               ),
             ),
 
-            // Custom category input (if Other is selected)
+            //if the user chose "others" , so he can write its own expense
             if (_selectedCategory == 'Other') ...[
               const SizedBox(height: 16),
               TextField(
@@ -238,7 +238,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
 
             const SizedBox(height: 16),
 
-            // Allocated Budget
+            //allocated budget
             const Text(
               'Allocated Budget',
               style: TextStyle(
@@ -277,11 +277,11 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
                 ),
               ),
               onChanged: (value) {
-                setState(() {}); // Rebuild to update remaining budget display
+                setState(() {}); 
               },
             ),
 
-            // Show remaining budget info
+            //when the user gives allocated budget it shows the remaining
             if (_allocatedController.text.isNotEmpty) ...[
               const SizedBox(height: 8),
               Container(
@@ -330,7 +330,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
 
             const SizedBox(height: 16),
 
-            // Amount Spent
+            //amount spent
             const Text(
               'Amount Spent',
               style: TextStyle(
@@ -371,7 +371,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
             ),
             const SizedBox(height: 24),
 
-            // Buttons
+            //bas lbuttons
             Row(
               children: [
                 Expanded(

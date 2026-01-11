@@ -54,7 +54,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
     return (totalSpent / widget.event.budget).clamp(0.0, 1.0);
   }
 
-  // Calculate completed expenses (where amountSpent >= allocatedAmount)
+  //calculate completed expenses 
   int get completedExpenses {
     return _expenses
         .where((expense) => expense.amountSpent >= expense.allocatedAmount)
@@ -95,7 +95,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
     }
   }
 
-  // ✅ UPDATED: Now updates event progress after adding expense
+  
   void _showAddExpenseDialog() {
     showDialog(
       context: context,
@@ -105,14 +105,14 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
         currentSpent: totalSpent,
         onExpenseAdded: () async {
           await _loadExpenses();
-          // ✅ UPDATE EVENT PROGRESS AFTER ADDING EXPENSE
+          
           await updateEventProgress(widget.event.id);
         },
       ),
     );
   }
 
-  // ✅ UPDATED: Now updates event progress after editing expense
+  
   void _showEditExpenseDialog(BudgetExpense expense) {
     final spentController = TextEditingController(
       text: expense.amountSpent.toStringAsFixed(0),
@@ -149,7 +149,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
               await BudgetStorage.updateExpense(updatedExpense);
               Navigator.pop(context);
               await _loadExpenses();
-              // ✅ UPDATE EVENT PROGRESS AFTER EDITING EXPENSE
+              
               await updateEventProgress(widget.event.id);
             },
             style: ElevatedButton.styleFrom(
@@ -163,11 +163,11 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
     );
   }
 
-  // ✅ UPDATED: Now updates event progress after deleting expense
+ 
   Future<void> _deleteExpense(BudgetExpense expense) async {
     await BudgetStorage.deleteExpense(expense.id);
     await _loadExpenses();
-    // ✅ UPDATE EVENT PROGRESS AFTER DELETING EXPENSE
+    
     await updateEventProgress(widget.event.id);
 
     if (mounted) {
@@ -179,7 +179,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
             onPressed: () async {
               await BudgetStorage.insertExpense(expense);
               await _loadExpenses();
-              // ✅ UPDATE EVENT PROGRESS AFTER UNDOING DELETE
+              
               await updateEventProgress(widget.event.id);
             },
           ),
