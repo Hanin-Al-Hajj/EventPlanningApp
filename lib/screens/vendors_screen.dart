@@ -36,7 +36,7 @@ class _VendorsScreenState extends State<VendorsScreen> {
     });
 
     try {
-      // Seed sample data if database is empty
+      
       await seedSampleVendors();
 
       final vendors = await loadVendors();
@@ -100,7 +100,7 @@ class _VendorsScreenState extends State<VendorsScreen> {
             )
           : Column(
               children: [
-                // Search Bar
+                //search bar
                 Container(
                   padding: const EdgeInsets.all(16),
                   color: Colors.white,
@@ -128,7 +128,7 @@ class _VendorsScreenState extends State<VendorsScreen> {
                   ),
                 ),
 
-                // Category Tabs
+                //category tabs
                 Container(
                   height: 60,
                   color: Colors.white,
@@ -179,7 +179,7 @@ class _VendorsScreenState extends State<VendorsScreen> {
                   ),
                 ),
 
-                // Vendors List
+                //vendor list
                 Expanded(
                   child: _filteredVendors.isEmpty
                       ? Center(
@@ -231,7 +231,7 @@ class _VendorsScreenState extends State<VendorsScreen> {
           children: [
             Row(
               children: [
-                // Vendor Icon
+                //icon of vendor
                 Container(
                   width: 60,
                   height: 60,
@@ -248,7 +248,7 @@ class _VendorsScreenState extends State<VendorsScreen> {
                 ),
                 const SizedBox(width: 16),
 
-                // Vendor Info
+                //vendor info
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -296,7 +296,7 @@ class _VendorsScreenState extends State<VendorsScreen> {
             ),
             const SizedBox(height: 16),
 
-            // Action Button
+            //action buttons
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(

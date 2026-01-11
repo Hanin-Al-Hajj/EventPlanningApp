@@ -46,7 +46,7 @@ class VendorDetailsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Section
+            //header
             Container(
               width: double.infinity,
               color: Colors.white,
@@ -100,7 +100,7 @@ class VendorDetailsScreen extends StatelessWidget {
               ),
             ),
 
-            // Description Section
+            //discription la kil vendor
             if (vendor.description != null) ...[
               const SizedBox(height: 16),
               Container(
@@ -131,7 +131,7 @@ class VendorDetailsScreen extends StatelessWidget {
               ),
             ],
 
-            // Contact Information Section
+            //contact info of vendor
             const SizedBox(height: 16),
             Container(
               width: double.infinity,
@@ -146,7 +146,7 @@ class VendorDetailsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  // Phone Number
+                  //phone nb
                   if (vendor.phoneNumber != null)
                     _buildContactItem(
                       icon: Icons.phone,
@@ -155,7 +155,7 @@ class VendorDetailsScreen extends StatelessWidget {
                       onTap: () => _makePhoneCall(vendor.phoneNumber!),
                     ),
 
-                  // Email
+                  //email
                   if (vendor.email != null)
                     _buildContactItem(
                       icon: Icons.email,
@@ -164,7 +164,7 @@ class VendorDetailsScreen extends StatelessWidget {
                       onTap: () => _sendEmail(vendor.email!),
                     ),
 
-                  // Website
+                  //website
                   if (vendor.website != null)
                     _buildContactItem(
                       icon: Icons.language,

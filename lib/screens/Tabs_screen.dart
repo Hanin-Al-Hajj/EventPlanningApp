@@ -48,20 +48,20 @@ class _TabsScreenState extends State<TabsScreen> {
     });
   }
 
-  // Method to add a new event (can be passed to screens that need it)
+  
   void _addNewEvent(Event event) {
     setState(() {
       registeredEvents.add(event);
-      // TODO: Later, add insertEvent(event) here for database
+      
     });
     insertEvent(event);
   }
 
-  // Method to delete an event
+  
   void _deleteEvent(Event event) {
     setState(() {
       registeredEvents.remove(event);
-      // TODO: Later, add deleteEvent(event) here for database
+      
     });
     deleteEvent(event);
   }
@@ -76,7 +76,7 @@ class _TabsScreenState extends State<TabsScreen> {
       );
     }
 
-    // Define which screen to show based on selected index
+    //go to witch screen based on taped index
     Widget activePage = HomeScreen(
       registeredEvents: registeredEvents,
       onAddEvent: _addNewEvent,

@@ -87,7 +87,7 @@ class Guestcard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Name
+                    //name
                     Text(
                       guest.name,
                       style: const TextStyle(
@@ -98,7 +98,7 @@ class Guestcard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
 
-                    // Email (if exists)
+                    //email
                     if (guest.email != null && guest.email!.isNotEmpty) ...[
                       Row(
                         children: [
@@ -141,7 +141,7 @@ class Guestcard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
 
-                    // Table Number (if exists)
+                    //table number 
                     if (guest.tableNumber != null &&
                         guest.tableNumber!.isNotEmpty) ...[
                       Row(
@@ -162,7 +162,7 @@ class Guestcard extends StatelessWidget {
                         ],
                       ),
                     ],
-                    // Plus Ones (if exists)
+                    //plus Ones
                     if (guest.plusOnes != null && guest.plusOnes! > 0) ...[
                       const SizedBox(height: 4),
                       Row(
@@ -187,7 +187,7 @@ class Guestcard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              // Status Badge
+              //status badge
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,

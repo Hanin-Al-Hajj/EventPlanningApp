@@ -160,7 +160,7 @@ class _GuestlistScreenState extends State<GuestListScreen> {
             )
           : Column(
               children: [
-                // 1. SEARCH BAR
+                //search bar
                 Container(
                   padding: const EdgeInsets.all(16),
                   color: const Color(0xFF586041),
@@ -187,7 +187,7 @@ class _GuestlistScreenState extends State<GuestListScreen> {
                   ),
                 ),
 
-                // 2. STATISTICS CARDS
+                //statistic card
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -222,7 +222,7 @@ class _GuestlistScreenState extends State<GuestListScreen> {
                   ),
                 ),
 
-                // 3. ACTION BUTTONS
+                //action buttons
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Row(
@@ -262,7 +262,7 @@ class _GuestlistScreenState extends State<GuestListScreen> {
 
                 const SizedBox(height: 16),
 
-                // 4. GUEST LIST
+                //list of guests
                 Expanded(
                   child: _filteredGuests.isEmpty
                       ? Center(

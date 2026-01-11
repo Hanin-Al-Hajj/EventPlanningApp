@@ -59,7 +59,7 @@ class EventsScreen extends StatelessWidget {
                     event: event,
                     onDelete: () => onDeleteEvent(event),
                     onTap: () {
-                      // Navigate to Event Details Screen
+                      //navigate to Event Details Screen
                       Navigator.push(
                         context,
                         MaterialPageRoute(

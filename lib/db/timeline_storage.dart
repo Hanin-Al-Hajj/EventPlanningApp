@@ -3,14 +3,14 @@ import 'package:event_planner/models/timeline_task.dart';
 import 'package:sqflite/sqflite.dart';
 
 class TimelineStorage {
-  /// Get all timeline tasks for a specific event
+  //get timeline for specific event
   static Future<List<TimelineTask>> getTasksByEvent(String eventId) async {
     final db = await EventDatabase().getDatabase();
     final List<Map<String, dynamic>> maps = await db.query(
       'timeline_tasks',
       where: 'eventId = ?',
       whereArgs: [eventId],
-      orderBy: 'daysBeforeEvent DESC', // Sort by furthest to nearest
+      orderBy: 'daysBeforeEvent DESC',
     );
 
     return List.generate(maps.length, (i) {
@@ -18,7 +18,7 @@ class TimelineStorage {
     });
   }
 
-  /// Insert a new timeline task
+  //insert new timeline task
   static Future<void> insertTask(TimelineTask task) async {
     final db = await EventDatabase().getDatabase();
     await db.insert(
@@ -28,7 +28,7 @@ class TimelineStorage {
     );
   }
 
-  /// Update an existing timeline task
+  //update the timeline task
   static Future<void> updateTask(TimelineTask task) async {
     final db = await EventDatabase().getDatabase();
     await db.update(
@@ -39,17 +39,17 @@ class TimelineStorage {
     );
   }
 
-  /// Delete a timeline task
+  //delet the timeline task
   static Future<void> deleteTask(String taskId) async {
     final db = await EventDatabase().getDatabase();
     await db.delete('timeline_tasks', where: 'id = ?', whereArgs: [taskId]);
   }
 
-  /// Toggle task completion status
+  
   static Future<void> toggleTaskCompletion(String taskId) async {
     final db = await EventDatabase().getDatabase();
 
-    // Get current task
+    
     final List<Map<String, dynamic>> maps = await db.query(
       'timeline_tasks',
       where: 'id = ?',
@@ -63,11 +63,11 @@ class TimelineStorage {
     }
   }
 
-  /// Ensure default tasks exist for an event
+  //ensure that it belongs to an event
   static Future<void> ensureDefaultTasks(String eventId) async {
     final existingTasks = await getTasksByEvent(eventId);
 
-    // If no tasks exist, create default tasks
+    //if no tasks exist, create default tasks
     if (existingTasks.isEmpty) {
       final defaultTasks = TimelineTask.getDefaultTasks(eventId);
       for (final task in defaultTasks) {

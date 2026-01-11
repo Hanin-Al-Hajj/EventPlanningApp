@@ -111,13 +111,13 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
+            //header
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               decoration: const BoxDecoration(color: Color(0xFF586041)),
               child: Column(
                 children: [
-                  // App Title (left aligned)
+                  
                   const Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -134,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // Main Content
+            //main context
             Expanded(
               child: RefreshIndicator(
                 onRefresh: _refreshEvents,
@@ -145,7 +145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Stats Cards
+                        //stat cards
                         Row(
                           children: [
                             Expanded(
@@ -217,7 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 24),
 
-                        // Upcoming Events Header
+                        //upcomming events
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
@@ -247,7 +247,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Events List
+                        //list of events that are created
                         widget.registeredEvents.isEmpty
                             ? Center(
                                 child: Padding(
@@ -297,7 +297,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                         const SizedBox(height: 24),
 
-                        // Quick Actions
+                        //action button
                         const Text(
                           'Quick Actions',
                           style: TextStyle(

@@ -69,16 +69,6 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
       return;
     }
 
-    if (allocated <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid allocated budget'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
-
     if (spent < 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
