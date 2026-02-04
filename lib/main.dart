@@ -8,7 +8,6 @@ import 'package:event_planner/db/vendor_storage.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;

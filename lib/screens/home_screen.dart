@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/widgets/event_card.dart';
 import 'package:event_planner/widgets/quick_action_button.dart';
+import 'package:event_planner/widgets/app_drawer.dart';
 import 'package:event_planner/db/event_storage.dart';
 import 'package:event_planner/screens/vendors_screen.dart';
 
@@ -22,6 +23,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   bool _isLoadingEvents = false;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   int get activeEventsCount {
     return widget.registeredEvents
@@ -108,6 +110,8 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
+      drawer: const AppDrawer(),
       body: SafeArea(
         child: Column(
           children: [
@@ -117,17 +121,24 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: const BoxDecoration(color: Color(0xFF586041)),
               child: Column(
                 children: [
-                  
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'EventFlow',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.menu, color: Colors.white),
+                        onPressed: () {
+                          _scaffoldKey.currentState?.openDrawer();
+                        },
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'EventFlow',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 16),
                 ],

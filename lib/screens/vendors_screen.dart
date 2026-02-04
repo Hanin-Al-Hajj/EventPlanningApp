@@ -36,7 +36,6 @@ class _VendorsScreenState extends State<VendorsScreen> {
     });
 
     try {
-      
       await seedSampleVendors();
 
       final vendors = await loadVendors();
