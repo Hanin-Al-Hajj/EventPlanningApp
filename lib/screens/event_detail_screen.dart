@@ -6,7 +6,6 @@ import 'package:event_planner/db/timeline_storage.dart';
 import 'package:event_planner/db/event_storage.dart';
 import 'package:event_planner/screens/GuestList_screen.dart';
 import 'package:event_planner/screens/budget_tracker_screen.dart';
-import 'package:intl/intl.dart';
 
 class EventDetailsScreen extends StatefulWidget {
   final Event event;
@@ -27,6 +26,9 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _tabController.addListener(() {
+      setState(() {});
+    });
     _loadTimelineTasks();
   }
 
@@ -39,10 +41,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
   Future<void> _loadTimelineTasks() async {
     setState(() => _isLoading = true);
     try {
-     
       await TimelineStorage.ensureDefaultTasks(widget.event.id);
-
-      
       final tasks = await TimelineStorage.getTasksByEvent(widget.event.id);
       setState(() {
         _timelineTasks = tasks;
@@ -61,7 +60,6 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
   Future<void> _toggleTaskCompletion(TimelineTask task) async {
     await TimelineStorage.toggleTaskCompletion(task.id);
     await _loadTimelineTasks();
-    
     await updateEventProgress(widget.event.id);
   }
 
@@ -69,142 +67,43 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5DC),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF586041),
-        foregroundColor: Colors.white,
-        title: const Text('Event Details'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () {
-             
-            },
+      appBar: _tabController.index == 0
+          ? AppBar(
+              backgroundColor: const Color(0xFF586041),
+              foregroundColor: Colors.white,
+              title: Text(widget.event.title),
+              actions: [
+                IconButton(icon: const Icon(Icons.edit), onPressed: () {}),
+              ],
+            )
+          : null,
+      body: TabBarView(
+        controller: _tabController,
+        physics: const NeverScrollableScrollPhysics(),
+        children: [
+          _buildTimelineTab(),
+          GuestListScreen(
+            eventID: widget.event.id,
+            eventName: widget.event.title,
           ),
+          const VendorsScreen(),
+          BudgetTrackerScreen(event: widget.event),
         ],
       ),
-      body: Column(
-        children: [
-          // Event Header
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.event.title,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF151910),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.calendar_today,
-                      size: 16,
-                      color: Colors.grey.shade600,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      DateFormat(
-                        'MMM dd, yyyy • h:mm a',
-                      ).format(widget.event.date),
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.location_on,
-                      size: 16,
-                      color: Colors.grey.shade600,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      widget.event.location,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text(
-                      '${widget.event.guests} Guests Expected',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      '\$${widget.event.budget.toStringAsFixed(0)} Budget',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          // Tab Bar
-          Container(
-            color: Colors.white,
-            child: TabBar(
-              controller: _tabController,
-              labelColor: const Color(0xFF586041),
-              unselectedLabelColor: Colors.grey,
-              indicatorColor: const Color(0xFF586041),
-              tabs: const [
-                Tab(text: 'Timeline'),
-                Tab(text: 'Guests'),
-                Tab(text: 'Vendors'),
-                Tab(text: 'Budget'),
-              ],
-            ),
-          ),
-
-          // Tab Views
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-               
-                _buildTimelineTab(),
-                
-                _buildGuestsTab(),
-               
-                _buildVendorsTab(),
-                
-                _buildBudgetTab(),
-              ],
-            ),
-          ),
-        ],
+      bottomNavigationBar: Container(
+        color: Colors.white,
+        child: TabBar(
+          controller: _tabController,
+          labelColor: const Color(0xFF586041),
+          unselectedLabelColor: Colors.grey,
+          indicatorColor: const Color(0xFF586041),
+          tabs: const [
+            Tab(icon: Icon(Icons.timeline), text: 'Timeline'),
+            Tab(icon: Icon(Icons.people), text: 'Guests'),
+            Tab(icon: Icon(Icons.business), text: 'Vendors'),
+            Tab(icon: Icon(Icons.attach_money), text: 'Budget'),
+          ],
+        ),
       ),
     );
   }
@@ -276,123 +175,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
                 ],
               ),
             );
-          }).toList(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGuestsTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.people_outline, size: 64, color: Colors.grey.shade400),
-          const SizedBox(height: 16),
-          Text(
-            'Guest Management',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => GuestListScreen(
-                    eventID: widget.event.id,
-                    eventName: widget.event.title,
-                  ),
-                ),
-              );
-            },
-            icon: const Icon(Icons.group_add),
-            label: const Text('Manage Guests'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF586041),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVendorsTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.business_outlined, size: 64, color: Colors.grey.shade400),
-          const SizedBox(height: 16),
-          Text(
-            'Vendor Management',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const VendorsScreen()),
-              );
-            },
-            icon: const Icon(Icons.business),
-            label: const Text('Manage Vendors'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF586041),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBudgetTab() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.attach_money, size: 64, color: Colors.grey.shade400),
-          const SizedBox(height: 16),
-          Text(
-            'Budget Tracking',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) =>
-                      BudgetTrackerScreen(event: widget.event),
-                ),
-              );
-            },
-            icon: const Icon(Icons.account_balance_wallet),
-            label: const Text('Manage Budget'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF586041),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            ),
-          ),
+          }),
         ],
       ),
     );
