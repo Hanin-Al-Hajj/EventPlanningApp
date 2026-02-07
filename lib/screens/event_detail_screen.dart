@@ -21,15 +21,56 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
   late TabController _tabController;
   List<TimelineTask> _timelineTasks = [];
   bool _isLoading = true;
+  late Event _currentEvent;
 
   @override
   void initState() {
     super.initState();
+    _currentEvent = widget.event;
     _tabController = TabController(length: 4, vsync: this);
-    _tabController.addListener(() {
-      setState(() {});
-    });
+    _tabController.addListener(_onTabChanged);
     _loadTimelineTasks();
+  }
+
+  Future<void> _popWithUpdatedEvent() async {
+    try {
+      await updateEventProgress(_currentEvent.id);
+      final events = await loadEvents();
+      final updatedEvent = events.firstWhere(
+        (e) => e.id == _currentEvent.id,
+        orElse: () => _currentEvent,
+      );
+      if (mounted) Navigator.pop(context, updatedEvent);
+    } catch (e) {
+      if (mounted) Navigator.pop(context, _currentEvent);
+    }
+  }
+
+  Future<void> _onTabChanged() async {
+    if (_tabController.indexIsChanging) {
+      await _refreshEventProgress();
+    }
+  }
+
+  Future<void> _refreshEventProgress() async {
+    try {
+      final progress = await calculateEventProgress(_currentEvent.id);
+      setState(() {
+        _currentEvent = Event(
+          id: _currentEvent.id,
+          title: _currentEvent.title,
+          date: _currentEvent.date,
+          location: _currentEvent.location,
+          guests: _currentEvent.guests,
+          budget: _currentEvent.budget,
+          progress: progress,
+          status: determineEventStatus(progress, _currentEvent.date),
+          eventType: _currentEvent.eventType,
+        );
+      });
+    } catch (e) {
+      print('Error refreshing progress: $e');
+    }
   }
 
   @override
@@ -65,29 +106,46 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF5F5DC),
-      appBar: _tabController.index == 0
-          ? AppBar(
-              backgroundColor: const Color(0xFF586041),
-              foregroundColor: Colors.white,
-              title: Text(widget.event.title),
-              actions: [
-                IconButton(icon: const Icon(Icons.edit), onPressed: () {}),
-              ],
-            )
-          : null,
-      body: TabBarView(
+    return WillPopScope(
+      onWillPop: () async {
+        await _popWithUpdatedEvent();
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF5F5DC),
+        appBar: _tabController.index == 0
+            ? AppBar(
+                backgroundColor: const Color(0xFF586041),
+                foregroundColor: Colors.white,
+                title: Text(_currentEvent.title),
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: _popWithUpdatedEvent,
+                ),
+                actions: [
+                  IconButton(icon: const Icon(Icons.edit), onPressed: () {}),
+                ],
+              )
+            : null,
+        body: TabBarView(
         controller: _tabController,
         physics: const NeverScrollableScrollPhysics(),
         children: [
           _buildTimelineTab(),
           GuestListScreen(
-            eventID: widget.event.id,
-            eventName: widget.event.title,
+            eventID: _currentEvent.id,
+            eventName: _currentEvent.title,
+            onGuestChanged: () async {
+              await _refreshEventProgress();
+            },
           ),
           const VendorsScreen(),
-          BudgetTrackerScreen(event: widget.event),
+          BudgetTrackerScreen(
+            event: _currentEvent,
+            onBudgetChanged: () async {
+              await _refreshEventProgress();
+            },
+          ),
         ],
       ),
       bottomNavigationBar: Container(
@@ -104,6 +162,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
             Tab(icon: Icon(Icons.attach_money), text: 'Budget'),
           ],
         ),
+      ),
       ),
     );
   }

@@ -4,15 +4,18 @@ import 'package:event_planner/widgets/AddGuestDialog.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/widgets/GuestCard.dart';
 import 'package:event_planner/widgets/Statcard.dart';
+import 'package:event_planner/db/event_storage.dart';
 
 class GuestListScreen extends StatefulWidget {
   const GuestListScreen({
     super.key,
     required this.eventID,
     required this.eventName,
+    this.onGuestChanged,
   });
   final String eventID;
   final String eventName;
+  final Future<void> Function()? onGuestChanged;
   @override
   State<GuestListScreen> createState() => _GuestlistScreenState();
 }
@@ -75,6 +78,8 @@ class _GuestlistScreenState extends State<GuestListScreen> {
         onAdd: (guest) async {
           await GuestStorage.insertGuest(guest, widget.eventID);
           _loadGuests();
+          await updateEventProgress(widget.eventID);
+          widget.onGuestChanged?.call();
         },
       ),
     );
@@ -88,6 +93,8 @@ class _GuestlistScreenState extends State<GuestListScreen> {
         onAdd: (updateGuest) async {
           await GuestStorage.updateGuest(updateGuest, widget.eventID);
           _loadGuests();
+          await updateEventProgress(widget.eventID);
+          widget.onGuestChanged?.call();
         },
       ),
     );
@@ -116,6 +123,8 @@ class _GuestlistScreenState extends State<GuestListScreen> {
     if (confirm == true) {
       await GuestStorage.deleteGuest(guest.id, widget.eventID);
       _loadGuests();
+      await updateEventProgress(widget.eventID);
+      widget.onGuestChanged?.call();
     }
   }
 

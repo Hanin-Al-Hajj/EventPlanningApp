@@ -7,7 +7,12 @@ import 'package:event_planner/models/budget.dart';
 
 class BudgetTrackerScreen extends StatefulWidget {
   final Event event;
-  const BudgetTrackerScreen({super.key, required this.event});
+  final Future<void> Function()? onBudgetChanged;
+  const BudgetTrackerScreen({
+    super.key,
+    required this.event,
+    this.onBudgetChanged,
+  });
 
   @override
   State<BudgetTrackerScreen> createState() => _BudgetTrackerScreenState();
@@ -54,7 +59,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
     return (totalSpent / widget.event.budget).clamp(0.0, 1.0);
   }
 
-  //calculate completed expenses 
+  //calculate completed expenses
   int get completedExpenses {
     return _expenses
         .where((expense) => expense.amountSpent >= expense.allocatedAmount)
@@ -95,7 +100,6 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
     }
   }
 
-  
   void _showAddExpenseDialog() {
     showDialog(
       context: context,
@@ -105,14 +109,14 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
         currentSpent: totalSpent,
         onExpenseAdded: () async {
           await _loadExpenses();
-          
+
           await updateEventProgress(widget.event.id);
+          if (widget.onBudgetChanged != null) await widget.onBudgetChanged!();
         },
       ),
     );
   }
 
-  
   void _showEditExpenseDialog(BudgetExpense expense) {
     final spentController = TextEditingController(
       text: expense.amountSpent.toStringAsFixed(0),
@@ -149,8 +153,10 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
               await BudgetStorage.updateExpense(updatedExpense);
               Navigator.pop(context);
               await _loadExpenses();
-              
+
               await updateEventProgress(widget.event.id);
+              if (widget.onBudgetChanged != null)
+                await widget.onBudgetChanged!();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF545A3B),
@@ -163,12 +169,12 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
     );
   }
 
- 
   Future<void> _deleteExpense(BudgetExpense expense) async {
     await BudgetStorage.deleteExpense(expense.id);
     await _loadExpenses();
-    
+
     await updateEventProgress(widget.event.id);
+    if (widget.onBudgetChanged != null) await widget.onBudgetChanged!();
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -179,8 +185,10 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
             onPressed: () async {
               await BudgetStorage.insertExpense(expense);
               await _loadExpenses();
-              
+
               await updateEventProgress(widget.event.id);
+              if (widget.onBudgetChanged != null)
+                await widget.onBudgetChanged!();
             },
           ),
         ),

@@ -9,11 +9,13 @@ class EventCard extends StatelessWidget {
     required this.event,
     required this.onDelete,
     this.onTap,
+    this.onEventUpdated, // Add this
   });
 
   final Event event;
   final VoidCallback onDelete;
   final VoidCallback? onTap;
+  final Function(Event)? onEventUpdated; // Add this
 
   @override
   Widget build(BuildContext context) {
@@ -32,15 +34,19 @@ class EventCard extends StatelessWidget {
         ),
         child: const Icon(Icons.delete, color: Colors.white, size: 28),
       ),
-
       child: GestureDetector(
-        onTap: () {
-          Navigator.push(
+        onTap: () async {
+          await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => EventDetailsScreen(event: event),
             ),
           );
+
+          // 🔥 ALWAYS refresh when coming back
+          if (onEventUpdated != null) {
+            await onEventUpdated!(event);
+          }
         },
 
         child: Container(
@@ -70,9 +76,13 @@ class EventCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   // Edit Button
-                  InkWell(
-                    onTap: onTap,
-                    borderRadius: BorderRadius.circular(8),
+                  GestureDetector(
+                    onTap: () {
+                      // Stop propagation to parent GestureDetector
+                      if (onTap != null) {
+                        onTap!();
+                      }
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -80,7 +90,7 @@ class EventCard extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: const Color(0xFF586041),
-                        borderRadius: BorderRadius.circular(30),
+                        borderRadius: BorderRadius.circular(8),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
