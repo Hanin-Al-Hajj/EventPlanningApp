@@ -24,6 +24,15 @@ class _EventPlanningAppState extends State<EventPlanningApp> {
     });
   }
 
+  void _updateEvent(Event updatedEvent) {
+    setState(() {
+      final index = registeredEvents.indexWhere((e) => e.id == updatedEvent.id);
+      if (index != -1) {
+        registeredEvents[index] = updatedEvent;
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -38,6 +47,7 @@ class _EventPlanningAppState extends State<EventPlanningApp> {
       home: HomeScreen(
         onAddEvent: _addNewEvent,
         onDeleteEvent: _deleteEvent,
+        onUpdateEvent: _updateEvent,
         registeredEvents: registeredEvents,
       ),
       debugShowCheckedModeBanner: false,

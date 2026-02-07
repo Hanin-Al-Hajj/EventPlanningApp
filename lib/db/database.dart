@@ -23,12 +23,10 @@ class EventDatabase {
     Database db = await openDatabase(
       join(dbPath, 'eventflow.db'),
       onCreate: (db, version) async {
-       
         await db.execute(
           'CREATE TABLE events(id TEXT PRIMARY KEY, title TEXT, date INT, location TEXT, guests INT, budget DOUBLE, progress DOUBLE, status TEXT, eventType TEXT)',
         );
 
-        
         await db.execute('''
         CREATE TABLE guests(
           id TEXT PRIMARY KEY,
@@ -43,7 +41,6 @@ class EventDatabase {
         )
       ''');
 
-        
         await db.execute('''
         CREATE TABLE budget_expenses(
           id TEXT PRIMARY KEY,
@@ -55,7 +52,6 @@ class EventDatabase {
         )
       ''');
 
-        
         await db.execute('''
         CREATE TABLE timeline_tasks(
           id TEXT PRIMARY KEY,
@@ -161,12 +157,11 @@ class EventDatabase {
         ''');
         }
 
-       
         if (oldVersion < 11) {
           await db.execute('ALTER TABLE events ADD COLUMN eventType TEXT');
         }
       },
-      version: 11, 
+      version: 11,
     );
 
     return db;
