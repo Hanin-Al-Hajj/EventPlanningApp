@@ -91,8 +91,11 @@ class _HomeScreenState extends State<HomeScreen> {
       for (var event in updatedEvents) {
         widget.onAddEvent(event);
       }
-      _allEvents = List.from(updatedEvents);
-      _filteredEvents = _applySearch(_searchController.text);
+
+      setState(() {
+        _allEvents = List.from(updatedEvents);
+        _filteredEvents = _applySearch(_searchController.text);
+      });
     } catch (e) {
       print('Error refreshing events: $e');
       if (mounted) {
@@ -122,9 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Add to UI
       widget.onAddEvent(newEvent);
       // Force UI refresh
-      if (mounted) {
-        setState(() {});
-      }
+      await _refreshEvents();
     }
   }
 
@@ -143,17 +144,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (updatedEvent != null) {
+      print('>>> EVENT UPDATED: ${updatedEvent.title}');
+
+      // Update in database FIRST
+      await updateEvent(updatedEvent);
+
       // Update parent
       widget.onUpdateEvent(updatedEvent);
 
-      // 🔥 Update LOCAL lists
-      setState(() {
-        final index = _allEvents.indexWhere((e) => e.id == updatedEvent.id);
-        if (index != -1) {
-          _allEvents[index] = updatedEvent;
-        }
-        _filteredEvents = _applySearch(_searchController.text);
-      });
+      // Refresh all events from database to ensure consistency
+      await _refreshEvents();
     }
   }
 
@@ -163,6 +163,8 @@ class _HomeScreenState extends State<HomeScreen> {
     await deleteEvent(event);
     // Delete from UI
     widget.onDeleteEvent(event);
+    // Refresh to update UI
+    await _refreshEvents();
   }
 
   @override
@@ -182,6 +184,14 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void didUpdateWidget(HomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+
+    // Update local lists when parent updates
+    if (oldWidget.registeredEvents != widget.registeredEvents) {
+      setState(() {
+        _allEvents = List.from(widget.registeredEvents);
+        _filteredEvents = _applySearch(_searchController.text);
+      });
+    }
   }
 
   @override
@@ -365,7 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               const SizedBox(height: 16),
 
-                              //list of events that are created
+                              //list of events
                               _filteredEvents.isEmpty
                                   ? Center(
                                       child: Padding(
@@ -400,8 +410,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                       ),
                                     )
-                                  : // In your HomeScreen build method, where you create EventCards
-                                    Column(
+                                  : Column(
                                       children: _filteredEvents.map((event) {
                                         return Padding(
                                           padding: const EdgeInsets.only(

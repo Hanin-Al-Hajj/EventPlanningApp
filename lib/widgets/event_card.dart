@@ -9,30 +9,95 @@ class EventCard extends StatelessWidget {
     required this.event,
     required this.onDelete,
     this.onTap,
-    this.onEventUpdated, // Add this
+    this.onEventUpdated,
   });
 
   final Event event;
   final VoidCallback onDelete;
   final VoidCallback? onTap;
-  final Function(Event)? onEventUpdated; // Add this
+  final Function(Event)? onEventUpdated;
+
+  Color _getStatusColor() {
+    switch (event.status.toLowerCase()) {
+      case 'completed':
+        return const Color(0xFF4CAF50); // Green
+      case 'in progress':
+        return const Color(0xFFFFA726); // Orange
+      case 'planning':
+        return const Color(0xFF42A5F5); // Blue
+      default:
+        return Colors.grey;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Dismissible(
       key: Key(event.id),
-      direction: DismissDirection.endToStart,
+      direction: DismissDirection.horizontal,
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          // Swipe right - Edit
+          if (onTap != null) {
+            onTap!();
+          }
+          return false; // Don't dismiss
+        } else {
+          // Swipe left - Delete
+          return true; // Allow dismiss for delete
+        }
+      },
       onDismissed: (direction) {
-        onDelete();
+        if (direction == DismissDirection.endToStart) {
+          onDelete();
+        }
       },
       background: Container(
+        alignment: Alignment.centerLeft,
+        padding: const EdgeInsets.only(left: 20),
+        decoration: BoxDecoration(
+          color: const Color(0xFF586041),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.edit, color: Colors.white, size: 28),
+            SizedBox(width: 8),
+            Text(
+              'Edit',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+      secondaryBackground: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
           color: Colors.red,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Icon(Icons.delete, color: Colors.white, size: 28),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Text(
+              'Delete',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            SizedBox(width: 8),
+            Icon(Icons.delete, color: Colors.white, size: 28),
+          ],
+        ),
       ),
       child: GestureDetector(
         onTap: () async {
@@ -43,12 +108,11 @@ class EventCard extends StatelessWidget {
             ),
           );
 
-          // 🔥 ALWAYS refresh when coming back
+          // Refresh when coming back from details screen
           if (onEventUpdated != null) {
             await onEventUpdated!(event);
           }
         },
-
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -59,7 +123,7 @@ class EventCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title and Edit Button
+              // Title and Status Badge
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -75,37 +139,22 @@ class EventCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // Edit Button
-                  GestureDetector(
-                    onTap: () {
-                      // Stop propagation to parent GestureDetector
-                      if (onTap != null) {
-                        onTap!();
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF586041),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.edit, size: 16, color: Colors.white),
-                          SizedBox(width: 4),
-                          Text(
-                            'Edit',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ],
+                  // Status Badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      event.status,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
                       ),
                     ),
                   ),

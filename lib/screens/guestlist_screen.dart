@@ -154,12 +154,21 @@ class _GuestlistScreenState extends State<GuestListScreen> {
         ),
         title: const Text('Guest List', style: TextStyle(color: Colors.white)),
         actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.add,
-              color: Color.fromARGB(255, 255, 255, 255),
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0),
+            child: InkWell(
+              onTap: _addGuest,
+              borderRadius: BorderRadius.circular(25),
+              child: Container(
+                width: 35,
+                height: 35,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: const Icon(Icons.add, color: Colors.white, size: 24),
+              ),
             ),
-            onPressed: _addGuest,
           ),
         ],
       ),
