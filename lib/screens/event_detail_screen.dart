@@ -106,6 +106,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
 
   @override
   Widget build(BuildContext context) {
+    // ignore: deprecated_member_use
     return WillPopScope(
       onWillPop: () async {
         await _popWithUpdatedEvent();
@@ -123,46 +124,54 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
                   onPressed: _popWithUpdatedEvent,
                 ),
                 actions: [
-                  IconButton(icon: const Icon(Icons.edit), onPressed: () {}),
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      right: 16.0,
+                    ), // Adjust value to move more left
+                    child: IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () {},
+                    ),
+                  ),
                 ],
               )
             : null,
         body: TabBarView(
-        controller: _tabController,
-        physics: const NeverScrollableScrollPhysics(),
-        children: [
-          _buildTimelineTab(),
-          GuestListScreen(
-            eventID: _currentEvent.id,
-            eventName: _currentEvent.title,
-            onGuestChanged: () async {
-              await _refreshEventProgress();
-            },
-          ),
-          const VendorsScreen(),
-          BudgetTrackerScreen(
-            event: _currentEvent,
-            onBudgetChanged: () async {
-              await _refreshEventProgress();
-            },
-          ),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        color: Colors.white,
-        child: TabBar(
           controller: _tabController,
-          labelColor: const Color(0xFF586041),
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: const Color(0xFF586041),
-          tabs: const [
-            Tab(icon: Icon(Icons.timeline), text: 'Timeline'),
-            Tab(icon: Icon(Icons.people), text: 'Guests'),
-            Tab(icon: Icon(Icons.business), text: 'Vendors'),
-            Tab(icon: Icon(Icons.attach_money), text: 'Budget'),
+          physics: const NeverScrollableScrollPhysics(),
+          children: [
+            _buildTimelineTab(),
+            GuestListScreen(
+              eventID: _currentEvent.id,
+              eventName: _currentEvent.title,
+              onGuestChanged: () async {
+                await _refreshEventProgress();
+              },
+            ),
+            const VendorsScreen(),
+            BudgetTrackerScreen(
+              event: _currentEvent,
+              onBudgetChanged: () async {
+                await _refreshEventProgress();
+              },
+            ),
           ],
         ),
-      ),
+        bottomNavigationBar: Container(
+          color: Colors.white,
+          child: TabBar(
+            controller: _tabController,
+            labelColor: const Color(0xFF586041),
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: const Color(0xFF586041),
+            tabs: const [
+              Tab(icon: Icon(Icons.timeline), text: 'Timeline'),
+              Tab(icon: Icon(Icons.people), text: 'Guests'),
+              Tab(icon: Icon(Icons.business), text: 'Vendors'),
+              Tab(icon: Icon(Icons.attach_money), text: 'Budget'),
+            ],
+          ),
+        ),
       ),
     );
   }
