@@ -57,6 +57,7 @@ class EventCard extends StatelessWidget {
         padding: const EdgeInsets.only(left: 20),
         decoration: BoxDecoration(
           color: const Color(0xFF586041),
+
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Row(
@@ -147,7 +148,7 @@ class EventCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: _getStatusColor(),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(999),
                     ),
                     child: Text(
                       event.status,

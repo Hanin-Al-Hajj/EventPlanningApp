@@ -84,49 +84,44 @@ class _VendorsScreenState extends State<VendorsScreen> {
       backgroundColor: const Color(0xFFF0F0D8),
       appBar: AppBar(
         backgroundColor: const Color(0xFF586041),
+        titleSpacing: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Find Vendors',
-          style: TextStyle(color: Colors.white),
+        title: Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: SizedBox(
+            height: 40,
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) => _filterVendors(),
+              decoration: InputDecoration(
+                hintText: 'Search vendors...',
+                hintStyle: TextStyle(color: Colors.grey.shade500),
+                prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 0,
+                  horizontal: 0,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
+
       body: _isLoading
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF586041)),
             )
           : Column(
               children: [
-                //search bar
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  color: Colors.white,
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (value) => _filterVendors(),
-                    decoration: InputDecoration(
-                      hintText: 'Search vendors...',
-                      hintStyle: TextStyle(color: Colors.grey.shade500),
-                      prefixIcon: Icon(
-                        Icons.search,
-                        color: Colors.grey.shade600,
-                      ),
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 16,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ),
-
                 //category tabs
                 Container(
                   height: 60,

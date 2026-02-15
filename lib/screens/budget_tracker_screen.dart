@@ -308,7 +308,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          'Expenses by Category',
+                          'Expenses',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -324,6 +324,23 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                               fontStyle: FontStyle.italic,
                             ),
                           ),
+
+                        TextButton(
+                          onPressed: _showAddExpenseDialog,
+                          style: TextButton.styleFrom(
+                            backgroundColor: Color.fromARGB(255, 151, 15, 15),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+
+                          child: Text('Add Expense'),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -487,13 +504,6 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                 ),
               ),
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddExpenseDialog,
-        backgroundColor: const Color(0xFF545A3B),
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Expense'),
-      ),
     );
   }
 }
