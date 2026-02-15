@@ -2,7 +2,6 @@ import 'package:event_planner/screens/create_event_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/widgets/event_card.dart';
-import 'package:event_planner/widgets/quick_action_button.dart';
 import 'package:event_planner/widgets/app_drawer.dart';
 import 'package:event_planner/db/event_storage.dart';
 
@@ -343,7 +342,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ],
                               ),
                               const SizedBox(height: 24),
-
                               //upcoming events
                               Row(
                                 mainAxisAlignment:
@@ -356,26 +354,30 @@ class _HomeScreenState extends State<HomeScreen> {
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
+                                  SizedBox(width: 15),
                                   TextButton(
-                                    onPressed: () {},
+                                    onPressed: _navigateToCreateEvent,
                                     style: TextButton.styleFrom(
-                                      backgroundColor: const Color(0xFF545A3B),
+                                      backgroundColor: Color.fromARGB(
+                                        255,
+                                        151,
+                                        15,
+                                        15,
+                                      ),
                                       foregroundColor: Colors.white,
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 8,
+                                        horizontal: 20,
+                                        vertical: 10,
                                       ),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                     ),
-                                    child: const Text('View All'),
+                                    child: Text('Create Event'),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 16),
-
-                              //list of events
                               _filteredEvents.isEmpty
                                   ? Center(
                                       child: Padding(
@@ -427,26 +429,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                         );
                                       }).toList(),
                                     ),
-                              const SizedBox(height: 24),
-
-                              //action button
-                              const Text(
-                                'Quick Actions',
-                                style: TextStyle(
-                                  fontSize: 25,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 20),
-                              SizedBox(
-                                width: double.infinity,
-                                height: 100,
-                                child: QuickActionButton(
-                                  icon: Icons.add,
-                                  label: 'New Event',
-                                  onTap: _navigateToCreateEvent,
-                                ),
-                              ),
                             ],
                           ),
                         ),

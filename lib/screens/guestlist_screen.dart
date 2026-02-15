@@ -148,11 +148,35 @@ class _GuestlistScreenState extends State<GuestListScreen> {
       backgroundColor: const Color(0xFFF0F0D8),
       appBar: AppBar(
         backgroundColor: const Color(0xFF586041),
+        titleSpacing: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Guest List', style: TextStyle(color: Colors.white)),
+        title: Padding(
+          padding: const EdgeInsets.only(right: 12),
+          child: SizedBox(
+            height: 40,
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search guests...',
+                hintStyle: TextStyle(color: Colors.grey.shade500),
+                prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(
+                  vertical: 0,
+                  horizontal: 0,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+        ),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
@@ -178,33 +202,6 @@ class _GuestlistScreenState extends State<GuestListScreen> {
             )
           : Column(
               children: [
-                //search bar
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  color: const Color(0xFF586041),
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search guests...',
-                      hintStyle: TextStyle(color: Colors.grey.shade500),
-                      prefixIcon: Icon(
-                        Icons.search,
-                        color: Colors.grey.shade600,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 12,
-                        horizontal: 16,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ),
-
                 //statistic card
                 Container(
                   padding: const EdgeInsets.symmetric(

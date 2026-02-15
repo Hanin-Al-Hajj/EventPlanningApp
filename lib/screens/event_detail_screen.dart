@@ -123,17 +123,6 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
                   icon: const Icon(Icons.arrow_back),
                   onPressed: _popWithUpdatedEvent,
                 ),
-                actions: [
-                  Padding(
-                    padding: const EdgeInsets.only(
-                      right: 16.0,
-                    ), // Adjust value to move more left
-                    child: IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed: () {},
-                    ),
-                  ),
-                ],
               )
             : null,
         body: TabBarView(
@@ -185,14 +174,36 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+
         children: [
-          const Text(
-            'Timeline Checklist',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF151910),
-            ),
+          Row(
+            children: [
+              Text(
+                'Timeline Checklist',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF151910),
+                ),
+              ),
+              Spacer(),
+              TextButton.icon(
+                onPressed: () {},
+                style: TextButton.styleFrom(
+                  backgroundColor: Color.fromARGB(255, 151, 15, 15),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 7,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                icon: Icon(Icons.add),
+                label: Text('CheckBox'),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           ..._timelineTasks.map((task) {
