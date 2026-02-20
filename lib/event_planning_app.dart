@@ -1,4 +1,6 @@
-import "package:event_planner/screens/home_screen.dart";
+//import "package:event_planner/screens/home_screen.dart";
+//import 'package:event_planner/screens/login_screen.dart';
+import 'package:event_planner/screens/tab_bar_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 
@@ -11,7 +13,7 @@ class EventPlanningApp extends StatefulWidget {
 
 class _EventPlanningAppState extends State<EventPlanningApp> {
   List<Event> registeredEvents = [];
-
+  /*
   void _addNewEvent(Event event) {
     setState(() {
       registeredEvents.add(event);
@@ -32,7 +34,7 @@ class _EventPlanningAppState extends State<EventPlanningApp> {
       }
     });
   }
-
+*/
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -43,13 +45,14 @@ class _EventPlanningAppState extends State<EventPlanningApp> {
         scaffoldBackgroundColor: Color(0xFFF0F0D8),
       ),
 
-      //home: const AppDrawer(),
-      home: HomeScreen(
+      home: const TabsScreen(),
+
+      /*HomeScreen(
         onAddEvent: _addNewEvent,
         onDeleteEvent: _deleteEvent,
         onUpdateEvent: _updateEvent,
         registeredEvents: registeredEvents,
-      ),
+      ),*/
       debugShowCheckedModeBanner: false,
     );
   }

@@ -2,8 +2,8 @@ import 'package:event_planner/screens/create_event_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/widgets/event_card.dart';
-import 'package:event_planner/widgets/app_drawer.dart';
 import 'package:event_planner/db/event_storage.dart';
+import 'package:path/path.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -99,7 +99,7 @@ class _HomeScreenState extends State<HomeScreen> {
       print('Error refreshing events: $e');
       if (mounted) {
         ScaffoldMessenger.of(
-          context,
+          context as BuildContext,
         ).showSnackBar(SnackBar(content: Text('Error loading events: $e')));
       }
     } finally {
@@ -113,17 +113,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _navigateToCreateEvent() async {
     final newEvent = await Navigator.push<Event>(
-      context,
+      context as BuildContext,
       MaterialPageRoute(builder: (context) => const CreateEventScreen()),
     );
 
     if (newEvent != null) {
-      print('>>> NEW EVENT CREATED: ${newEvent.title}');
-      // Insert into database FIRST
+      print('new event created: ${newEvent.title}');
+
       await insertEvent(newEvent);
-      // Add to UI
+
       widget.onAddEvent(newEvent);
-      // Force UI refresh
+
       await _refreshEvents();
     }
   }
@@ -136,33 +136,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _editEvent(Event event) async {
     final updatedEvent = await Navigator.push<Event>(
-      context,
+      context as BuildContext,
       MaterialPageRoute(
         builder: (context) => CreateEventScreen(eventToEdit: event),
       ),
     );
 
     if (updatedEvent != null) {
-      print('>>> EVENT UPDATED: ${updatedEvent.title}');
+      print('event updated: ${updatedEvent.title}');
 
-      // Update in database FIRST
       await updateEvent(updatedEvent);
 
-      // Update parent
       widget.onUpdateEvent(updatedEvent);
 
-      // Refresh all events from database to ensure consistency
       await _refreshEvents();
     }
   }
 
   Future<void> _deleteEvent(Event event) async {
     print('>>> USER DELETED EVENT: ${event.title}');
-    // Delete from database FIRST
+
     await deleteEvent(event);
-    // Delete from UI
+
     widget.onDeleteEvent(event);
-    // Refresh to update UI
+
     await _refreshEvents();
   }
 
@@ -195,247 +192,279 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return SafeArea(
       key: _scaffoldKey,
-      drawer: const AppDrawer(),
-      body: SafeArea(
-        child: Column(
-          children: [
-            //header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-              decoration: const BoxDecoration(color: Color(0xFF586041)),
-              child: Column(
-                children: [
-                  Row(
+      child: Scaffold(
+        body: SafeArea(
+          child: Column(
+            children: [
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(20), // round bottom left
+                  bottomRight: Radius.circular(20), // round bottom right
+                ),
+
+                //header
+                child: Container(
+                  decoration: const BoxDecoration(color: Color(0xFF586041)),
+                  child: Column(
                     children: [
-                      IconButton(
-                        icon: const Icon(Icons.menu, color: Colors.white),
-                        onPressed: () {
-                          _scaffoldKey.currentState?.openDrawer();
-                        },
+                      SizedBox(height: 20),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 30),
+                        child: Row(
+                          children: [
+                            const Text(
+                              'EventFlow',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+
+                            const Spacer(),
+
+                            const Icon(
+                              Icons.notifications_outlined,
+                              color: Colors.white,
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'EventFlow',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
+                      const SizedBox(height: 20),
+
+                      // 🔍 SEARCH BAR
+                      SizedBox(
+                        height: 60,
+                        width: 310,
+                        child: TextField(
+                          controller: _searchController,
+                          style: const TextStyle(color: Colors.black),
+                          decoration: InputDecoration(
+                            hintText: 'Search events...',
+                            prefixIcon: const Icon(Icons.search),
+                            filled: true,
+                            fillColor: Colors.white,
+                            contentPadding: const EdgeInsets.symmetric(
+                              vertical: 10,
+                            ),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(40),
+                              borderSide: BorderSide.none,
+                            ),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-
-                  // 🔍 SEARCH BAR
-                  TextField(
-                    controller: _searchController,
-                    style: const TextStyle(color: Colors.black),
-                    decoration: InputDecoration(
-                      hintText: 'Search events...',
-                      prefixIcon: const Icon(Icons.search),
-                      filled: true,
-                      fillColor: Colors.white,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-
-            //main content
-            Expanded(
-              child: RefreshIndicator(
-                onRefresh: _refreshEvents,
-                child: _isLoadingEvents && widget.registeredEvents.isEmpty
-                    ? const Center(child: CircularProgressIndicator())
-                    : SingleChildScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              //stat cards
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Container(
-                                      height: 110,
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: Colors.grey.shade300,
-                                        ),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            '$activeEventsCount',
-                                            style: const TextStyle(
-                                              fontSize: 28,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF151910),
-                                            ),
+              //main content
+              Expanded(
+                child: RefreshIndicator(
+                  onRefresh: _refreshEvents,
+                  child: _isLoadingEvents && widget.registeredEvents.isEmpty
+                      ? const Center(child: CircularProgressIndicator())
+                      : SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                //stat cards
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Container(
+                                        height: 110,
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
                                           ),
-                                          const Text(
-                                            'Active Events',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey,
-                                            ),
+                                          border: Border.all(
+                                            color: Colors.grey.shade300,
                                           ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Container(
-                                      height: 110,
-                                      padding: const EdgeInsets.all(16),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: Colors.grey.shade300,
-                                        ),
-                                      ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            '$daysUntilNextEvent',
-                                            style: const TextStyle(
-                                              fontSize: 28,
-                                              fontWeight: FontWeight.bold,
-                                              color: Color(0xFF151910),
-                                            ),
-                                          ),
-                                          const Text(
-                                            'Days Until Next Event',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 24),
-                              //upcoming events
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'Upcoming Events',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  SizedBox(width: 15),
-                                  TextButton(
-                                    onPressed: _navigateToCreateEvent,
-                                    style: TextButton.styleFrom(
-                                      backgroundColor: Color.fromARGB(
-                                        255,
-                                        151,
-                                        15,
-                                        15,
-                                      ),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 20,
-                                        vertical: 10,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                    ),
-                                    child: Text('Create Event'),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              _filteredEvents.isEmpty
-                                  ? Center(
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 32,
                                         ),
                                         child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
                                           children: [
-                                            Icon(
-                                              Icons.event_outlined,
-                                              size: 64,
-                                              color: Colors.grey.shade400,
-                                            ),
-                                            const SizedBox(height: 16),
                                             Text(
-                                              'No events yet',
-                                              style: TextStyle(
-                                                fontSize: 16,
-                                                color: Colors.grey.shade600,
-                                                fontWeight: FontWeight.w500,
+                                              '$activeEventsCount',
+                                              style: const TextStyle(
+                                                fontSize: 28,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF151910),
                                               ),
                                             ),
-                                            const SizedBox(height: 8),
-                                            Text(
-                                              'Create your first event to get started',
+                                            const Text(
+                                              'Active Events',
                                               style: TextStyle(
-                                                fontSize: 14,
-                                                color: Colors.grey.shade500,
+                                                fontSize: 12,
+                                                color: Colors.grey,
                                               ),
                                             ),
                                           ],
                                         ),
                                       ),
-                                    )
-                                  : Column(
-                                      children: _filteredEvents.map((event) {
-                                        return Padding(
-                                          padding: const EdgeInsets.only(
-                                            bottom: 12,
-                                          ),
-                                          child: EventCard(
-                                            event: event,
-                                            onDelete: () => _deleteEvent(event),
-                                            onTap: () => _editEvent(event),
-                                            onEventUpdated: (_) async {
-                                              await _refreshEvents();
-                                            },
-                                          ),
-                                        );
-                                      }).toList(),
                                     ),
-                            ],
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Container(
+                                        height: 110,
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.grey.shade300,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              '$daysUntilNextEvent',
+                                              style: const TextStyle(
+                                                fontSize: 28,
+                                                fontWeight: FontWeight.bold,
+                                                color: Color(0xFF151910),
+                                              ),
+                                            ),
+                                            const Text(
+                                              'Days Until Next Event',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: Colors.grey,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 24),
+                                //upcoming events
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text(
+                                      'My Events   ',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    if (_filteredEvents.isNotEmpty)
+                                      Text(
+                                        'Swipe Card',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade500,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    SizedBox(width: 15),
+                                    TextButton(
+                                      onPressed: _navigateToCreateEvent,
+                                      style: TextButton.styleFrom(
+                                        backgroundColor: Color.fromARGB(
+                                          255,
+                                          151,
+                                          15,
+                                          15,
+                                        ),
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 20,
+                                          vertical: 10,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            20,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Text('Create Event'),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                _filteredEvents.isEmpty
+                                    ? Center(
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 32,
+                                          ),
+                                          child: Column(
+                                            children: [
+                                              Icon(
+                                                Icons.event_outlined,
+                                                size: 64,
+                                                color: Colors.grey.shade400,
+                                              ),
+                                              const SizedBox(height: 16),
+                                              Text(
+                                                'No events yet',
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  color: Colors.grey.shade600,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Text(
+                                                'Create your first event to get started',
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: Colors.grey.shade500,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      )
+                                    : Column(
+                                        children: _filteredEvents.map((event) {
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 12,
+                                            ),
+                                            child: EventCard(
+                                              event: event,
+                                              onDelete: () =>
+                                                  _deleteEvent(event),
+                                              onTap: () => _editEvent(event),
+                                              onEventUpdated: (_) async {
+                                                await _refreshEvents();
+                                              },
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

@@ -157,6 +157,7 @@ class _GuestlistScreenState extends State<GuestListScreen> {
           padding: const EdgeInsets.only(right: 12),
           child: SizedBox(
             height: 40,
+            width: 250,
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(

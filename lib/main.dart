@@ -14,18 +14,5 @@ void main() async {
   }
   await seedSampleVendors();
 
-  runApp(const VendorPortalApp());
-}
-
-class VendorPortalApp extends StatelessWidget {
-  const VendorPortalApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-
-      home: const EventPlanningApp(),
-    );
-  }
+  runApp(const EventPlanningApp()); // ✅ run this directly
 }
