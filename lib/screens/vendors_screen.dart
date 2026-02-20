@@ -93,6 +93,7 @@ class _VendorsScreenState extends State<VendorsScreen> {
           padding: const EdgeInsets.only(right: 12),
           child: SizedBox(
             height: 40,
+            width: 250,
             child: TextField(
               controller: _searchController,
               onChanged: (value) => _filterVendors(),
@@ -125,7 +126,7 @@ class _VendorsScreenState extends State<VendorsScreen> {
                 //category tabs
                 Container(
                   height: 60,
-                  color: Colors.white,
+                  color: const Color(0xFFF0F0D8),
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -140,6 +141,7 @@ class _VendorsScreenState extends State<VendorsScreen> {
                           top: 8,
                           bottom: 8,
                         ),
+
                         child: GestureDetector(
                           onTap: () => _selectCategory(category),
                           child: Container(
@@ -151,18 +153,23 @@ class _VendorsScreenState extends State<VendorsScreen> {
                               color: isSelected
                                   ? const Color(0xFF586041)
                                   : Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                width: 0.8,
+                                color: Color(0xFF586041),
+                              ),
+                              borderRadius: BorderRadius.circular(40),
                             ),
+
                             child: Center(
                               child: Text(
                                 category,
                                 style: TextStyle(
                                   color: isSelected
                                       ? Colors.white
-                                      : Colors.black87,
+                                      : Color(0xFF586041),
                                   fontWeight: isSelected
                                       ? FontWeight.bold
-                                      : FontWeight.normal,
+                                      : FontWeight.bold,
                                 ),
                               ),
                             ),
