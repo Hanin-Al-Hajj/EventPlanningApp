@@ -154,7 +154,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _deleteEvent(Event event) async {
-    print('>>> USER DELETED EVENT: ${event.title}');
+    print('>>> user deleted event: ${event.title}');
 
     await deleteEvent(event);
 
