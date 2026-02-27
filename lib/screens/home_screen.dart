@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/widgets/event_card.dart';
 import 'package:event_planner/db/event_storage.dart';
-import 'package:path/path.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -99,7 +98,7 @@ class _HomeScreenState extends State<HomeScreen> {
       print('Error refreshing events: $e');
       if (mounted) {
         ScaffoldMessenger.of(
-          context as BuildContext,
+          context,
         ).showSnackBar(SnackBar(content: Text('Error loading events: $e')));
       }
     } finally {
@@ -113,7 +112,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _navigateToCreateEvent() async {
     final newEvent = await Navigator.push<Event>(
-      context as BuildContext,
+      context,
       MaterialPageRoute(builder: (context) => const CreateEventScreen()),
     );
 
@@ -136,7 +135,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _editEvent(Event event) async {
     final updatedEvent = await Navigator.push<Event>(
-      context as BuildContext,
+      context,
       MaterialPageRoute(
         builder: (context) => CreateEventScreen(eventToEdit: event),
       ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:intl/intl.dart';
-import 'package:event_planner/screens/event_detail_screen.dart';
+import 'package:event_planner/screens/guestlist_screen.dart';
 
 class EventCard extends StatelessWidget {
   const EventCard({
@@ -105,7 +105,8 @@ class EventCard extends StatelessWidget {
           await Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => EventDetailsScreen(event: event),
+              builder: (context) =>
+                  GuestListScreen(eventID: event.id, eventName: event.title),
             ),
           );
 

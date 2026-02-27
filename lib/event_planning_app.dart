@@ -1,6 +1,4 @@
-//import "package:event_planner/screens/home_screen.dart";
-//import 'package:event_planner/screens/login_screen.dart';
-import 'package:event_planner/screens/tab_bar_screen.dart';
+import 'package:event_planner/screens/SignUp_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 
@@ -45,7 +43,7 @@ class _EventPlanningAppState extends State<EventPlanningApp> {
         scaffoldBackgroundColor: Color(0xFFF0F0D8),
       ),
 
-      home: const TabsScreen(),
+      home: const SignUpScreen(),
 
       /*HomeScreen(
         onAddEvent: _addNewEvent,
