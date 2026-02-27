@@ -77,6 +77,15 @@ class EventDatabase {
           description TEXT
         )
       ''');
+        await db.execute('''
+  CREATE TABLE users(
+    id TEXT PRIMARY KEY,
+    fullName TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    role TEXT NOT NULL
+  )
+''');
       },
 
       onUpgrade: (db, oldVersion, newVersion) async {
@@ -156,12 +165,23 @@ class EventDatabase {
           )
         ''');
         }
+        if (oldVersion < 12) {
+          await db.execute('''
+    CREATE TABLE IF NOT EXISTS users(
+      id TEXT PRIMARY KEY,
+      fullName TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      role TEXT NOT NULL
+    )
+  ''');
+        }
 
-        if (oldVersion < 11) {
+        if (oldVersion < 12) {
           await db.execute('ALTER TABLE events ADD COLUMN eventType TEXT');
         }
       },
-      version: 11,
+      version: 12,
     );
 
     return db;
