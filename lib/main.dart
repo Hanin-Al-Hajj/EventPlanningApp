@@ -1,5 +1,4 @@
 import 'dart:io';
-
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:event_planner/event_planning_app.dart';
 import 'package:flutter/material.dart';

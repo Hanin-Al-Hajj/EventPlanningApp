@@ -68,7 +68,10 @@ class _TabsScreenState extends State<TabsScreen> {
       body: activePage,
       bottomNavigationBar: BottomNavigationBar(
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.cottage), label: 'Home'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_rounded),
+            label: 'Home',
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.article_rounded),
             label: 'Summary',

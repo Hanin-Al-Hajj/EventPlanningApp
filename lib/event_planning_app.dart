@@ -1,6 +1,5 @@
-//import "package:event_planner/screens/home_screen.dart";
-//import 'package:event_planner/screens/login_screen.dart';
-import 'package:event_planner/screens/tab_bar_screen.dart';
+import 'package:event_planner/screens/SignUp_screen.dart';
+import 'package:event_planner/screens/login_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 
@@ -41,18 +40,13 @@ class _EventPlanningAppState extends State<EventPlanningApp> {
       title: 'EventFlow',
       theme: ThemeData(
         primarySwatch: Colors.green,
-
         scaffoldBackgroundColor: Color(0xFFF0F0D8),
       ),
-
-      home: const TabsScreen(),
-
-      /*HomeScreen(
-        onAddEvent: _addNewEvent,
-        onDeleteEvent: _deleteEvent,
-        onUpdateEvent: _updateEvent,
-        registeredEvents: registeredEvents,
-      ),*/
+      initialRoute: '/login',
+      routes: {
+        '/login': (context) => const LoginScreen(),
+        '/signup': (context) => const SignUpScreen(),
+      },
       debugShowCheckedModeBanner: false,
     );
   }

@@ -33,9 +33,9 @@ class EventDatabase {
           eventId TEXT NOT NULL,
           name TEXT NOT NULL,
           email TEXT,
-          tableNumber TEXT,
+          tableNumber INTEGER,
           status TEXT NOT NULL,
-          phoneNumber TEXT,
+          phoneNumber INTEGER,
           plusOnes INTEGER,
           FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
         )
@@ -77,6 +77,15 @@ class EventDatabase {
           description TEXT
         )
       ''');
+        await db.execute('''
+  CREATE TABLE users(
+    id TEXT PRIMARY KEY,
+    fullName TEXT NOT NULL,
+    email TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL,
+    role TEXT NOT NULL
+  )
+''');
       },
 
       onUpgrade: (db, oldVersion, newVersion) async {
@@ -87,9 +96,9 @@ class EventDatabase {
             eventId TEXT NOT NULL,
             name TEXT NOT NULL,
             email TEXT,
-            tableNumber TEXT,
+            tableNumber INTEGER,
             status TEXT NOT NULL,
-            phoneNumber TEXT,
+            phoneNumber INTEGER,
             plusOnes INTEGER,
             FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
           )
@@ -104,9 +113,9 @@ class EventDatabase {
             eventId TEXT NOT NULL,
             name TEXT NOT NULL,
             email TEXT,
-            tableNumber TEXT,
+            tableNumber INTEGER,
             status TEXT NOT NULL,
-            phoneNumber TEXT,
+            phoneNumber INTEGER,
             plusOnes INTEGER,
             FOREIGN KEY (eventId) REFERENCES events (id) ON DELETE CASCADE
           )
@@ -156,12 +165,30 @@ class EventDatabase {
           )
         ''');
         }
+        if (oldVersion < 12) {
+          await db.execute('''
+    CREATE TABLE IF NOT EXISTS users(
+      id TEXT PRIMARY KEY,
+      fullName TEXT NOT NULL,
+      email TEXT NOT NULL UNIQUE,
+      password TEXT NOT NULL,
+      role TEXT NOT NULL
+    )
+  ''');
+        }
 
-        if (oldVersion < 11) {
-          await db.execute('ALTER TABLE events ADD COLUMN eventType TEXT');
+        if (oldVersion < 13) {
+          final columns = await db.rawQuery('PRAGMA table_info(events)');
+          bool hasEventType = columns.any(
+            (col) => (col['name'] as String).toLowerCase() == 'eventtype',
+          );
+          if (!hasEventType) {
+            await db.execute('ALTER TABLE events ADD COLUMN eventType TEXT');
+          }
         }
       },
-      version: 11,
+
+      version: 13,
     );
 
     return db;
