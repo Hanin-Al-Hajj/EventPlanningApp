@@ -70,7 +70,6 @@ class GuestStorage {
     };
   }
 
- 
   static Future<List<Guest>> searchGuests(String eventId, String query) async {
     final db = await _database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -83,7 +82,6 @@ class GuestStorage {
     return List.generate(maps.length, (i) => Guest.fromMap(maps[i]));
   }
 
-  
   static Future<int> getGuestCount(String eventId) async {
     final db = await _database;
     final result = await db.rawQuery(

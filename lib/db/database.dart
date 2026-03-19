@@ -177,6 +177,7 @@ class EventDatabase {
   ''');
         }
 
+
         if (oldVersion < 13) {
           final columns = await db.rawQuery('PRAGMA table_info(events)');
           bool hasEventType = columns.any(
@@ -189,6 +190,7 @@ class EventDatabase {
       },
 
       version: 13,
+
     );
 
     return db;

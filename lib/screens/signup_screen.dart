@@ -1,4 +1,6 @@
+
 import 'package:event_planner/screens/eventplannerDashboard.dart';
+
 import 'package:flutter/material.dart';
 import 'package:event_planner/db/User_storage.dart';
 import 'package:event_planner/screens/tab_bar_screen.dart';
@@ -19,6 +21,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _passwordController = TextEditingController();
   bool show_pass = true;
   String? _selectedRole;
+
   String? _passwordError;
 
   @override
@@ -32,11 +35,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
   InputDecoration _inputDecoration(String hint, IconData icon) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(
+            hintStyle: TextStyle(
         color: Color.fromARGB(255, 44, 77, 44),
         fontSize: 15,
       ),
       prefixIcon: Icon(icon, color: Color.fromARGB(255, 61, 104, 61), size: 20),
+
       filled: true,
       fillColor: Colors.white,
       border: OutlineInputBorder(
@@ -59,18 +63,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
         decoration: BoxDecoration(
+
           color: isSelected ? Color.fromARGB(255, 36, 58, 36) : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected
                 ? Color.fromARGB(255, 36, 58, 36)
                 : Colors.transparent,
-            width: 2,
+        width: 2,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
+
                     color: Color(0xFF2D4A2D).withOpacity(0.3),
+
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -80,11 +87,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+
             Icon(
               icon,
               size: 28,
               color: isSelected ? Colors.white : Color(0xFF4A7C4A),
             ),
+
             const SizedBox(height: 6),
             Text(
               label,
@@ -92,6 +101,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 color: isSelected
                     ? Colors.white
                     : Color.fromARGB(255, 29, 53, 29),
+
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
               ),
@@ -113,6 +123,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
       return;
     }
+
     if (password.length < 6) {
       setState(() {
         _passwordError = 'Password must be at least 6 characters';
@@ -145,6 +156,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       );
       return;
     }
+
     if (_selectedRole == 'eventplanner') {
       Navigator.pushReplacement(
         context,
@@ -156,12 +168,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
         MaterialPageRoute(builder: (context) => const TabsScreen()),
       );
     }
+
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
+
         decoration: const BoxDecoration(
           image: DecorationImage(
             image: AssetImage('assets/images/mobile.jpg'),
@@ -316,10 +330,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 17,
+
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
+
 
                       const SizedBox(height: 20),
 
@@ -346,6 +362,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                     ],
                   ),
+
                 ),
               ),
             ),

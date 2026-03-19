@@ -141,7 +141,7 @@ class Guestcard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
 
-                    //table number 
+                    //table number
                     if (guest.tableNumber != null &&
                         guest.tableNumber!.isNotEmpty) ...[
                       Row(

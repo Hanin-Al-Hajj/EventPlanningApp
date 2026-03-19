@@ -13,5 +13,5 @@ void main() async {
   }
   await seedSampleVendors();
 
-  runApp(const EventPlanningApp()); 
+  runApp(const EventPlanningApp());
 }
