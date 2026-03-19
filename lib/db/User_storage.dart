@@ -17,12 +17,11 @@ class User_storage {
         'id': id,
         'fullName': fullName,
         'email': email,
-        'password': password, // hash this in production!
+        'password': password,
         'role': role,
       });
       return id;
     } catch (e) {
-      // e.g. UNIQUE constraint on email
       return null;
     }
   }
@@ -36,5 +35,30 @@ class User_storage {
       limit: 1,
     );
     return results.isNotEmpty ? results.first : null;
+  }
+
+  Future<Map<String, dynamic>> loginUser({
+    required String email,
+    required String password,
+  }) async {
+    final db = await _db.getDatabase();
+
+    final result = await db.query(
+      'users',
+      where: 'email = ?',
+      whereArgs: [email],
+    );
+
+    if (result.isEmpty) {
+      return {'status': 'no_user'};
+    }
+
+    final user = result.first;
+
+    if (user['password'] != password) {
+      return {'status': 'wrong_password'};
+    }
+
+    return {'status': 'success', 'user': user};
   }
 }
