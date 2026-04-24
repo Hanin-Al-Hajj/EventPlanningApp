@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/widgets/event_card.dart';
 import 'package:event_planner/db/event_storage.dart';
+import 'package:event_planner/constants/app_colors.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -205,7 +206,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                 //header
                 child: Container(
-                  decoration: const BoxDecoration(color: Color(0xFF586041)),
+                  decoration: const BoxDecoration(color: AppColors.cream),
                   child: Column(
                     children: [
                       SizedBox(height: 20),
@@ -216,7 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             const Text(
                               'EventFlow',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: AppColors.darkpink,
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -226,7 +227,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
                             const Icon(
                               Icons.notifications_outlined,
-                              color: Colors.white,
+                              color: AppColors.darkpink,
                             ),
                           ],
                         ),
@@ -242,7 +243,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: const TextStyle(color: Colors.black),
                           decoration: InputDecoration(
                             hintText: 'Search events...',
+                            hintStyle: const TextStyle(color: AppColors.coral),
                             prefixIcon: const Icon(Icons.search),
+                            prefixIconColor: AppColors.coral,
                             filled: true,
                             fillColor: Colors.white,
                             contentPadding: const EdgeInsets.symmetric(
@@ -282,7 +285,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         height: 110,
                                         padding: const EdgeInsets.all(16),
                                         decoration: BoxDecoration(
-                                          color: Colors.white,
+                                          color: AppColors.coral,
                                           borderRadius: BorderRadius.circular(
                                             12,
                                           ),
@@ -301,14 +304,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                               style: const TextStyle(
                                                 fontSize: 28,
                                                 fontWeight: FontWeight.bold,
-                                                color: Color(0xFF151910),
+                                                color: Colors.white,
                                               ),
                                             ),
                                             const Text(
                                               'Active Events',
                                               style: TextStyle(
                                                 fontSize: 12,
-                                                color: Colors.grey,
+                                                color: Colors.white,
                                               ),
                                             ),
                                           ],
@@ -321,7 +324,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         height: 110,
                                         padding: const EdgeInsets.all(16),
                                         decoration: BoxDecoration(
-                                          color: Colors.white,
+                                          color: AppColors.coral,
                                           borderRadius: BorderRadius.circular(
                                             12,
                                           ),
@@ -340,14 +343,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                               style: const TextStyle(
                                                 fontSize: 28,
                                                 fontWeight: FontWeight.bold,
-                                                color: Color(0xFF151910),
+                                                color: Colors.white,
                                               ),
                                             ),
                                             const Text(
                                               'Days Until Next Event',
                                               style: TextStyle(
                                                 fontSize: 12,
-                                                color: Colors.grey,
+                                                color: Colors.white,
                                               ),
                                             ),
                                           ],
@@ -367,6 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
+                                        color: AppColors.darkpink,
                                       ),
                                     ),
                                     if (_filteredEvents.isNotEmpty)
@@ -374,7 +378,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         'Swipe Card',
                                         style: TextStyle(
                                           fontSize: 12,
-                                          color: Colors.grey.shade500,
+                                          color: AppColors.coral,
                                           fontStyle: FontStyle.italic,
                                         ),
                                       ),
@@ -382,12 +386,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     TextButton(
                                       onPressed: _navigateToCreateEvent,
                                       style: TextButton.styleFrom(
-                                        backgroundColor: Color.fromARGB(
-                                          255,
-                                          151,
-                                          15,
-                                          15,
-                                        ),
+                                        backgroundColor: AppColors.darkpink,
                                         foregroundColor: Colors.white,
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 20,

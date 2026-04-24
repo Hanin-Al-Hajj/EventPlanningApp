@@ -25,6 +25,7 @@ Future<List<Event>> loadEvents() async {
       progress: (row['progress'] as num?)?.toDouble() ?? 0.0,
       status: (row['status'] as String?) ?? 'Planning',
       eventType: row['eventType'] as String?,
+      description: row['description'] as String?,
     );
   }).toList();
 
@@ -172,6 +173,7 @@ Future<List<Event>> loadUpcomingEvents() async {
       progress: (row['progress'] as num?)?.toDouble() ?? 0.0,
       status: (row['status'] as String?) ?? 'Planning',
       eventType: row['eventType'] as String?,
+      description: row['description'] as String?,
     );
   }).toList();
 

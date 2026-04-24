@@ -5,6 +5,7 @@ import 'package:event_planner/screens/summary_detail.dart';
 import 'package:event_planner/screens/home_screen.dart';
 import 'package:event_planner/screens/system_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:event_planner/constants/app_colors.dart';
 
 class TabsScreen extends StatefulWidget {
   const TabsScreen({super.key});
@@ -92,9 +93,9 @@ class _TabsScreenState extends State<TabsScreen> {
         onTap: _selectPage,
         currentIndex: _selectedIndex,
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: const Color.fromARGB(255, 72, 78, 53),
-        unselectedItemColor: const Color.fromARGB(255, 162, 165, 162),
-        backgroundColor: const Color.fromARGB(255, 250, 247, 234),
+        selectedItemColor: AppColors.darkpink,
+        unselectedItemColor: AppColors.darkpink,
+        backgroundColor: AppColors.cream,
       ),
     );
   }

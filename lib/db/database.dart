@@ -24,7 +24,7 @@ class EventDatabase {
       join(dbPath, 'eventflow.db'),
       onCreate: (db, version) async {
         await db.execute(
-          'CREATE TABLE events(id TEXT PRIMARY KEY, title TEXT, date INT, location TEXT, guests INT, budget DOUBLE, progress DOUBLE, status TEXT, eventType TEXT)',
+          'CREATE TABLE events(id TEXT PRIMARY KEY,title TEXT,date INT, location TEXT, guests INT, budget DOUBLE, progress DOUBLE, status TEXT, eventType TEXT, description TEXT)',
         );
 
         await db.execute('''
@@ -177,7 +177,6 @@ class EventDatabase {
   ''');
         }
 
-
         if (oldVersion < 13) {
           final columns = await db.rawQuery('PRAGMA table_info(events)');
           bool hasEventType = columns.any(
@@ -187,10 +186,18 @@ class EventDatabase {
             await db.execute('ALTER TABLE events ADD COLUMN eventType TEXT');
           }
         }
+        if (oldVersion < 14) {
+          final columns = await db.rawQuery('PRAGMA table_info(events)');
+          bool hasDescription = columns.any(
+            (col) => (col['name'] as String).toLowerCase() == 'description',
+          );
+          if (!hasDescription) {
+            await db.execute('ALTER TABLE events ADD COLUMN description TEXT');
+          }
+        }
       },
 
-      version: 13,
-
+      version: 14,
     );
 
     return db;

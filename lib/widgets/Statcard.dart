@@ -6,10 +6,12 @@ class Statcard extends StatelessWidget {
     required this.count,
     required this.color,
     required this.label,
+    required this.textColor,
   });
   final int count;
   final String label;
   final Color color;
+  final Color textColor;
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -22,16 +24,13 @@ class Statcard extends StatelessWidget {
         children: [
           Text(
             '$count',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF151910),
+              color: textColor,
             ),
           ),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 12, color: Colors.black54),
-          ),
+          Text(label, style: TextStyle(fontSize: 12, color: textColor)),
         ],
       ),
     );

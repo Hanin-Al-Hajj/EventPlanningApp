@@ -8,6 +8,7 @@ class Event {
   final double progress;
   final String status;
   final String? eventType;
+  final String? description;
 
   Event({
     required this.id,
@@ -19,9 +20,9 @@ class Event {
     required this.progress,
     required this.status,
     this.eventType,
+    this.description,
   });
-  
-  
+
   Map<String, dynamic> get eventMap {
     return {
       'id': id,
@@ -33,6 +34,7 @@ class Event {
       'progress': progress,
       'status': status,
       'eventType': eventType,
+      'description': description,
     };
   }
 }
