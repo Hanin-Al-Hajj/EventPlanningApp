@@ -16,11 +16,11 @@ class Guestcard extends StatelessWidget {
   Color _getStatusColor() {
     switch (guest.status) {
       case GuestStatus.accepted:
-        return const Color(0xFF545A3B);
+        return Colors.green.shade100;
       case GuestStatus.declined:
-        return Colors.grey.shade800;
+        return Colors.red.shade100;
       case GuestStatus.pending:
-        return Colors.orange.shade700;
+        return Colors.orange.shade100;
     }
   }
 

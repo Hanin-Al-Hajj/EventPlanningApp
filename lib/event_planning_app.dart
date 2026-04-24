@@ -1,7 +1,7 @@
 import 'package:event_planner/screens/SignUp_screen.dart';
 
 import 'package:event_planner/screens/login_screen.dart';
-
+import 'package:event_planner/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 
@@ -42,7 +42,7 @@ class _EventPlanningAppState extends State<EventPlanningApp> {
       title: 'EventFlow',
       theme: ThemeData(
         primarySwatch: Colors.green,
-        scaffoldBackgroundColor: Color(0xFFF0F0D8),
+        scaffoldBackgroundColor: AppColors.cream,
       ),
 
       initialRoute: '/login',
@@ -50,7 +50,7 @@ class _EventPlanningAppState extends State<EventPlanningApp> {
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignUpScreen(),
       },
-    debugShowCheckedModeBanner: false,
+      debugShowCheckedModeBanner: false,
     );
   }
 }

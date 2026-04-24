@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:event_planner/widgets/GuestCard.dart';
 import 'package:event_planner/widgets/Statcard.dart';
 import 'package:event_planner/db/event_storage.dart';
+import 'package:event_planner/constants/app_colors.dart';
 
 class GuestListScreen extends StatefulWidget {
   const GuestListScreen({
@@ -145,12 +146,12 @@ class _GuestlistScreenState extends State<GuestListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F0D8),
+      backgroundColor: AppColors.cream,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF586041),
+        backgroundColor: AppColors.cream,
         titleSpacing: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: AppColors.darkpink),
           onPressed: () => Navigator.pop(context),
         ),
         title: Padding(
@@ -162,8 +163,8 @@ class _GuestlistScreenState extends State<GuestListScreen> {
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search guests...',
-                hintStyle: TextStyle(color: Colors.grey.shade500),
-                prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
+                hintStyle: TextStyle(color: AppColors.coral),
+                prefixIcon: Icon(Icons.search, color: AppColors.coral),
                 filled: true,
                 fillColor: Colors.white,
                 contentPadding: const EdgeInsets.symmetric(
@@ -189,9 +190,13 @@ class _GuestlistScreenState extends State<GuestListScreen> {
                 height: 35,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 2),
+                  border: Border.all(color: AppColors.darkpink, width: 2),
                 ),
-                child: const Icon(Icons.add, color: Colors.white, size: 24),
+                child: const Icon(
+                  Icons.add,
+                  color: AppColors.darkpink,
+                  size: 24,
+                ),
               ),
             ),
           ),
@@ -216,6 +221,7 @@ class _GuestlistScreenState extends State<GuestListScreen> {
                           count: acceptedCount,
                           label: 'Accepted',
                           color: Colors.green.shade100,
+                          textColor: AppColors.green,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -224,6 +230,7 @@ class _GuestlistScreenState extends State<GuestListScreen> {
                           count: declinedCount,
                           label: 'Declined',
                           color: Colors.red.shade100,
+                          textColor: AppColors.darkpink,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -232,6 +239,7 @@ class _GuestlistScreenState extends State<GuestListScreen> {
                           count: pendingCount,
                           label: 'Pending',
                           color: Colors.orange.shade100,
+                          textColor: const Color.fromARGB(255, 226, 104, 67),
                         ),
                       ),
                     ],
@@ -247,7 +255,7 @@ class _GuestlistScreenState extends State<GuestListScreen> {
                         child: ElevatedButton(
                           onPressed: _importFromExcel,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF545A3B),
+                            backgroundColor: AppColors.darkpink,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
@@ -262,8 +270,8 @@ class _GuestlistScreenState extends State<GuestListScreen> {
                         child: OutlinedButton(
                           onPressed: _sendInvites,
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF545A3B),
-                            side: const BorderSide(color: Color(0xFF545A3B)),
+                            foregroundColor: AppColors.darkpink,
+                            side: const BorderSide(color: AppColors.darkpink),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(8),

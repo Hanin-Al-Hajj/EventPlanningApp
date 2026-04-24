@@ -1,5 +1,6 @@
 import 'package:event_planner/models/Guest.dart';
 import 'package:flutter/material.dart';
+import 'package:event_planner/constants/app_colors.dart';
 
 class AddGuestDialog extends StatefulWidget {
   const AddGuestDialog({super.key, this.guest, required this.onAdd});
@@ -98,7 +99,11 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.guest == null ? 'Add Guest' : 'Edit Guest'),
+      backgroundColor: AppColors.cream,
+      title: Text(
+        widget.guest == null ? 'Add Guest' : 'Edit Guest',
+        style: TextStyle(color: AppColors.darkpink),
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -107,6 +112,7 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
               controller: _nameController,
               decoration: InputDecoration(
                 labelText: 'Name *',
+                labelStyle: TextStyle(color: AppColors.burgundy),
                 border: OutlineInputBorder(),
                 errorText: _nameError,
               ),
@@ -123,6 +129,7 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
               controller: _emailContoller,
               decoration: const InputDecoration(
                 labelText: 'Email',
+                labelStyle: TextStyle(color: AppColors.burgundy),
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.emailAddress,
@@ -132,6 +139,7 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
               controller: _phoneController,
               decoration: InputDecoration(
                 labelText: 'Phone Number *',
+                labelStyle: TextStyle(color: AppColors.burgundy),
                 border: OutlineInputBorder(),
                 errorText: _phoneError,
               ),
@@ -149,6 +157,7 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
               controller: _tableController,
               decoration: const InputDecoration(
                 labelText: 'Table Number',
+                labelStyle: TextStyle(color: AppColors.burgundy),
                 border: OutlineInputBorder(),
               ),
             ),
@@ -157,6 +166,7 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
               controller: _plusOnesController,
               decoration: const InputDecoration(
                 labelText: 'Plus Ones',
+                labelStyle: TextStyle(color: AppColors.burgundy),
                 border: OutlineInputBorder(),
               ),
               keyboardType: TextInputType.number,
@@ -168,12 +178,15 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
+          child: const Text(
+            'Cancel',
+            style: TextStyle(color: AppColors.darkpink),
+          ),
         ),
         ElevatedButton(
           onPressed: _save,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF545A3B),
+            backgroundColor: AppColors.darkpink,
             foregroundColor: Colors.white,
           ),
           child: const Text('Save'),

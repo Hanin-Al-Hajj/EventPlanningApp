@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:intl/intl.dart';
+import 'package:event_planner/constants/app_colors.dart';
 
 class CreateEventScreen extends StatefulWidget {
   const CreateEventScreen({super.key, this.eventToEdit});
@@ -16,6 +17,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final _eventNameController = TextEditingController();
   final _guestsController = TextEditingController();
   final _budgetController = TextEditingController();
+  final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
 
   String? _selectedEventType;
@@ -31,6 +33,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
       _locationController.text = widget.eventToEdit!.location;
       _selectedDate = widget.eventToEdit!.date;
       _selectedEventType = widget.eventToEdit!.eventType;
+      _descriptionController.text = widget.eventToEdit!.description ?? '';
     }
   }
 
@@ -38,9 +41,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     'Wedding',
     'Birthday',
     'Corporate',
-    'Conference',
-    'Party',
-    'Other',
+    'Anniversary',
+    'Gender Reveal',
+    'Graduation',
   ];
 
   @override
@@ -49,6 +52,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     _guestsController.dispose();
     _budgetController.dispose();
     _locationController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -62,7 +66,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: const ColorScheme.light(
-              primary: Color(0xFF586041),
+              primary: AppColors.burgundy,
               onPrimary: Colors.white,
               onSurface: Color(0xFF151910),
             ),
@@ -116,282 +120,329 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.eventToEdit != null;
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF586041),
-        foregroundColor: Colors.white,
-        title: Text(isEditing ? 'Edit Event' : 'Create New Event'),
-        elevation: 0,
-      ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    var column = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // event type matra7 ldropdawn
+        const Text(
+          'Event Type',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.burgundy,
+          ),
+        ),
+        const SizedBox(height: 8),
+
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+
+          child: DropdownButtonFormField<String>(
+            iconEnabledColor: AppColors.darkpink,
+            hint: const Text(
+              'Select event type',
+              style: TextStyle(color: AppColors.darkpink),
+            ),
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              border: InputBorder.none,
+            ),
+
+            value: _selectedEventType,
+            items: _eventTypes.map((type) {
+              return DropdownMenuItem(
+                value: type,
+                child: Text(
+                  type,
+                  style: TextStyle(
+                    color: AppColors.burgundy,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              );
+            }).toList(),
+            onChanged: (value) {
+              setState(() {
+                _selectedEventType = value;
+              });
+            },
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // event name luser bina2e
+        const Text(
+          'Event Name',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.burgundy,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: TextFormField(
+            controller: _eventNameController,
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              border: InputBorder.none,
+              hintText: 'Enter event name',
+              hintStyle: TextStyle(color: AppColors.darkpink),
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter an event name';
+              }
+              return null;
+            },
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // event date
+        const Text(
+          'Event Date',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.burgundy,
+          ),
+        ),
+        const SizedBox(height: 8),
+        InkWell(
+          onTap: _selectDate,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // event type matra7 ldropdawn
-                const Text(
-                  'Event Type',
+                Text(
+                  _selectedDate == null
+                      ? 'Select event date'
+                      : DateFormat('MMM dd, yyyy').format(_selectedDate!),
                   style: TextStyle(
+                    color: _selectedDate == null
+                        ? AppColors.darkpink
+                        : AppColors.darkpink,
                     fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF151910),
                   ),
                 ),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      border: InputBorder.none,
-                      hintText: 'Select event type',
-                    ),
-                    // ignore: deprecated_member_use
-                    value: _selectedEventType,
-                    items: _eventTypes.map((type) {
-                      return DropdownMenuItem(value: type, child: Text(type));
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedEventType = value;
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // event name luser bina2e
-                const Text(
-                  'Event Name',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF151910),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: TextFormField(
-                    controller: _eventNameController,
-                    decoration: const InputDecoration(
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      border: InputBorder.none,
-                      hintText: 'Enter event name',
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter an event name';
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // event date
-                const Text(
-                  'Event Date',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF151910),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                InkWell(
-                  onTap: _selectDate,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          _selectedDate == null
-                              ? 'Select event date'
-                              : DateFormat(
-                                  'MMM dd, yyyy',
-                                ).format(_selectedDate!),
-                          style: TextStyle(
-                            color: _selectedDate == null
-                                ? Colors.grey.shade600
-                                : const Color(0xFF151910),
-                            fontSize: 16,
-                          ),
-                        ),
-                        const Icon(
-                          Icons.calendar_today,
-                          color: Color(0xFF586041),
-                          size: 20,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // location
-                const Text(
-                  'Location (Optional)',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF151910),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: TextFormField(
-                    controller: _locationController,
-                    decoration: const InputDecoration(
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      border: InputBorder.none,
-                      hintText: 'Enter location',
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // nb of guests
-                const Text(
-                  'Number of Guests',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF151910),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: TextFormField(
-                    controller: _guestsController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      border: InputBorder.none,
-                      hintText: 'Enter number of guests',
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter number of guests';
-                      }
-                      if (int.tryParse(value) == null) {
-                        return 'Please enter a valid number';
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // budget
-                const Text(
-                  'Budget',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF151910),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: TextFormField(
-                    controller: _budgetController,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                      border: InputBorder.none,
-                      hintText: 'Enter budget',
-                      prefixText: '\$ ',
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter a budget';
-                      }
-                      if (double.tryParse(value) == null) {
-                        return 'Please enter a valid amount';
-                      }
-                      return null;
-                    },
-                  ),
-                ),
-                const SizedBox(height: 32),
-
-                // matra7 lsave button
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: _saveEvent,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF586041),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      isEditing ? 'Update Event' : 'Save Event',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+                const Icon(
+                  Icons.calendar_today,
+                  color: AppColors.burgundy,
+                  size: 20,
                 ),
               ],
             ),
           ),
+        ),
+        const SizedBox(height: 20),
+
+        // location
+        const Text(
+          'Location (Optional)',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.burgundy,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: TextFormField(
+            controller: _locationController,
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              border: InputBorder.none,
+              hintText: 'Enter location',
+              hintStyle: TextStyle(color: AppColors.darkpink),
+            ),
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // nb of guests
+        const Text(
+          'Number of Guests',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.burgundy,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: TextFormField(
+            controller: _guestsController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              border: InputBorder.none,
+              hintText: 'Enter number of guests',
+              hintStyle: TextStyle(color: AppColors.darkpink),
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter number of guests';
+              }
+              if (int.tryParse(value) == null) {
+                return 'Please enter a valid number';
+              }
+              return null;
+            },
+          ),
+        ),
+        const SizedBox(height: 20),
+
+        // budget
+        const Text(
+          'Budget',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.burgundy,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: TextFormField(
+            controller: _budgetController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              border: InputBorder.none,
+              hintText: 'Enter budget',
+              hintStyle: TextStyle(color: AppColors.darkpink),
+              prefixText: '\$ ',
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return 'Please enter a budget';
+              }
+              if (double.tryParse(value) == null) {
+                return 'Please enter a valid amount';
+              }
+              return null;
+            },
+          ),
+        ),
+        const SizedBox(height: 32),
+        const Text(
+          'Description (Optional)',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: AppColors.burgundy,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: TextFormField(
+            controller: _descriptionController,
+            maxLines: 4,
+            decoration: const InputDecoration(
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+
+              border: InputBorder.none,
+              hintText: 'Add any notes or details about the event...',
+              hintStyle: TextStyle(color: AppColors.darkpink),
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 32),
+
+        // matra7 lsave button
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton(
+            onPressed: _saveEvent,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.darkpink,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+            ),
+            child: Text(
+              isEditing ? 'Update Event' : 'Save Event',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+      ],
+    );
+    return Scaffold(
+      backgroundColor: AppColors.cream,
+      appBar: AppBar(
+        backgroundColor: AppColors.cream,
+        foregroundColor: AppColors.burgundy,
+        titleSpacing: 40,
+        title: Text(
+          isEditing ? 'Edit Event' : 'Create New Event',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        elevation: 0,
+      ),
+
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Form(key: _formKey, child: column),
         ),
       ),
     );

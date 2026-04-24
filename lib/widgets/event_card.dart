@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:intl/intl.dart';
 import 'package:event_planner/screens/guestlist_screen.dart';
+import 'package:event_planner/constants/app_colors.dart';
 
 class EventCard extends StatelessWidget {
   const EventCard({
@@ -27,6 +28,25 @@ class EventCard extends StatelessWidget {
         return const Color(0xFF42A5F5); // Blue
       default:
         return Colors.grey;
+    }
+  }
+
+  String getEventBackgroundImage() {
+    switch (event.eventType) {
+      case "Wedding":
+        return "assets/images/wedding.jpeg";
+      case "Birthday":
+        return "assets/images/birthday.jpg";
+      case "Corporate":
+        return "assets/images/corporate.jpeg";
+      case "Anniversary":
+        return "assets/images/anniversary.jpeg";
+      case "Gender Reveal":
+        return "assets/images/gender.jpeg";
+      case "Graduation":
+        return "assets/images/grad.jpg";
+      default:
+        return "";
     }
   }
 
@@ -56,19 +76,19 @@ class EventCard extends StatelessWidget {
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.only(left: 20),
         decoration: BoxDecoration(
-          color: const Color(0xFF586041),
+          color: AppColors.coral,
 
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.edit, color: Colors.white, size: 28),
+            Icon(Icons.edit, color: AppColors.burgundy, size: 28),
             SizedBox(width: 8),
             Text(
               'Edit',
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.burgundy,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -80,7 +100,7 @@ class EventCard extends StatelessWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
-          color: Colors.red,
+          color: AppColors.burgundy,
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Row(
@@ -90,13 +110,13 @@ class EventCard extends StatelessWidget {
             Text(
               'Delete',
               style: TextStyle(
-                color: Colors.white,
+                color: AppColors.coral,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
             ),
             SizedBox(width: 8),
-            Icon(Icons.delete, color: Colors.white, size: 28),
+            Icon(Icons.delete, color: AppColors.coral, size: 28),
           ],
         ),
       ),
@@ -116,12 +136,21 @@ class EventCard extends StatelessWidget {
           }
         },
         child: Container(
+          height: 140,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey.shade300),
+            image: DecorationImage(
+              image: AssetImage(getEventBackgroundImage()),
+              fit: BoxFit.cover,
+              colorFilter: ColorFilter.mode(
+                Colors.black.withOpacity(0.45),
+                BlendMode.darken,
+              ),
+            ),
           ),
+
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -136,7 +165,7 @@ class EventCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF151910),
+                        color: Colors.white,
                       ),
                     ),
                   ),
@@ -156,7 +185,7 @@ class EventCard extends StatelessWidget {
                       style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: Color.fromARGB(255, 255, 255, 255),
+                        color: Colors.white,
                       ),
                     ),
                   ),
@@ -167,7 +196,7 @@ class EventCard extends StatelessWidget {
               // Date and Location
               Text(
                 '${DateFormat('MMM dd, yyyy').format(event.date)} • ${event.location}',
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 13, color: Colors.white70),
               ),
               const SizedBox(height: 8),
 
@@ -176,40 +205,12 @@ class EventCard extends StatelessWidget {
                 children: [
                   Text(
                     '${event.guests} Guests',
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 13, color: Colors.white70),
                   ),
                   const SizedBox(width: 16),
                   Text(
                     '\$${event.budget.toStringAsFixed(0)} Budget',
-                    style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Progress Bar
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${(event.progress * 100).toInt()}% Complete',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: event.progress,
-                      backgroundColor: Colors.grey.shade200,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        Color(0xFF586041),
-                      ),
-                      minHeight: 6,
-                    ),
+                    style: TextStyle(fontSize: 13, color: Colors.white70),
                   ),
                 ],
               ),
