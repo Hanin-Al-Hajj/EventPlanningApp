@@ -116,12 +116,10 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
         backgroundColor: const Color(0xFFF5F5DC),
         appBar: _tabController.index == 0
             ? AppBar(
-              
                 backgroundColor: const Color(0xFF586041),
                 foregroundColor: Colors.white,
                 title: Text(_currentEvent.title),
-                leading:
-                 IconButton(
+                leading: IconButton(
                   icon: const Icon(Icons.arrow_back),
                   onPressed: _popWithUpdatedEvent,
                 ),

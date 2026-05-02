@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:event_planner/db/User_storage.dart';
 import 'package:event_planner/screens/tab_bar_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:event_planner/constants/app_colors.dart';
+import 'package:event_planner/services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -49,11 +51,8 @@ class _LoginScreenState extends State<LoginScreen> {
   InputDecoration _inputDecoration(String hint, IconData icon) {
     return InputDecoration(
       hintText: hint,
-      hintStyle: TextStyle(
-        color: Color.fromARGB(255, 44, 77, 44),
-        fontSize: 15,
-      ),
-      prefixIcon: Icon(icon, color: Color.fromARGB(255, 61, 104, 61), size: 20),
+      hintStyle: TextStyle(color: AppColors.burgundy, fontSize: 15),
+      prefixIcon: Icon(icon, color: AppColors.coral, size: 20),
       filled: true,
       fillColor: Colors.white,
       border: OutlineInputBorder(
@@ -68,13 +67,11 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
-    // reset errors
     setState(() {
       _emailError = null;
       _passwordError = null;
     });
 
-    // empty validation
     if (email.isEmpty || password.isEmpty) {
       setState(() {
         if (email.isEmpty) _emailError = 'Email is required';
@@ -85,38 +82,37 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    final result = await _userRepo.loginUser(email: email, password: password);
+    try {
+      final result = await ApiService.login(email: email, password: password);
 
-    setState(() => _isLoading = false);
+      setState(() => _isLoading = false);
+      if (!mounted) return;
 
-    if (!mounted) return;
+      if (result['success'] == true) {
+        final user = result['user'];
+        final role = user['role'];
 
-    if (result['status'] == 'no_user') {
+        if (role == 'planner') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const Eventplannerdashboard()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const TabsScreen()),
+          );
+        }
+      } else {
+        setState(
+          () => _emailError = result['message'] ?? 'Invalid credentials',
+        );
+      }
+    } catch (e) {
       setState(() {
-        _emailError = 'Incorrect email';
+        _isLoading = false;
+        _emailError = 'Could not connect to server';
       });
-      return;
-    }
-
-    if (result['status'] == 'wrong_password') {
-      setState(() {
-        _passwordError = 'Incorrect password';
-      });
-      return;
-    }
-
-    final user = result['user'];
-
-    if (user['role'] == 'eventplanner') {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const Eventplannerdashboard()),
-      );
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const TabsScreen()),
-      );
     }
   }
 
@@ -132,7 +128,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         child: Container(
           // ignore: deprecated_member_use
-          color: Color.fromARGB(255, 81, 91, 53).withOpacity(0.4),
+          color: AppColors.coral.withOpacity(0.35),
           child: SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -154,7 +150,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           width: 72,
                           height: 72,
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
+                            color: AppColors.coral.withOpacity(0.1),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -178,10 +174,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Text(
                         'Sign in to your account',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Color(0xFFE8F0E8).withOpacity(0.7),
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Colors.white, fontSize: 14),
                       ),
                       const SizedBox(height: 36),
                       TextField(
@@ -191,7 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           'Email',
                           Icons.email_outlined,
                         ).copyWith(errorText: _emailError),
-                        style: const TextStyle(color: Color(0xFF1A2E1A)),
+                        style: const TextStyle(color: AppColors.burgundy),
                         onChanged: (value) {
                           if (_emailError != null) {
                             setState(() => _emailError = null);
@@ -218,7 +211,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     setState(() => _showPass = !_showPass),
                               ),
                             ),
-                        style: const TextStyle(color: Color(0xFF1A2E1A)),
+                        style: const TextStyle(color: AppColors.burgundy),
 
                         onChanged: (value) {
                           if (_passwordError != null) {
@@ -230,18 +223,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       ElevatedButton(
                         onPressed: _isLoading ? null : _handleLogin,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(
-                            255,
-                            25,
-                            46,
-                            25,
-                          ),
-                          disabledBackgroundColor: Color.fromARGB(
-                            255,
-                            81,
-                            91,
-                            53,
-                          ),
+                          backgroundColor: AppColors.darkpink,
+                          disabledBackgroundColor: AppColors.darkpink,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -273,20 +256,20 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.5),
+                            color: Colors.white.withOpacity(0.7),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: RichText(
                             textAlign: TextAlign.center,
                             text: const TextSpan(
                               style: TextStyle(
-                                color: Color(0xFF1A3A1A),
+                                color: AppColors.darkpink,
                                 fontSize: 15,
                               ),
                               children: [
                                 TextSpan(
                                   text: "Don't have an account? ",
-                                  style: TextStyle(color: Color(0xFF1A3A1A)),
+                                  style: TextStyle(color: AppColors.darkpink),
                                 ),
                                 TextSpan(
                                   text: 'Sign up',

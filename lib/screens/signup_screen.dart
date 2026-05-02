@@ -1,9 +1,9 @@
-
 import 'package:event_planner/screens/eventplannerDashboard.dart';
-
+import 'package:event_planner/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/db/User_storage.dart';
 import 'package:event_planner/screens/tab_bar_screen.dart';
+import 'package:event_planner/services/api_service.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -19,6 +19,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _fullNameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _phoneController = TextEditingController();
   bool show_pass = true;
   String? _selectedRole;
 
@@ -29,17 +30,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
     _fullNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
   InputDecoration _inputDecoration(String hint, IconData icon) {
     return InputDecoration(
       hintText: hint,
-            hintStyle: TextStyle(
-        color: Color.fromARGB(255, 44, 77, 44),
-        fontSize: 15,
-      ),
-      prefixIcon: Icon(icon, color: Color.fromARGB(255, 61, 104, 61), size: 20),
+      hintStyle: TextStyle(color: AppColors.burgundy, fontSize: 15),
+      prefixIcon: Icon(icon, color: AppColors.coral, size: 20),
 
       filled: true,
       fillColor: Colors.white,
@@ -63,20 +62,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
         decoration: BoxDecoration(
-
-          color: isSelected ? Color.fromARGB(255, 36, 58, 36) : Colors.white,
+          color: isSelected ? AppColors.darkpink : Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected
-                ? Color.fromARGB(255, 36, 58, 36)
-                : Colors.transparent,
-        width: 2,
+            color: isSelected ? AppColors.darkpink : Colors.transparent,
+            width: 2,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-
-                    color: Color(0xFF2D4A2D).withOpacity(0.3),
+                    color: AppColors.darkpink.withOpacity(0.4),
 
                     blurRadius: 10,
                     offset: const Offset(0, 4),
@@ -87,20 +82,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-
             Icon(
               icon,
               size: 28,
-              color: isSelected ? Colors.white : Color(0xFF4A7C4A),
+              color: isSelected ? Colors.white : AppColors.darkpink,
             ),
 
             const SizedBox(height: 6),
             Text(
               label,
               style: TextStyle(
-                color: isSelected
-                    ? Colors.white
-                    : Color.fromARGB(255, 29, 53, 29),
+                color: isSelected ? Colors.white : AppColors.darkpink,
 
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
@@ -116,66 +108,73 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final fullName = _fullNameController.text.trim();
     final email = _emailController.text.trim();
     final password = _passwordController.text;
+    final phone = _phoneController.text.trim();
 
-    if (fullName.isEmpty || email.isEmpty || password.isEmpty) {
+    if (fullName.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty ||
+        phone.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in all fields')),
       );
       return;
     }
 
-    if (password.length < 6) {
-      setState(() {
-        _passwordError = 'Password must be at least 6 characters';
-      });
+    if (password.length < 8) {
+      // changed from 6 to 8
+      setState(() => _passwordError = 'Password must be at least 8 characters');
       return;
-    } else {
-      setState(() {
-        _passwordError = null;
-      });
     }
+
+    if (_selectedRole == null) return;
 
     setState(() => _isLoading = true);
 
-    final userId = await _userRepo.createUser(
-      fullName: fullName,
-      email: email,
-      password: password,
-      role: _selectedRole!,
-    );
+    try {
+      // Convert 'eventplanner' to 'planner' for the API
+      final apiRole = _selectedRole == 'eventplanner' ? 'planner' : 'client';
 
-    setState(() => _isLoading = false);
+      final result = await ApiService.register(
+        name: fullName,
+        email: email,
+        password: password,
+        role: apiRole,
+        phone: phone,
+      );
 
-    if (!mounted) return;
+      setState(() => _isLoading = false);
+      if (!mounted) return;
 
-    if (userId == null) {
+      if (result['success'] == true) {
+        final role = result['user']['role'];
+        if (role == 'planner') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const Eventplannerdashboard()),
+          );
+        } else {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const TabsScreen()),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['message'] ?? 'Registration failed')),
+        );
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Email already in use. Please try another.'),
-        ),
-      );
-      return;
-    }
-
-    if (_selectedRole == 'eventplanner') {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const Eventplannerdashboard()),
-      );
-    } else {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const TabsScreen()),
+        const SnackBar(content: Text('Could not connect to server')),
       );
     }
-
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-
         decoration: const BoxDecoration(
           image: DecorationImage(
             image: AssetImage('assets/images/mobile.jpg'),
@@ -184,7 +183,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         ),
         child: Container(
           // ignore: deprecated_member_use
-          color: Color.fromARGB(255, 81, 91, 53).withOpacity(0.4),
+          color: AppColors.coral.withOpacity(0.35),
           child: SafeArea(
             child: Center(
               child: SingleChildScrollView(
@@ -253,7 +252,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           'Full Name',
                           Icons.badge_outlined,
                         ),
-                        style: const TextStyle(color: Color(0xFF1A2E1A)),
+                        style: const TextStyle(color: AppColors.burgundy),
                       ),
                       const SizedBox(height: 16),
 
@@ -265,9 +264,21 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           'Email',
                           Icons.email_outlined,
                         ),
-                        style: const TextStyle(color: Color(0xFF1A2E1A)),
+                        style: const TextStyle(color: AppColors.burgundy),
                       ),
                       const SizedBox(height: 16),
+
+                      // phone
+                      TextField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: _inputDecoration(
+                          'Phone Number',
+                          Icons.phone_outlined,
+                        ),
+                        style: const TextStyle(color: AppColors.burgundy),
+                      ),
+                      SizedBox(height: 16),
 
                       // Password
                       TextField(
@@ -289,7 +300,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     setState(() => show_pass = !show_pass),
                               ),
                             ),
-                        style: const TextStyle(color: Color(0xFF1A2E1A)),
+                        style: const TextStyle(color: AppColors.burgundy),
 
                         onChanged: (value) {
                           if (_passwordError != null && value.length >= 6) {
@@ -307,18 +318,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ? null
                             : _handleSignUp,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(
-                            255,
-                            36,
-                            58,
-                            36,
-                          ),
-                          disabledBackgroundColor: const Color.fromARGB(
-                            255,
-                            25,
-                            46,
-                            25,
-                          ),
+                          backgroundColor: AppColors.darkpink,
+                          disabledBackgroundColor: AppColors.darkpink,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(14),
                           ),
@@ -336,7 +337,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         ),
                       ),
 
-
                       const SizedBox(height: 20),
 
                       // Login Link
@@ -346,14 +346,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.3),
+                            color: Colors.white.withOpacity(0.7),
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: const Text(
                             'Login',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              color: Color(0xFF1A3A1A),
+                              color: AppColors.darkpink,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -362,7 +362,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                     ],
                   ),
-
                 ),
               ),
             ),

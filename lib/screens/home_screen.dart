@@ -4,6 +4,9 @@ import 'package:event_planner/models/event.dart';
 import 'package:event_planner/widgets/event_card.dart';
 import 'package:event_planner/db/event_storage.dart';
 import 'package:event_planner/constants/app_colors.dart';
+import 'package:event_planner/services/api_service.dart';
+import 'package:event_planner/screens/profile_screen.dart';
+import 'package:event_planner/screens/system_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -72,6 +75,49 @@ class _HomeScreenState extends State<HomeScreen> {
     }).toList();
   }
 
+  Future<void> _handleLogout(BuildContext context) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Logout',
+          style: TextStyle(color: AppColors.burgundy),
+        ),
+        content: const Text(
+          'Are you sure you want to logout?',
+          style: TextStyle(color: AppColors.burgundy),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.burgundy),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.darkpink,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true && mounted) {
+      ApiService.logout();
+      Navigator.pushReplacementNamed(context, '/login');
+    }
+  }
+
   Future<void> _refreshEvents() async {
     if (_isLoadingEvents) return;
 
@@ -80,19 +126,37 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      final updatedEvents = await loadEvents();
+      final result = await ApiService.getEvents();
+      final List rawEvents = result['data'] ?? [];
+
+      final List<Event> events = rawEvents
+          .map(
+            (e) => Event(
+              id: e['id'].toString(),
+              title: e['name'] ?? '',
+              date: DateTime.parse(e['start_date']),
+              location: e['location_text'] ?? 'TBD',
+              guests: int.tryParse(e['guest_estimate'].toString()) ?? 0,
+              budget: double.tryParse(e['budget_overall'].toString()) ?? 0.0,
+              progress: 0.0,
+              status: e['status'] ?? 'Planning',
+              eventType: e['event_type']?['name'],
+              description: e['description'],
+            ),
+          )
+          .toList();
 
       final currentEvents = List<Event>.from(widget.registeredEvents);
       for (var event in currentEvents) {
         widget.onDeleteEvent(event);
       }
 
-      for (var event in updatedEvents) {
+      for (var event in events) {
         widget.onAddEvent(event);
       }
 
       setState(() {
-        _allEvents = List.from(updatedEvents);
+        _allEvents = List.from(events);
         _filteredEvents = _applySearch(_searchController.text);
       });
     } catch (e) {
@@ -118,12 +182,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (newEvent != null) {
-      print('new event created: ${newEvent.title}');
-
-      await insertEvent(newEvent);
-
-      widget.onAddEvent(newEvent);
-
       await _refreshEvents();
     }
   }
@@ -143,23 +201,11 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (updatedEvent != null) {
-      print('event updated: ${updatedEvent.title}');
-
-      await updateEvent(updatedEvent);
-
-      widget.onUpdateEvent(updatedEvent);
-
       await _refreshEvents();
     }
   }
 
   Future<void> _deleteEvent(Event event) async {
-    print('>>> user deleted event: ${event.title}');
-
-    await deleteEvent(event);
-
-    widget.onDeleteEvent(event);
-
     await _refreshEvents();
   }
 
@@ -222,12 +268,113 @@ class _HomeScreenState extends State<HomeScreen> {
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
-
                             const Spacer(),
 
+                            // Notification icon
                             const Icon(
                               Icons.notifications_outlined,
                               color: AppColors.darkpink,
+                            ),
+                            const SizedBox(width: 12),
+
+                            // Profile avatar with dropdown
+                            PopupMenuButton<String>(
+                              offset: const Offset(0, 45),
+                              color: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+
+                              itemBuilder: (context) => [
+                                PopupMenuItem<String>(
+                                  value: 'profile',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.person_outline,
+                                        color: AppColors.darkpink,
+                                      ),
+                                      SizedBox(width: 10),
+
+                                      Text(
+                                        'Profile',
+                                        style: TextStyle(
+                                          color: AppColors.darkpink,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                PopupMenuItem<String>(
+                                  value: 'settings',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.settings_outlined,
+                                        color: AppColors.darkpink,
+                                      ),
+                                      SizedBox(width: 10),
+                                      Text(
+                                        'Settings',
+                                        style: TextStyle(
+                                          color: AppColors.darkpink,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                PopupMenuItem<String>(
+                                  value: 'logout',
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.logout,
+                                        color: AppColors.darkpink,
+                                      ),
+                                      SizedBox(width: 10),
+                                      Text(
+                                        'Logout',
+                                        style: TextStyle(
+                                          color: AppColors.darkpink,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+
+                              onSelected: (value) {
+                                if (value == 'profile') {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const ProfileScreen(),
+                                    ),
+                                  );
+                                } else if (value == 'settings') {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const SystemScreen(),
+                                    ),
+                                  );
+                                } else if (value == 'logout') {
+                                  _handleLogout(context);
+                                }
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.all(8),
+
+                                decoration: const BoxDecoration(
+                                  color: AppColors.darkpink,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.person,
+                                  color: Colors.white,
+                                  size: 20,
+                                ),
+                              ),
                             ),
                           ],
                         ),

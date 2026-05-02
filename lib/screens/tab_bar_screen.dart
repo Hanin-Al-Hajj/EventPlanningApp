@@ -1,6 +1,5 @@
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/screens/Messages_screen.dart';
-import 'package:event_planner/screens/profile_screen.dart';
 import 'package:event_planner/screens/summary_detail.dart';
 import 'package:event_planner/screens/home_screen.dart';
 import 'package:event_planner/screens/system_screen.dart';
@@ -16,7 +15,6 @@ class TabsScreen extends StatefulWidget {
 
 class _TabsScreenState extends State<TabsScreen> {
   int _selectedIndex = 0;
-
   List<Event> registeredEvents = [];
 
   void _selectPage(int index) {
@@ -59,10 +57,6 @@ class _TabsScreenState extends State<TabsScreen> {
       activePage = const SummaryDetail();
     } else if (_selectedIndex == 2) {
       activePage = const MessagesScreen();
-    } else if (_selectedIndex == 3) {
-      activePage = const SystemScreen();
-    } else if (_selectedIndex == 4) {
-      activePage = const ProfileScreen();
     }
 
     return Scaffold(
@@ -80,14 +74,6 @@ class _TabsScreenState extends State<TabsScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.chat_rounded),
             label: 'Messages',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings_rounded),
-            label: 'System',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.account_circle_rounded),
-            label: 'Profile',
           ),
         ],
         onTap: _selectPage,

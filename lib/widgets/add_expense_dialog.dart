@@ -277,7 +277,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
                 ),
               ),
               onChanged: (value) {
-                setState(() {}); 
+                setState(() {});
               },
             ),
 
