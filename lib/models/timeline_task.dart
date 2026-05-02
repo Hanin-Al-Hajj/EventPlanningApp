@@ -2,8 +2,8 @@ class TimelineTask {
   final String id;
   final String eventId;
   final String title;
-  final String timeframe; 
-  final int daysBeforeEvent; 
+  final String timeframe;
+  final int daysBeforeEvent;
   final bool isCompleted;
 
   TimelineTask({
@@ -55,7 +55,6 @@ class TimelineTask {
     );
   }
 
-  
   static List<TimelineTask> getDefaultTasks(String eventId) {
     return [
       TimelineTask(
