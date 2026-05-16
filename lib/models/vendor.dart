@@ -8,10 +8,13 @@ class Vendor {
   final String category;
   final double rating;
   final String imageIcon;
-  final String? phoneNumber;
+  final String phoneNumber;
   final String? email;
   final String? website;
   final String? description;
+  final List<String> locations;
+  final String? instagram;
+  bool isFavorite;
 
   Vendor({
     String? id,
@@ -19,10 +22,13 @@ class Vendor {
     required this.category,
     required this.rating,
     required this.imageIcon,
-    this.phoneNumber,
+    required this.phoneNumber,
     this.email,
     this.website,
     this.description,
+    required this.locations,
+    this.isFavorite = false,
+    this.instagram,
   }) : id = id ?? uuid.v4();
 
   Map<String, dynamic> toMap() {
@@ -36,6 +42,9 @@ class Vendor {
       'email': email,
       'website': website,
       'description': description,
+      'isFavorite': isFavorite ? 1 : 0,
+      'location': locations.join('|'),
+      'instagram': instagram,
     };
   }
 
@@ -50,6 +59,12 @@ class Vendor {
       email: map['email'],
       website: map['website'],
       description: map['description'],
+      isFavorite: map['isFavorite'] == 1,
+      locations:
+          map['location'] != null && (map['location'] as String).isNotEmpty
+          ? (map['location'] as String).split('|')
+          : [],
+      instagram: map['instagram'],
     );
   }
 }

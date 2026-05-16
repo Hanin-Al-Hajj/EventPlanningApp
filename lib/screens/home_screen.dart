@@ -2,7 +2,6 @@ import 'package:event_planner/screens/create_event_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/widgets/event_card.dart';
-import 'package:event_planner/db/event_storage.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:event_planner/services/api_service.dart';
 import 'package:event_planner/screens/profile_screen.dart';

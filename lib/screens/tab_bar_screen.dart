@@ -2,7 +2,6 @@ import 'package:event_planner/models/event.dart';
 import 'package:event_planner/screens/Messages_screen.dart';
 import 'package:event_planner/screens/summary_detail.dart';
 import 'package:event_planner/screens/home_screen.dart';
-import 'package:event_planner/screens/system_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
 

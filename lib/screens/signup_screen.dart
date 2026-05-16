@@ -1,9 +1,9 @@
-import 'package:event_planner/screens/eventplannerDashboard.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/db/User_storage.dart';
 import 'package:event_planner/screens/tab_bar_screen.dart';
 import 'package:event_planner/services/api_service.dart';
+import 'package:event_planner/screens/eventplanner_dashboard.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});

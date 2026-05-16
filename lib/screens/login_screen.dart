@@ -1,4 +1,4 @@
-import 'package:event_planner/screens/eventplannerDashboard.dart';
+import 'package:event_planner/screens/eventplanner_dashboard.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/db/User_storage.dart';
 import 'package:event_planner/screens/tab_bar_screen.dart';

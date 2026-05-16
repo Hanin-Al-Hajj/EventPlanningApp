@@ -3,7 +3,7 @@ import 'package:event_planner/models/Guest.dart';
 import 'package:event_planner/widgets/AddGuestDialog.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/widgets/GuestCard.dart';
-import 'package:event_planner/widgets/Statcard.dart';
+import 'package:event_planner/widgets/statistics_cards.dart';
 import 'package:event_planner/db/event_storage.dart';
 import 'package:event_planner/constants/app_colors.dart';
 

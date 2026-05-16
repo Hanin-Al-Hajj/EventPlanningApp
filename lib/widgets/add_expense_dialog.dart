@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:event_planner/db/budget_storage.dart';
 import 'package:event_planner/models/budget.dart';
+import 'package:event_planner/constants/app_colors.dart';
 
 class AddExpenseDialog extends StatefulWidget {
   final String eventId;
@@ -127,7 +128,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
       child: Container(
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
-          color: const Color(0xFFF5F5DC),
+          color: AppColors.cream,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
@@ -140,7 +141,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF151910),
+                color: AppColors.darkpink,
               ),
               textAlign: TextAlign.center,
             ),
@@ -151,7 +152,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
               'Category',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey,
+                color: AppColors.burgundy,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -184,12 +185,15 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
                               Icon(
                                 _getCategoryIcon(category),
                                 size: 20,
-                                color: const Color(0xFF545A3B),
+                                color: AppColors.burgundy,
                               ),
                               const SizedBox(width: 12),
                               Text(
                                 category,
-                                style: const TextStyle(fontSize: 16),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: AppColors.burgundy,
+                                ),
                               ),
                             ],
                           ),
@@ -211,12 +215,9 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
                 controller: _customCategoryController,
                 decoration: InputDecoration(
                   hintText: 'Enter category name',
+                  hintStyle: TextStyle(color: AppColors.burgundy),
                   filled: true,
                   fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: Colors.grey.shade300),
-                  ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(color: Colors.grey.shade300),
@@ -224,7 +225,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: const BorderSide(
-                      color: Color(0xFF545A3B),
+                      color: AppColors.burgundy,
                       width: 2,
                     ),
                   ),
@@ -243,7 +244,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
               'Allocated Budget',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey,
+                color: AppColors.burgundy,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -254,12 +255,9 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
               decoration: InputDecoration(
                 hintText: '\$0',
                 prefixText: '\$ ',
+                hintStyle: TextStyle(color: AppColors.burgundy),
                 filled: true,
                 fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(color: Colors.grey.shade300),
@@ -267,7 +265,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(
-                    color: Color(0xFF545A3B),
+                    color: AppColors.burgundy,
                     width: 2,
                   ),
                 ),
@@ -329,13 +327,12 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
             ],
 
             const SizedBox(height: 16),
-
             //amount spent
             const Text(
               'Amount Spent',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey,
+                color: AppColors.burgundy,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -346,20 +343,17 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
               decoration: InputDecoration(
                 hintText: '\$0',
                 prefixText: '\$ ',
+                hintStyle: TextStyle(color: AppColors.burgundy),
                 filled: true,
                 fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
-                ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.grey.shade300),
+                  borderSide: BorderSide(color: AppColors.burgundy),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: const BorderSide(
-                    color: Color(0xFF545A3B),
+                    color: AppColors.burgundy,
                     width: 2,
                   ),
                 ),
@@ -387,9 +381,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
                       'Cancel',
                       style: TextStyle(
                         fontSize: 16,
-                        color: _isLoading
-                            ? Colors.grey
-                            : const Color(0xFF545A3B),
+                        color: _isLoading ? Colors.grey : AppColors.darkpink,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -400,7 +392,7 @@ class _AddExpenseDialogState extends State<AddExpenseDialog> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _addExpense,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF545A3B),
+                      backgroundColor: AppColors.darkpink,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(

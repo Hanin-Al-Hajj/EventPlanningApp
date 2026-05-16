@@ -17,6 +17,7 @@ dependencies:
   url_launcher: ^6.2.0
   shared_preferences: ^2.2.2
   http: ^1.2.0
+  font_awesome_flutter: ^10.7.0
 
 dev_dependencies:
   flutter_test:
@@ -34,3 +35,9 @@ flutter:
     - assets/images/anniversary.jpeg
     - assets/images/gender.jpeg
     - assets/images/grad.jpg
+    - assets/images/theflowershop.jpeg
+    - assets/images/cremino.jpeg
+    - assets/images/jawad.jpeg
+    - assets/images/planto.jpeg
+    - assets/images/lancaster.jpeg
+    - assets/images/image.png

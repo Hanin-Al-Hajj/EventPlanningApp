@@ -1,24 +1,22 @@
-import 'package:event_planner/screens/vendors_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/models/timeline_task.dart';
 import 'package:event_planner/db/timeline_storage.dart';
 import 'package:event_planner/db/event_storage.dart';
-import 'package:event_planner/screens/GuestList_screen.dart';
-import 'package:event_planner/screens/budget_tracker_screen.dart';
+import 'package:event_planner/constants/app_colors.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:event_planner/widgets/add_task.dart';
 
-class EventDetailsScreen extends StatefulWidget {
+class CheckListScreen extends StatefulWidget {
   final Event event;
 
-  const EventDetailsScreen({super.key, required this.event});
+  const CheckListScreen({super.key, required this.event});
 
   @override
-  State<EventDetailsScreen> createState() => _EventDetailsScreenState();
+  State<CheckListScreen> createState() => _CheckListScreenState();
 }
 
-class _EventDetailsScreenState extends State<EventDetailsScreen>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _CheckListScreenState extends State<CheckListScreen> {
   List<TimelineTask> _timelineTasks = [];
   bool _isLoading = true;
   late Event _currentEvent;
@@ -27,8 +25,6 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
   void initState() {
     super.initState();
     _currentEvent = widget.event;
-    _tabController = TabController(length: 4, vsync: this);
-    _tabController.addListener(_onTabChanged);
     _loadTimelineTasks();
   }
 
@@ -46,36 +42,8 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
     }
   }
 
-  Future<void> _onTabChanged() async {
-    if (_tabController.indexIsChanging) {
-      await _refreshEventProgress();
-    }
-  }
-
-  Future<void> _refreshEventProgress() async {
-    try {
-      final progress = await calculateEventProgress(_currentEvent.id);
-      setState(() {
-        _currentEvent = Event(
-          id: _currentEvent.id,
-          title: _currentEvent.title,
-          date: _currentEvent.date,
-          location: _currentEvent.location,
-          guests: _currentEvent.guests,
-          budget: _currentEvent.budget,
-          progress: progress,
-          status: determineEventStatus(progress, _currentEvent.date),
-          eventType: _currentEvent.eventType,
-        );
-      });
-    } catch (e) {
-      print('Error refreshing progress: $e');
-    }
-  }
-
   @override
   void dispose() {
-    _tabController.dispose();
     super.dispose();
   }
 
@@ -106,61 +74,52 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
 
   @override
   Widget build(BuildContext context) {
-    // ignore: deprecated_member_use
     return WillPopScope(
       onWillPop: () async {
         await _popWithUpdatedEvent();
         return false;
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF5F5DC),
-        appBar: _tabController.index == 0
-            ? AppBar(
-                backgroundColor: const Color(0xFF586041),
-                foregroundColor: Colors.white,
-                title: Text(_currentEvent.title),
-                leading: IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: _popWithUpdatedEvent,
+        backgroundColor: AppColors.cream,
+        appBar: AppBar(
+          backgroundColor: AppColors.cream,
+          foregroundColor: AppColors.burgundy,
+          title: Text(
+            _currentEvent.title,
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+          centerTitle: true,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: AppColors.darkpink),
+            onPressed: _popWithUpdatedEvent,
+          ),
+          actions: [
+            IconButton(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => AddTask(
+                    eventId: _currentEvent.id,
+                    onTaskAdded: _loadTimelineTasks,
+                  ),
+                );
+              },
+              style: TextButton.styleFrom(
+                iconSize: 33,
+                foregroundColor: AppColors.darkpink,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
                 ),
-              )
-            : null,
-        body: TabBarView(
-          controller: _tabController,
-          physics: const NeverScrollableScrollPhysics(),
-          children: [
-            _buildTimelineTab(),
-            GuestListScreen(
-              eventID: _currentEvent.id,
-              eventName: _currentEvent.title,
-              onGuestChanged: () async {
-                await _refreshEventProgress();
-              },
-            ),
-            const VendorsScreen(),
-            BudgetTrackerScreen(
-              event: _currentEvent,
-              onBudgetChanged: () async {
-                await _refreshEventProgress();
-              },
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              icon: const FaIcon(FontAwesomeIcons.circlePlus),
             ),
           ],
         ),
-        bottomNavigationBar: Container(
-          color: Colors.white,
-          child: TabBar(
-            controller: _tabController,
-            labelColor: const Color(0xFF586041),
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: const Color(0xFF586041),
-            tabs: const [
-              Tab(icon: Icon(Icons.timeline), text: 'Timeline'),
-              Tab(icon: Icon(Icons.people), text: 'Guests'),
-              Tab(icon: Icon(Icons.business), text: 'Vendors'),
-              Tab(icon: Icon(Icons.attach_money), text: 'Budget'),
-            ],
-          ),
-        ),
+        body: _buildTimelineTab(),
       ),
     );
   }
@@ -169,7 +128,6 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -183,25 +141,8 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF151910),
+                  color: AppColors.burgundy,
                 ),
-              ),
-              Spacer(),
-              TextButton.icon(
-                onPressed: () {},
-                style: TextButton.styleFrom(
-                  backgroundColor: Color.fromARGB(255, 151, 15, 15),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 7,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-                icon: Icon(Icons.add),
-                label: Text('CheckBox'),
               ),
             ],
           ),
@@ -213,14 +154,13 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade300),
               ),
               child: Row(
                 children: [
                   Checkbox(
                     value: task.isCompleted,
                     onChanged: (value) => _toggleTaskCompletion(task),
-                    activeColor: const Color(0xFF586041),
+                    activeColor: AppColors.darkpink,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -233,8 +173,8 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                             color: task.isCompleted
-                                ? Colors.grey.shade500
-                                : const Color(0xFF151910),
+                                ? AppColors.green
+                                : AppColors.burgundy,
                             decoration: task.isCompleted
                                 ? TextDecoration.lineThrough
                                 : TextDecoration.none,
@@ -245,7 +185,7 @@ class _EventDetailsScreenState extends State<EventDetailsScreen>
                           task.timeframe,
                           style: TextStyle(
                             fontSize: 13,
-                            color: Colors.grey.shade600,
+                            color: AppColors.green,
                           ),
                         ),
                       ],
