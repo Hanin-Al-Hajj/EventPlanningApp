@@ -1,6 +1,8 @@
 import 'package:event_planner/models/vendor.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:event_planner/constants/app_colors.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class VendorDetailsScreen extends StatelessWidget {
   const VendorDetailsScreen({super.key, required this.vendor});
@@ -13,93 +15,29 @@ class VendorDetailsScreen extends StatelessWidget {
     }
   }
 
-  Future<void> _makePhoneCall(String phoneNumber) async {
-    final Uri uri = Uri.parse('tel:$phoneNumber');
-    if (!await launchUrl(uri)) {
-      throw Exception('Could not call $phoneNumber');
-    }
-  }
-
-  Future<void> _sendEmail(String email) async {
-    final Uri uri = Uri.parse('mailto:$email');
-    if (!await launchUrl(uri)) {
-      throw Exception('Could not send email to $email');
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F0D8),
+      backgroundColor: AppColors.cream,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF586041),
+        backgroundColor: AppColors.cream,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: AppColors.darkpink),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Vendor Details',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(
+            color: AppColors.darkpink,
+            fontWeight: FontWeight.bold,
+          ),
         ),
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            //header
-            Container(
-              width: double.infinity,
-              color: Colors.white,
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  Container(
-                    width: 100,
-                    height: 100,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F0D8),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Center(
-                      child: Text(
-                        vendor.imageIcon,
-                        style: const TextStyle(fontSize: 50),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    vendor.name,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    vendor.category,
-                    style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.star, color: Colors.amber, size: 24),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${vendor.rating}',
-                        style: const TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-
             //discription la kil vendor
             if (vendor.description != null) ...[
               const SizedBox(height: 16),
@@ -113,8 +51,9 @@ class VendorDetailsScreen extends StatelessWidget {
                     const Text(
                       'About',
                       style: TextStyle(
-                        fontSize: 18,
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
+                        color: AppColors.burgundy,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -122,7 +61,7 @@ class VendorDetailsScreen extends StatelessWidget {
                       vendor.description!,
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.grey.shade700,
+                        color: AppColors.burgundy,
                         height: 1.5,
                       ),
                     ),
@@ -142,32 +81,48 @@ class VendorDetailsScreen extends StatelessWidget {
                 children: [
                   const Text(
                     'Contact Information',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.burgundy,
+                    ),
                   ),
                   const SizedBox(height: 16),
 
                   //phone nb
-                  if (vendor.phoneNumber != null)
+                  if (vendor.phoneNumber.isNotEmpty)
                     _buildContactItem(
-                      icon: Icons.phone,
+                      icon: FontAwesomeIcons.whatsapp,
                       label: 'Phone',
-                      value: vendor.phoneNumber!,
-                      onTap: () => _makePhoneCall(vendor.phoneNumber!),
+                      value: vendor.phoneNumber,
+                      onTap: () => _launchURL(
+                        'https://wa.me/961${vendor.phoneNumber.replaceAll(RegExp(r'[\s\-]'), '')}',
+                      ),
+                    ),
+
+                  if (vendor.instagram != null)
+                    _buildContactItem(
+                      icon: FontAwesomeIcons.instagram,
+                      label: 'Instagram',
+                      value: vendor.instagram!,
+                      onTap: () => _launchURL(
+                        'https://instagram.com/${vendor.instagram!}',
+                      ),
                     ),
 
                   //email
                   if (vendor.email != null)
                     _buildContactItem(
-                      icon: Icons.email,
+                      icon: FontAwesomeIcons.envelope,
                       label: 'Email',
                       value: vendor.email!,
-                      onTap: () => _sendEmail(vendor.email!),
+                      onTap: () => _launchURL('mailto:${vendor.email!}'),
                     ),
 
                   //website
                   if (vendor.website != null)
                     _buildContactItem(
-                      icon: Icons.language,
+                      icon: FontAwesomeIcons.globe,
                       label: 'Website',
                       value: vendor.website!,
                       onTap: () => _launchURL(vendor.website!),
@@ -177,44 +132,48 @@ class VendorDetailsScreen extends StatelessWidget {
             ),
 
             const SizedBox(height: 16),
-          ],
-        ),
-      ),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: SafeArea(
-          child: ElevatedButton(
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Booking ${vendor.name}...'),
-                  backgroundColor: const Color(0xFF586041),
-                ),
-              );
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF586041),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
+            Container(
+              width: double.infinity,
+              color: Colors.white,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Locations',
+                    style: TextStyle(
+                      fontSize: 25,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.burgundy,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...vendor.locations.map(
+                    (location) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.location_on,
+                            color: AppColors.darkpink,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            location,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: AppColors.burgundy,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: const Text(
-              'Book This Vendor',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-          ),
+          ],
         ),
       ),
     );
@@ -233,13 +192,15 @@ class VendorDetailsScreen extends StatelessWidget {
         child: Row(
           children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 45,
+              height: 45,
               decoration: BoxDecoration(
-                color: const Color(0xFFF0F0D8),
+                color: AppColors.coral,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, color: const Color(0xFF586041), size: 20),
+              child: Center(
+                child: FaIcon(icon, color: AppColors.burgundy, size: 28),
+              ),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -248,7 +209,7 @@ class VendorDetailsScreen extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                    style: TextStyle(fontSize: 12, color: AppColors.burgundy),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -256,12 +217,17 @@ class VendorDetailsScreen extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w500,
+                      color: AppColors.burgundy,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+            const Icon(
+              Icons.arrow_forward_ios,
+              size: 16,
+              color: AppColors.burgundy,
+            ),
           ],
         ),
       ),

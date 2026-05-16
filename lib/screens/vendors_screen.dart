@@ -2,6 +2,9 @@ import 'package:event_planner/db/vendor_storage.dart';
 import 'package:event_planner/models/vendor.dart';
 import 'package:event_planner/screens/vendor_details_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:event_planner/constants/app_colors.dart';
+import 'package:event_planner/screens/chosen_vendor_screen.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class VendorsScreen extends StatefulWidget {
   const VendorsScreen({super.key});
@@ -78,15 +81,39 @@ class _VendorsScreenState extends State<VendorsScreen> {
     super.dispose();
   }
 
+  Future<void> _launchURL(String url) async {
+    final Uri uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      throw Exception('Could not launch $url');
+    }
+  }
+
+  String getVendorBackgroundImage(Vendor vendor) {
+    switch (vendor.name) {
+      case "THE FLOWER SHOP":
+        return "assets/images/theflowershop.jpeg";
+      case "Cremino":
+        return "assets/images/cremino.jpeg";
+      case "Aljawad Dining":
+        return "assets/images/jawad.jpeg";
+      case "Planto":
+        return "assets/images/planto.jpeg";
+      case "Lancaster Eden Bay":
+        return "assets/images/lancaster.jpeg";
+      default:
+        return "assets/images/image.png";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F0D8),
+      backgroundColor: AppColors.cream,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF586041),
-        titleSpacing: 0,
+        backgroundColor: AppColors.cream,
+        centerTitle: true,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: AppColors.coral),
           onPressed: () => Navigator.pop(context),
         ),
         title: Padding(
@@ -99,8 +126,8 @@ class _VendorsScreenState extends State<VendorsScreen> {
               onChanged: (value) => _filterVendors(),
               decoration: InputDecoration(
                 hintText: 'Search vendors...',
-                hintStyle: TextStyle(color: Colors.grey.shade500),
-                prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
+                hintStyle: TextStyle(color: AppColors.coral),
+                prefixIcon: Icon(Icons.search, color: AppColors.coral),
                 filled: true,
                 fillColor: Colors.white,
                 contentPadding: const EdgeInsets.symmetric(
@@ -115,6 +142,27 @@ class _VendorsScreenState extends State<VendorsScreen> {
             ),
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.favorite,
+              color: AppColors.darkpink,
+              size: 37,
+            ),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ChosenVendorScreen(
+                    favoriteVendors: _allVendors
+                        .where((v) => v.isFavorite)
+                        .toList(),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
 
       body: _isLoading
@@ -126,7 +174,7 @@ class _VendorsScreenState extends State<VendorsScreen> {
                 //category tabs
                 Container(
                   height: 60,
-                  color: const Color(0xFFF0F0D8),
+                  color: AppColors.cream,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -151,12 +199,8 @@ class _VendorsScreenState extends State<VendorsScreen> {
                             ),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? const Color(0xFF586041)
-                                  : Colors.grey.shade200,
-                              border: Border.all(
-                                width: 0.8,
-                                color: Color(0xFF586041),
-                              ),
+                                  ? AppColors.darkpink
+                                  : Colors.white,
                               borderRadius: BorderRadius.circular(40),
                             ),
 
@@ -166,10 +210,8 @@ class _VendorsScreenState extends State<VendorsScreen> {
                                 style: TextStyle(
                                   color: isSelected
                                       ? Colors.white
-                                      : Color(0xFF586041),
-                                  fontWeight: isSelected
-                                      ? FontWeight.bold
-                                      : FontWeight.bold,
+                                      : AppColors.darkpink,
+                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                             ),
@@ -190,14 +232,15 @@ class _VendorsScreenState extends State<VendorsScreen> {
                               Icon(
                                 Icons.search_off,
                                 size: 64,
-                                color: Colors.grey.shade400,
+                                color: AppColors.coral,
                               ),
                               const SizedBox(height: 16),
                               Text(
                                 'No vendors found',
                                 style: TextStyle(
                                   fontSize: 16,
-                                  color: Colors.grey.shade600,
+                                  color: AppColors.coral,
+                                  // color: Colors.grey.shade600,
                                 ),
                               ),
                             ],
@@ -234,21 +277,17 @@ class _VendorsScreenState extends State<VendorsScreen> {
               children: [
                 //icon of vendor
                 Container(
-                  width: 60,
-                  height: 60,
+                  width: 150,
+                  height: 120,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFF0F0D8),
                     borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: Text(
-                      vendor.imageIcon,
-                      style: const TextStyle(fontSize: 30),
+                    image: DecorationImage(
+                      image: AssetImage(getVendorBackgroundImage(vendor)),
+                      fit: BoxFit.cover,
                     ),
                   ),
                 ),
                 const SizedBox(width: 16),
-
                 //vendor info
                 Expanded(
                   child: Column(
@@ -261,8 +300,9 @@ class _VendorsScreenState extends State<VendorsScreen> {
                             child: Text(
                               vendor.name,
                               style: const TextStyle(
-                                fontSize: 16,
+                                fontSize: 20,
                                 fontWeight: FontWeight.bold,
+                                color: AppColors.burgundy,
                               ),
                             ),
                           ),
@@ -272,8 +312,8 @@ class _VendorsScreenState extends State<VendorsScreen> {
                       Text(
                         vendor.category,
                         style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
+                          fontSize: 16,
+                          color: AppColors.burgundy,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -284,8 +324,8 @@ class _VendorsScreenState extends State<VendorsScreen> {
                           Text(
                             '${vendor.rating}',
                             style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
+                              fontSize: 14,
+                              color: AppColors.burgundy,
                             ),
                           ),
                         ],
@@ -296,30 +336,64 @@ class _VendorsScreenState extends State<VendorsScreen> {
               ],
             ),
             const SizedBox(height: 16),
-
-            //action buttons
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => VendorDetailsScreen(vendor: vendor),
+            Row(
+              children: [
+                IconButton(
+                  icon: Icon(
+                    vendor.isFavorite ? Icons.favorite : Icons.favorite_border,
+                    color: AppColors.darkpink,
+                  ),
+                  onPressed: () async {
+                    setState(() {
+                      vendor.isFavorite = !vendor.isFavorite;
+                    });
+                    await updateVendor(vendor);
+                  },
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              VendorDetailsScreen(vendor: vendor),
+                        ),
+                      );
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.darkpink,
+                      side: const BorderSide(color: AppColors.darkpink),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
                     ),
-                  );
-                },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color.fromARGB(255, 255, 255, 255),
-                  backgroundColor: const Color(0xFF586041),
-                  side: const BorderSide(color: Color(0xFF586041)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                    child: const Text('View Details'),
                   ),
                 ),
-                child: const Text('View Details'),
-              ),
+                const SizedBox(width: 8), // space between buttons
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => _launchURL(
+                      'https://wa.me/961${vendor.phoneNumber.replaceAll(RegExp(r'[\s\-]'), '')}',
+                    ),
+
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.darkpink,
+                      side: const BorderSide(color: AppColors.darkpink),
+                      padding: const EdgeInsets.symmetric(vertical: 15),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                    child: const Text('Book Vendor'), // change label as needed
+                  ),
+                ),
+              ],
             ),
           ],
         ),

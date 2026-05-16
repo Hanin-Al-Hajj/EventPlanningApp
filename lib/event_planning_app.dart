@@ -1,9 +1,9 @@
 import 'package:event_planner/screens/SignUp_screen.dart';
-
 import 'package:event_planner/screens/login_screen.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
+import 'package:event_planner/screens/planner_tabs_screen.dart';
 
 class EventPlanningApp extends StatefulWidget {
   const EventPlanningApp({super.key});
@@ -36,6 +36,19 @@ class _EventPlanningAppState extends State<EventPlanningApp> {
     });
   }
 */
+  final dummyEvent = Event(
+    id: '1',
+    eventType: 'Wedding',
+    title: 'test event',
+    guests: 0,
+    date: DateTime.now(),
+    location: 'beirut',
+    budget: 0,
+    progress: 0,
+    status: 'pending',
+
+    // other required fields
+  );
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -44,8 +57,8 @@ class _EventPlanningAppState extends State<EventPlanningApp> {
         primarySwatch: Colors.green,
         scaffoldBackgroundColor: AppColors.cream,
       ),
-
-      initialRoute: '/login',
+      home: Plannertabsscreen(event: dummyEvent),
+      //initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginScreen(),
         '/signup': (context) => const SignUpScreen(),

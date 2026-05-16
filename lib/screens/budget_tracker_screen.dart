@@ -4,6 +4,7 @@ import 'package:event_planner/db/budget_storage.dart';
 import 'package:event_planner/db/event_storage.dart';
 import 'package:event_planner/widgets/add_expense_dialog.dart';
 import 'package:event_planner/models/budget.dart';
+import 'package:event_planner/constants/app_colors.dart';
 
 class BudgetTrackerScreen extends StatefulWidget {
   final Event event;
@@ -124,13 +125,21 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Edit ${expense.category}'),
+        title: Text(
+          'Edit ${expense.category}',
+          style: TextStyle(color: AppColors.darkpink, fontSize: 19),
+        ),
         content: TextField(
           controller: spentController,
           decoration: const InputDecoration(
             labelText: 'Amount Spent',
+            labelStyle: TextStyle(color: AppColors.burgundy),
             border: OutlineInputBorder(),
+            focusedBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: AppColors.burgundy),
+            ),
             prefixText: '\$',
+            prefixStyle: TextStyle(color: AppColors.burgundy),
           ),
           keyboardType: TextInputType.number,
           autofocus: true,
@@ -138,7 +147,10 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.darkpink),
+            ),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -155,11 +167,11 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
               await _loadExpenses();
 
               await updateEventProgress(widget.event.id);
-              if (widget.onBudgetChanged != null)
-                await widget.onBudgetChanged!();
+              if (widget.onBudgetChanged != null) {}
+              await widget.onBudgetChanged!();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF545A3B),
+              backgroundColor: AppColors.darkpink,
               foregroundColor: Colors.white,
             ),
             child: const Text('Save'),
@@ -199,11 +211,15 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5DC),
+      backgroundColor: AppColors.cream,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF586041),
-        foregroundColor: Colors.white,
-        title: const Text('Budget Tracker'),
+        backgroundColor: AppColors.cream,
+        foregroundColor: AppColors.burgundy,
+        title: const Text(
+          'Budget Tracker',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        centerTitle: true,
         elevation: 0,
       ),
       body: _isLoading
@@ -233,7 +249,10 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                         children: [
                           const Text(
                             'Total Budget',
-                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: AppColors.burgundy,
+                            ),
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -241,7 +260,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                             style: const TextStyle(
                               fontSize: 36,
                               fontWeight: FontWeight.bold,
-                              color: Color(0xFF151910),
+                              color: AppColors.burgundy,
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -271,7 +290,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                                     'Spent: \$${totalSpent.toStringAsFixed(0)}',
                                     style: const TextStyle(
                                       fontSize: 14,
-                                      color: Colors.grey,
+                                      color: AppColors.burgundy,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
@@ -279,7 +298,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                                     '$completedExpenses/${_expenses.length} Categories Completed',
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: Colors.grey.shade600,
+                                      color: AppColors.burgundy,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -291,7 +310,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                                   fontSize: 14,
                                   color: remainingBudget < 0
                                       ? Colors.red
-                                      : Colors.grey,
+                                      : AppColors.burgundy,
                                   fontWeight: remainingBudget < 0
                                       ? FontWeight.bold
                                       : FontWeight.normal,
@@ -312,7 +331,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF151910),
+                            color: AppColors.darkpink,
                           ),
                         ),
                         if (_expenses.isNotEmpty)
@@ -320,7 +339,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                             'Swipe to delete',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey.shade500,
+                              color: AppColors.coral,
                               fontStyle: FontStyle.italic,
                             ),
                           ),
@@ -328,7 +347,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                         TextButton(
                           onPressed: _showAddExpenseDialog,
                           style: TextButton.styleFrom(
-                            backgroundColor: Color.fromARGB(255, 151, 15, 15),
+                            backgroundColor: AppColors.darkpink,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                               horizontal: 20,
@@ -353,7 +372,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                             children: [
                               Icon(
                                 Icons.attach_money,
-                                size: 64,
+                                size: 62,
                                 color: Colors.grey.shade400,
                               ),
                               const SizedBox(height: 16),
@@ -361,7 +380,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                                 'No expenses yet',
                                 style: TextStyle(
                                   fontSize: 16,
-                                  color: Colors.grey.shade600,
+                                  color: Colors.grey.shade400,
                                 ),
                               ),
                             ],
@@ -382,7 +401,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             decoration: BoxDecoration(
-                              color: Colors.red,
+                              color: AppColors.darkpink,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             alignment: Alignment.centerRight,
@@ -396,21 +415,31 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                             return await showDialog(
                               context: context,
                               builder: (context) => AlertDialog(
-                                title: const Text('Delete Expense'),
+                                backgroundColor: AppColors.cream,
+                                title: const Text(
+                                  'Delete Expense',
+                                  style: TextStyle(color: AppColors.darkpink),
+                                ),
                                 content: Text(
                                   'Are you sure you want to delete ${expense.category}?',
+                                  style: TextStyle(color: AppColors.burgundy),
                                 ),
                                 actions: [
                                   TextButton(
                                     onPressed: () =>
                                         Navigator.pop(context, false),
-                                    child: const Text('Cancel'),
+                                    child: const Text(
+                                      'Cancel',
+                                      style: TextStyle(
+                                        color: AppColors.darkpink,
+                                      ),
+                                    ),
                                   ),
                                   ElevatedButton(
                                     onPressed: () =>
                                         Navigator.pop(context, true),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red,
+                                      backgroundColor: AppColors.darkpink,
                                       foregroundColor: Colors.white,
                                     ),
                                     child: const Text('Delete'),
@@ -462,8 +491,9 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                                           child: Text(
                                             expense.category,
                                             style: const TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.burgundy,
                                             ),
                                           ),
                                         ),
@@ -471,7 +501,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                                           '\$${expense.amountSpent.toStringAsFixed(0)} / \$${expense.allocatedAmount.toStringAsFixed(0)}',
                                           style: TextStyle(
                                             fontSize: 14,
-                                            color: Colors.grey.shade700,
+                                            color: AppColors.burgundy,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -498,8 +528,7 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
                             ),
                           ),
                         );
-                      }).toList(),
-                    const SizedBox(height: 80),
+                      }),
                   ],
                 ),
               ),

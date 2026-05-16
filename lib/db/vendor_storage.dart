@@ -61,9 +61,13 @@ Future<void> seedSampleVendors() async {
       category: 'Decoration',
       rating: 4.8,
 
-      imageIcon: '💐',
+      imageIcon: 'assets/images/theflowershop.jpeg',
       phoneNumber: '03795481',
       description: 'Professional flower decoration for all events',
+      locations: [
+        'Hadi Nasrallah Avenue, Al Afak Institute Bldg., Haret Hreik, Beirut',
+      ],
+      instagram: 'theflowershoplb',
     ),
     Vendor(
       id: '2',
@@ -75,6 +79,13 @@ Future<void> seedSampleVendors() async {
       phoneNumber: '01 453 800',
       description:
           'High-end dessert shop offering specialty & custom cakes,ice cream % chocolates',
+      locations: [
+        'Roma Street, Centre Miraj Building, Sanayeh, Beirut',
+        'Old Airport Road, Beirut',
+        'Hadath, Baabda, Lebanon',
+        'Saida–Tyre Highway, near Abbasiyeh exit, Tyre',
+      ],
+      instagram: 'cremino.lb',
     ),
     Vendor(
       id: '3',
@@ -85,6 +96,14 @@ Future<void> seedSampleVendors() async {
       imageIcon: '🍴',
       phoneNumber: '03 456 854',
       description: 'Outdoor seating . Great cocktails . Vegan options',
+      locations: [
+        'New Airport Road, beside Golf Club, Beirut',
+        'Centro Mall, Jnah, Beirut',
+        'Ghobeiry, Baabda, Lebanon',
+        'Michel Zakhour Street, Chyah, Baabda',
+        'Saida–Tyre Highway, Abbasiyeh, Tyre',
+      ],
+      instagram: 'aljawaddining',
     ),
 
     Vendor(
@@ -97,6 +116,8 @@ Future<void> seedSampleVendors() async {
       phoneNumber: '03  921 490',
       description:
           'Planto is a modern flower shop in Beirut ,Lebanon,known for its artistic and elegant floral arrangements.They offer fresh stylish bouquets perfect for any occasion ,blending creativity with natural beauty',
+      locations: ['Hadi Nasrallah Highway, Beirut'],
+      instagram: 'plantoleb',
     ),
     Vendor(
       id: '5',
@@ -108,6 +129,8 @@ Future<void> seedSampleVendors() async {
       phoneNumber: '01 838 000',
       description:
           "Dreams become reality in Lancaster Eden Bay's Ballroom, Beirut's most luxurious venue and most sought-after locations for fairytale.The room gathers your 600 guests in a magnificently designed ballroom that suits your festive occasion",
+      locations: ['El Akhtal El Saghir Street, Ramlet El Baida, Beirut'],
+      instagram: 'lancasteredenbay',
     ),
   ];
   for (var vendor in sampleVendors) {

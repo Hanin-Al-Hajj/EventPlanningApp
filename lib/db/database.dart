@@ -71,10 +71,13 @@ class EventDatabase {
           category TEXT NOT NULL,
           rating DOUBLE NOT NULL,
           imageIcon TEXT NOT NULL,
-          phoneNumber TEXT,
+          phoneNumber INTEGER NOT NULL,
           email TEXT,
           website TEXT,
-          description TEXT
+          description TEXT,
+          isFavorite INTEGER DEFAULT 0,
+          location TEXT,
+          instagram TEXT
         )
       ''');
         await db.execute('''
@@ -158,10 +161,13 @@ class EventDatabase {
             category TEXT NOT NULL,
             rating DOUBLE NOT NULL,
             imageIcon TEXT NOT NULL,
-            phoneNumber TEXT,
+            phoneNumber INTEGER NOT NULL,
             email TEXT,
             website TEXT,
-            description TEXT
+            description TEXT,
+            isFavorite INTEGER DEFAULT 0,
+            location TEXT,
+            instagram TEXT
           )
         ''');
         }
@@ -195,9 +201,37 @@ class EventDatabase {
             await db.execute('ALTER TABLE events ADD COLUMN description TEXT');
           }
         }
+        if (oldVersion < 15) {
+          await db.execute(
+            'ALTER TABLE vendors ADD COLUMN isFavorite INTEGER DEFAULT 0',
+          );
+        }
+        if (oldVersion < 16) {
+          await db.execute('ALTER TABLE vendors ADD COLUMN location TEXT');
+          await db.execute('ALTER TABLE vendors ADD COLUMN instagram TEXT');
+        }
+        if (oldVersion < 17) {
+          await db.execute('DROP TABLE IF EXISTS vendors');
+          await db.execute('''
+    CREATE TABLE vendors(
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      rating DOUBLE NOT NULL,
+      imageIcon TEXT NOT NULL,
+      phoneNumber TEXT NOT NULL,
+      email TEXT,
+      website TEXT,
+      description TEXT,
+      isFavorite INTEGER DEFAULT 0,
+      location TEXT,
+      instagram TEXT
+    )
+  ''');
+        }
       },
 
-      version: 14,
+      version: 17,
     );
 
     return db;
