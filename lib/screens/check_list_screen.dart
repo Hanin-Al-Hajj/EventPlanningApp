@@ -83,42 +83,76 @@ class _CheckListScreenState extends State<CheckListScreen> {
         backgroundColor: AppColors.cream,
         appBar: AppBar(
           backgroundColor: AppColors.cream,
-          foregroundColor: AppColors.burgundy,
-          title: Text(
-            _currentEvent.title,
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-          ),
-          centerTitle: true,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: AppColors.darkpink),
-            onPressed: _popWithUpdatedEvent,
-          ),
-          actions: [
-            IconButton(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) => AddTask(
-                    eventId: _currentEvent.id,
-                    onTaskAdded: _loadTimelineTasks,
+          elevation: 0,
+          toolbarHeight: 76,
+          automaticallyImplyLeading: false,
+          titleSpacing: 0,
+
+          title: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+            child: Row(
+              children: [
+                InkWell(
+                  onTap: _popWithUpdatedEvent,
+                  borderRadius: BorderRadius.circular(22),
+                  child: const SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Center(
+                      child: FaIcon(
+                        FontAwesomeIcons.arrowLeft,
+                        size: 20,
+                        color: AppColors.darkpink,
+                      ),
+                    ),
                   ),
-                );
-              },
-              style: TextButton.styleFrom(
-                iconSize: 33,
-                foregroundColor: AppColors.darkpink,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
+
+                const SizedBox(width: 12),
+
+                Expanded(
+                  child: Text(
+                    _currentEvent.title,
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.burgundy,
+                    ),
+                  ),
                 ),
-              ),
-              icon: const FaIcon(FontAwesomeIcons.circlePlus),
+
+                const SizedBox(width: 12),
+
+                InkWell(
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AddTask(
+                        eventId: _currentEvent.id,
+                        onTaskAdded: _loadTimelineTasks,
+                      ),
+                    );
+                  },
+                  borderRadius: BorderRadius.circular(22),
+                  child: const SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Center(
+                      child: FaIcon(
+                        FontAwesomeIcons.circlePlus,
+                        size: 28,
+                        color: AppColors.darkpink,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
+
         body: _buildTimelineTab(),
       ),
     );

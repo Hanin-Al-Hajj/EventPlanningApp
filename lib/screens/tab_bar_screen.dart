@@ -1,9 +1,10 @@
 import 'package:event_planner/models/event.dart';
-import 'package:event_planner/screens/Messages_screen.dart';
+import 'package:event_planner/screens/Messages_screen_client.dart';
 import 'package:event_planner/screens/summary_detail.dart';
 import 'package:event_planner/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class TabsScreen extends StatefulWidget {
   const TabsScreen({super.key});
@@ -55,23 +56,35 @@ class _TabsScreenState extends State<TabsScreen> {
     if (_selectedIndex == 1) {
       activePage = const SummaryDetail();
     } else if (_selectedIndex == 2) {
-      activePage = const MessagesScreen();
+      activePage = const MessagesScreenClient();
     }
 
     return Scaffold(
-      body: activePage,
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        transitionBuilder: (child, animation) {
+          return FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 0.97, end: 1).animate(animation),
+              child: child,
+            ),
+          );
+        },
+        child: KeyedSubtree(key: ValueKey(_selectedIndex), child: activePage),
+      ),
       bottomNavigationBar: BottomNavigationBar(
-        items: const [
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.home_rounded),
+            icon: FaIcon(FontAwesomeIcons.houseChimneyUser, size: 20),
             label: 'Home',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.article_rounded),
-            label: 'Summary',
+            icon: FaIcon(FontAwesomeIcons.chartSimple, size: 20),
+            label: 'Report',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.chat_rounded),
+            icon: FaIcon(FontAwesomeIcons.solidMessage, size: 20),
             label: 'Messages',
           ),
         ],
@@ -79,8 +92,10 @@ class _TabsScreenState extends State<TabsScreen> {
         currentIndex: _selectedIndex,
         type: BottomNavigationBarType.fixed,
         selectedItemColor: AppColors.darkpink,
-        unselectedItemColor: AppColors.darkpink,
+        unselectedItemColor: AppColors.darkpink.withOpacity(0.75),
         backgroundColor: AppColors.cream,
+        showSelectedLabels: false,
+        showUnselectedLabels: false,
       ),
     );
   }

@@ -21,18 +21,50 @@ class VendorDetailsScreen extends StatelessWidget {
       backgroundColor: AppColors.cream,
       appBar: AppBar(
         backgroundColor: AppColors.cream,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.darkpink),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Vendor Details',
-          style: TextStyle(
-            color: AppColors.darkpink,
-            fontWeight: FontWeight.bold,
+        elevation: 0,
+        toolbarHeight: 76,
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+
+        title: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+          child: Row(
+            children: [
+              InkWell(
+                onTap: () => Navigator.pop(context),
+                borderRadius: BorderRadius.circular(22),
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Center(
+                    child: FaIcon(
+                      FontAwesomeIcons.arrowLeft,
+                      size: 20,
+                      color: AppColors.darkpink,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              const Expanded(
+                child: Text(
+                  'Vendor Details',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.burgundy,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+
+              // Invisible widget to balance the back button
+              const SizedBox(width: 40, height: 40),
+            ],
           ),
         ),
-        centerTitle: true,
       ),
       body: SingleChildScrollView(
         child: Column(
@@ -152,6 +184,7 @@ class VendorDetailsScreen extends StatelessWidget {
                     (location) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Icon(
                             Icons.location_on,
@@ -159,11 +192,14 @@ class VendorDetailsScreen extends StatelessWidget {
                             size: 20,
                           ),
                           const SizedBox(width: 8),
-                          Text(
-                            location,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: AppColors.burgundy,
+                          Expanded(
+                            child: Text(
+                              location,
+                              softWrap: true,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: AppColors.burgundy,
+                              ),
                             ),
                           ),
                         ],

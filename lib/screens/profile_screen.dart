@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -92,18 +93,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.cream,
         elevation: 0,
-        centerTitle: true,
-        title: const Text(
-          'My Profile',
-          style: TextStyle(
-            color: AppColors.burgundy,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
+        toolbarHeight: 76,
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+        title: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+          child: Row(
+            children: [
+              InkWell(
+                onTap: () => Navigator.pop(context),
+                borderRadius: BorderRadius.circular(22),
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Center(
+                    child: FaIcon(
+                      FontAwesomeIcons.xmark,
+                      size: 20,
+                      color: AppColors.darkpink,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'My Profile',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.burgundy,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 52),
+            ],
           ),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.burgundy),
-          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: SingleChildScrollView(

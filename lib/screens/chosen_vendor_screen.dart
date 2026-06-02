@@ -3,6 +3,7 @@ import 'package:event_planner/db/vendor_storage.dart';
 import 'package:event_planner/models/vendor.dart';
 import 'package:event_planner/screens/vendor_details_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class ChosenVendorScreen extends StatefulWidget {
   final List<Vendor> favoriteVendors;
@@ -27,17 +28,48 @@ class _ChosenVendorScreenState extends State<ChosenVendorScreen> {
       backgroundColor: AppColors.cream,
       appBar: AppBar(
         backgroundColor: AppColors.cream,
-        centerTitle: true,
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: Icon(Icons.arrow_back, color: AppColors.darkpink),
-        ),
-        title: Text(
-          'My Favorites',
-          style: TextStyle(
-            color: AppColors.darkpink,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
+        elevation: 0,
+        toolbarHeight: 76,
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+
+        title: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+          child: Row(
+            children: [
+              InkWell(
+                onTap: () => Navigator.pop(context),
+                borderRadius: BorderRadius.circular(22),
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Center(
+                    child: FaIcon(
+                      FontAwesomeIcons.arrowLeft,
+                      size: 20,
+                      color: AppColors.darkpink,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              const Expanded(
+                child: Text(
+                  'My Favorites',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.burgundy,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+
+              // Balance the back button so the title stays centered
+              SizedBox(width: 40, height: 40),
+            ],
           ),
         ),
       ),

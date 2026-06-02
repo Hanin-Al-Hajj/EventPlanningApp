@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:event_planner/constants/app_colors.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class SystemScreen extends StatefulWidget {
   const SystemScreen({super.key});
@@ -100,43 +101,51 @@ class _SystemScreenState extends State<SystemScreen> {
       ),
       child: Column(
         children: [
-          const SizedBox(height: 20),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Stack(
-              alignment: Alignment.center,
+            padding: const EdgeInsets.fromLTRB(22, 18, 22, 0),
+            child: Row(
               children: [
-                const Text(
-                  'Settings',
-                  style: TextStyle(
-                    color: AppColors.burgundy,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.arrow_back,
-                      color: AppColors.darkpink,
+                InkWell(
+                  onTap: () => Navigator.pop(context),
+                  borderRadius: BorderRadius.circular(22),
+                  child: const SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: Center(
+                      child: FaIcon(
+                        FontAwesomeIcons.xmark,
+                        size: 20,
+                        color: AppColors.darkpink,
+                      ),
                     ),
-                    onPressed: () => Navigator.pop(context),
                   ),
                 ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text(
+                    'Settings',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: AppColors.burgundy,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 52),
               ],
             ),
           ),
           const SizedBox(height: 10),
           const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 20),
+            padding: EdgeInsets.symmetric(horizontal: 24),
             child: Text(
               'Manage your preferences and notifications',
               style: TextStyle(color: AppColors.burgundy, fontSize: 14),
               textAlign: TextAlign.center,
             ),
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -444,7 +453,6 @@ class _SystemScreenState extends State<SystemScreen> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.darkpink,
                                   foregroundColor: Colors.white,
-                                  
                                 ),
                                 child: const Text('Logout'),
                               ),

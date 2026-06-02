@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:event_planner/screens/chosen_vendor_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class VendorsScreen extends StatefulWidget {
   const VendorsScreen({super.key});
@@ -111,58 +112,89 @@ class _VendorsScreenState extends State<VendorsScreen> {
       backgroundColor: AppColors.cream,
       appBar: AppBar(
         backgroundColor: AppColors.cream,
-        centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.coral),
-          onPressed: () => Navigator.pop(context),
-        ),
+        elevation: 0,
+        toolbarHeight: 76,
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+
         title: Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: SizedBox(
-            height: 40,
-            width: 250,
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) => _filterVendors(),
-              decoration: InputDecoration(
-                hintText: 'Search vendors...',
-                hintStyle: TextStyle(color: AppColors.coral),
-                prefixIcon: Icon(Icons.search, color: AppColors.coral),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 0,
-                  horizontal: 0,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.favorite,
-              color: AppColors.darkpink,
-              size: 37,
-            ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ChosenVendorScreen(
-                    favoriteVendors: _allVendors
-                        .where((v) => v.isFavorite)
-                        .toList(),
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+          child: Row(
+            children: [
+              InkWell(
+                onTap: () => Navigator.pop(context),
+                borderRadius: BorderRadius.circular(22),
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Center(
+                    child: Icon(
+                      FontAwesomeIcons.arrowLeft,
+                      color: AppColors.darkpink,
+                      size: 20,
+                    ),
                   ),
                 ),
-              );
-            },
+              ),
+
+              const SizedBox(width: 12),
+
+              Expanded(
+                child: SizedBox(
+                  height: 40,
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) => _filterVendors(),
+                    decoration: InputDecoration(
+                      hintText: 'Search vendors...',
+                      hintStyle: const TextStyle(color: AppColors.coral),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: AppColors.coral,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(40),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ChosenVendorScreen(
+                        favoriteVendors: _allVendors
+                            .where((v) => v.isFavorite)
+                            .toList(),
+                      ),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(22),
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Center(
+                    child: Icon(
+                      Icons.favorite,
+                      color: AppColors.darkpink,
+                      size: 30,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
 
       body: _isLoading

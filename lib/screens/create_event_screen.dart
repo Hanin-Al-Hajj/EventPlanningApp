@@ -3,6 +3,7 @@ import 'package:event_planner/models/event.dart';
 import 'package:event_planner/services/api_service.dart';
 import 'package:intl/intl.dart';
 import 'package:event_planner/constants/app_colors.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class CreateEventScreen extends StatefulWidget {
   const CreateEventScreen({super.key, this.eventToEdit});
@@ -33,6 +34,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   String? _selectedPlannerName;
   DateTime? _selectedDate;
   bool _isSaving = false;
+  bool get isEditing => widget.eventToEdit != null;
 
   @override
   void initState() {
@@ -53,21 +55,68 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   Future<void> _loadCreateData() async {
     try {
       final result = await ApiService.getCreateData();
+
+      if (!mounted) return;
+
       if (result['success'] == true) {
         final data = result['data'];
+
         setState(() {
-          _eventTypes = List<Map<String, dynamic>>.from(data['event_types']);
-          _planners = List<Map<String, dynamic>>.from(data['planners']);
+          _eventTypes = List<Map<String, dynamic>>.from(
+            data['event_types'] ?? [],
+          );
+          _planners = List<Map<String, dynamic>>.from(data['planners'] ?? []);
+
+          // Event type matching
+          // Event type matching
+          if (isEditing && _selectedEventTypeId == null) {
+            final matchingType = _eventTypes.where(
+              (type) => type['name'] == widget.eventToEdit!.eventType,
+            );
+            if (matchingType.isNotEmpty) {
+              _selectedEventTypeId = matchingType.first['id'] as int;
+              _selectedEventTypeName = matchingType.first['name'];
+            }
+          }
+
+          // Planner matching — MUST happen here after _planners is populated
+          if (isEditing && widget.eventToEdit!.plannerId != null) {
+            final matchingPlanner = _planners.where(
+              (p) => p['id'] == widget.eventToEdit!.plannerId,
+            );
+            if (matchingPlanner.isNotEmpty) {
+              _selectedPlannerId = matchingPlanner.first['id'] as int;
+              _selectedPlannerName = matchingPlanner.first['name'];
+            }
+          }
+
           _isLoadingData = false;
         });
-      }
-    } catch (e) {
-      setState(() => _isLoadingData = false);
-      if (mounted) {
+      } else {
+        setState(() {
+          _eventTypes = [];
+          _planners = [];
+          _isLoadingData = false;
+        });
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to load form data')),
+          SnackBar(
+            content: Text(result['message'] ?? 'Failed to load form data'),
+          ),
         );
       }
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _eventTypes = [];
+        _planners = [];
+        _isLoadingData = false;
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load form data: $e')));
     }
   }
 
@@ -171,7 +220,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     setState(() => _isSaving = true);
 
     try {
-      final result = await ApiService.createEvent({
+      final eventData = {
         'event_type_id': _selectedEventTypeId,
         'name': _eventNameController.text,
         'start_date': DateFormat('yyyy-MM-dd').format(_selectedDate!),
@@ -181,8 +230,13 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         'guest_estimate': int.parse(_guestsController.text),
         'budget_overall': double.parse(_budgetController.text),
         'description': _descriptionController.text,
+
         if (_selectedPlannerId != null) 'planner_id': _selectedPlannerId,
-      });
+      };
+
+      final result = isEditing
+          ? await ApiService.updateEvent(widget.eventToEdit!.id, eventData)
+          : await ApiService.createEvent(eventData);
 
       setState(() => _isSaving = false);
 
@@ -202,6 +256,8 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
           status: data['status'] ?? 'Planning',
           eventType: _selectedEventTypeName,
           description: data['description'],
+          plannerId: data['planner_id'],
+          plannerName: data['planner_name'],
         );
         Navigator.pop(context, newEvent);
       } else {
@@ -221,19 +277,52 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.eventToEdit != null;
-
     return Scaffold(
       backgroundColor: AppColors.cream,
       appBar: AppBar(
-        centerTitle: true,
         backgroundColor: AppColors.cream,
-        foregroundColor: AppColors.burgundy,
-        title: Text(
-          isEditing ? 'Edit Event' : 'Create Event',
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
         elevation: 0,
+        toolbarHeight: 76,
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+        title: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+          child: Row(
+            children: [
+              InkWell(
+                onTap: () => Navigator.pop(context),
+                borderRadius: BorderRadius.circular(22),
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Center(
+                    child: FaIcon(
+                      FontAwesomeIcons.xmark,
+                      size: 20,
+                      color: AppColors.darkpink,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              Expanded(
+                child: Text(
+                  isEditing ? 'Edit Event' : 'Create Event',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.burgundy,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 52),
+            ],
+          ),
+        ),
       ),
       body: _isLoadingData
           ? const Center(child: CircularProgressIndicator())

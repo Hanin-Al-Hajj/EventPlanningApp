@@ -150,7 +150,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         if (role == 'planner') {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const Eventplannerdashboard()),
+            MaterialPageRoute(builder: (_) => const EventPlannerDashboard()),
           );
         } else {
           Navigator.pushReplacement(

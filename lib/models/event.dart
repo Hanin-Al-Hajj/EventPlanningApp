@@ -9,6 +9,8 @@ class Event {
   final String status;
   final String? eventType;
   final String? description;
+  final int? plannerId; // ADD
+  final String? plannerName; // ADD
 
   Event({
     required this.id,
@@ -21,6 +23,8 @@ class Event {
     required this.status,
     this.eventType,
     this.description,
+    this.plannerId, // ADD
+    this.plannerName, // ADD
   });
 
   Map<String, dynamic> get eventMap {
@@ -35,6 +39,8 @@ class Event {
       'status': status,
       'eventType': eventType,
       'description': description,
+      'plannerId': plannerId,
+      'plannerName': plannerName,
     };
   }
 }

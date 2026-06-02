@@ -6,6 +6,7 @@ import 'package:event_planner/widgets/GuestCard.dart';
 import 'package:event_planner/widgets/statistics_cards.dart';
 import 'package:event_planner/db/event_storage.dart';
 import 'package:event_planner/constants/app_colors.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class GuestListScreen extends StatefulWidget {
   const GuestListScreen({
@@ -147,60 +148,80 @@ class _GuestlistScreenState extends State<GuestListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.cream,
+
       appBar: AppBar(
         backgroundColor: AppColors.cream,
+        elevation: 0,
+        toolbarHeight: 76,
+        automaticallyImplyLeading: false,
         titleSpacing: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.darkpink),
-          onPressed: () => Navigator.pop(context),
-        ),
+
         title: Padding(
-          padding: const EdgeInsets.only(right: 12),
-          child: SizedBox(
-            height: 40,
-            width: 250,
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search guests...',
-                hintStyle: TextStyle(color: AppColors.coral),
-                prefixIcon: Icon(Icons.search, color: AppColors.coral),
-                filled: true,
-                fillColor: Colors.white,
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 0,
-                  horizontal: 0,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  borderSide: BorderSide.none,
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+          child: Row(
+            children: [
+              InkWell(
+                onTap: () => Navigator.pop(context),
+                borderRadius: BorderRadius.circular(22),
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Center(
+                    child: FaIcon(
+                      FontAwesomeIcons.arrowLeft,
+                      size: 20,
+                      color: AppColors.darkpink,
+                    ),
+                  ),
                 ),
               ),
-            ),
+
+              const SizedBox(width: 12),
+
+              Expanded(
+                child: SizedBox(
+                  height: 40,
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search guests...',
+                      hintStyle: const TextStyle(color: AppColors.coral),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: AppColors.coral,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(40),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              InkWell(
+                onTap: _addGuest,
+                borderRadius: BorderRadius.circular(22),
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Center(
+                    child: FaIcon(
+                      FontAwesomeIcons.plusCircle,
+                      size: 28,
+                      color: AppColors.darkpink,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: InkWell(
-              onTap: _addGuest,
-              borderRadius: BorderRadius.circular(25),
-              child: Container(
-                width: 35,
-                height: 35,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.darkpink, width: 2),
-                ),
-                child: const Icon(
-                  Icons.add,
-                  color: AppColors.darkpink,
-                  size: 24,
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
       body: _isloading
           ? const Center(
