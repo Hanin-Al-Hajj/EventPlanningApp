@@ -28,6 +28,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
 
+  int _unreadNotificationCount = 0;
+
   List<Event> _allEvents = [];
   List<Event> _filteredEvents = [];
 
@@ -37,8 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int get activeEventsCount {
     return widget.registeredEvents
         .where(
-          (event) =>
-              event.status == 'In Progress' || event.status == 'Planning',
+          (event) => event.status == 'confirmed' || event.status == 'pending',
         )
         .length;
   }
@@ -56,6 +57,18 @@ class _HomeScreenState extends State<HomeScreen> {
     if (upcomingEvents.isEmpty) return 0;
 
     return upcomingEvents.first.date.difference(now).inDays;
+  }
+
+  Future<void> _loadUnreadCount() async {
+    try {
+      final result = await ApiService.getUnreadNotificationCount();
+      if (result['success'] == true) {
+        final data = result['data'];
+        setState(() {
+          _unreadNotificationCount = data['unread_count'] ?? 0;
+        });
+      }
+    } catch (_) {}
   }
 
   void _filterEvents() {
@@ -135,7 +148,11 @@ class _HomeScreenState extends State<HomeScreen> {
             (e) => Event(
               id: e['id'].toString(),
               title: e['name'] ?? '',
-              date: DateTime.parse(e['start_date']),
+              date:
+                  DateTime.tryParse(
+                    e['start_date'].toString().split(' ').first,
+                  ) ??
+                  DateTime.now(),
               location: e['location_text'] ?? 'TBD',
               guests: int.tryParse(e['guest_estimate'].toString()) ?? 0,
               budget: double.tryParse(e['budget_overall'].toString()) ?? 0.0,
@@ -286,6 +303,7 @@ class _HomeScreenState extends State<HomeScreen> {
     if (widget.registeredEvents.isEmpty) {
       Future.microtask(() => _refreshEvents());
     }
+    _loadUnreadCount();
   }
 
   @override
@@ -456,22 +474,72 @@ class _HomeScreenState extends State<HomeScreen> {
 
                             const SizedBox(width: 10),
 
-                            Container(
-                              child: IconButton(
-                                padding: EdgeInsets.zero,
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const ClientNotificationScreen(),
+                            InkWell(
+                              onTap: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const ClientNotificationScreen(),
+                                  ),
+                                );
+                                // Refresh unread count when returning from notifications
+                                _loadUnreadCount();
+                              },
+                              borderRadius: BorderRadius.circular(22),
+                              child: SizedBox(
+                                width: 40,
+                                height: 40,
+                                child: Stack(
+                                  children: [
+                                    const Center(
+                                      child: FaIcon(
+                                        FontAwesomeIcons.bell,
+                                        size: 20,
+                                        color: AppColors.darkpink,
+                                      ),
                                     ),
-                                  );
-                                },
-                                icon: const FaIcon(
-                                  FontAwesomeIcons.bell,
-                                  size: 20,
-                                  color: AppColors.darkpink,
+                                    // Red badge dot
+                                    if (_unreadNotificationCount > 0)
+                                      Positioned(
+                                        top: 6,
+                                        right: 6,
+                                        child: Container(
+                                          width: _unreadNotificationCount > 9
+                                              ? 18
+                                              : 14,
+                                          height: 14,
+                                          decoration: const BoxDecoration(
+                                            color: AppColors.darkpink,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: _unreadNotificationCount > 9
+                                              ? const Center(
+                                                  child: Text(
+                                                    '9+',
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 8,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                )
+                                              : Center(
+                                                  child: Text(
+                                                    _unreadNotificationCount
+                                                        .toString(),
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 9,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                    ),
+                                                  ),
+                                                ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                             ),

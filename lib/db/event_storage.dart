@@ -1,6 +1,6 @@
 import 'package:event_planner/db/database.dart';
 import 'package:event_planner/models/event.dart';
-import 'package:event_planner/db/guest_storage.dart';
+import 'package:event_planner/db/Guest_storage.dart';
 import 'package:event_planner/db/budget_storage.dart';
 
 Future<void> insertEvent(Event event) async {

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:event_planner/services/api_service.dart';
+import 'package:event_planner/widgets/floating_action_button.dart';
 
 class EventPlannerDashboard extends StatefulWidget {
   const EventPlannerDashboard({super.key});
@@ -14,17 +16,210 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
   late final PageController _weekController = PageController(
     initialPage: _initialWeekPage,
   );
-
+final Map<String, List<Map<String, dynamic>>> _cachedCalendarDays = {};
+final Map<String, List<Map<String, dynamic>>> _cachedDayEvents = {};
   DateTime _selectedDate = DateTime.now();
+  bool _isLoadingDashboard = false;
+  bool _isLoadingRequests = false;
 
-  // ── Empty lists — fill from API later ────────────────────────────────────
-  // Each map should have: id, title, clientName, date, location, guests, budget, status
-  final List<Map<String, dynamic>> _dayEvents = [];
+  List<Map<String, dynamic>> _calendarDays = [];
+  List<Map<String, dynamic>> _dayEvents = [];
+  List<Map<String, dynamic>> _clientRequests = [];
 
-  // Each map should have: id, title, clientName, date, location, guests, budget
-  final List<Map<String, dynamic>> _clientRequests = [];
+  @override
+  void initState() {
+    super.initState();
+    _loadDashboard();
+    _loadRequests();
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+    _weekController.addListener(_onWeekPageChanged);
+  }
+
+  void _onWeekPageChanged() {
+    if (!_weekController.hasClients) return;
+
+    final page = _weekController.page?.round() ?? _initialWeekPage;
+    final weekStart = _startOfWeek(
+      DateTime.now().add(Duration(days: (page - _initialWeekPage) * 7)),
+    );
+
+    // Only reload if we're on a different week
+    final dateStr =
+        '${weekStart.year}-${weekStart.month.toString().padLeft(2, '0')}-${weekStart.day.toString().padLeft(2, '0')}';
+    _loadDashboard(date: dateStr);
+  }
+
+  // Load dashboard (calendar + events)
+  Future<void> _loadDashboard({String? date}) async {
+    final cacheKey = date ?? 'current';
+
+    // Return cached data instantly
+    if (_cachedCalendarDays.containsKey(cacheKey)) {
+      setState(() {
+        _calendarDays = _cachedCalendarDays[cacheKey]!;
+        _dayEvents = _cachedDayEvents[cacheKey]!;
+      });
+      return;
+    }
+
+    setState(() => _isLoadingDashboard = true);
+    try {
+      final result = await ApiService.getPlannerDashboard(date: date);
+      if (result['success'] == true) {
+        final data = result['data'];
+        final calendarDays = List<Map<String, dynamic>>.from(
+          data['calendar_days'] ?? [],
+        );
+        final dayEvents = <Map<String, dynamic>>[];
+
+        for (var day in calendarDays) {
+          final events = day['events'] as List? ?? [];
+          for (var event in events) {
+            if (event is! Map) continue;
+
+            final rawDate = event['start_date'];
+            if (rawDate == null) continue;
+
+            DateTime? parsedDate;
+            try {
+              final dateStr = rawDate.toString();
+              final dateOnly = dateStr.split(' ').first;
+              parsedDate = DateTime.tryParse(dateOnly);
+            } catch (_) {
+              continue;
+            }
+
+            if (parsedDate == null) continue;
+
+            dayEvents.add({
+              'id': event['id'] ?? 0,
+              'title': event['title'] ?? '',
+              'clientName': event['client_name'] ?? '',
+              'date': parsedDate,
+              'location': event['location'] ?? '',
+              'guests': event['guest_estimate'] ?? event['guests'] ?? 0,
+              'budget': (event['budget'] ?? 0).toString(),
+              'status': event['status'] ?? 'Accepted',
+              'event_type': event['event_type'] ?? '',
+            });
+          }
+        }
+
+        //  Save to cache
+        _cachedCalendarDays[cacheKey] = calendarDays;
+        _cachedDayEvents[cacheKey] = dayEvents;
+
+        setState(() {
+          _calendarDays = calendarDays;
+          _dayEvents = dayEvents;
+        });
+      }
+    } catch (e) {
+      debugPrint('Dashboard load error: $e');
+    }
+    setState(() => _isLoadingDashboard = false);
+  }
+
+  //  Load client requests
+  Future<void> _loadRequests() async {
+    setState(() => _isLoadingRequests = true);
+    try {
+      final result = await ApiService.getPlannerRequests();
+      if (result['success'] == true) {
+        final data = result['data'];
+        final requests = data['requests'] as List? ?? [];
+        setState(() {
+          _clientRequests = requests
+              .map(
+                (r) => {
+                  'id': r['id'],
+                  'title': r['name'],
+                  'clientName': r['client']?['name'] ?? 'Unknown',
+                  'date':
+                      DateTime.tryParse(
+                        (r['start_date_iso'] ?? '').toString().split(' ').first,
+                      ) ??
+                      DateTime.now(),
+                  'location': r['location'] ?? '',
+                  'guests': r['guest_estimate'] ?? 0,
+                  'budget': (r['budget_raw'] ?? 0).toString(),
+                  'description':
+                      r['description']?.toString() ?? '', //  ADD THIS
+                },
+              )
+              .toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Requests load error: $e');
+    }
+    setState(() => _isLoadingRequests = false);
+  }
+
+  void _acceptRequest(Map<String, dynamic> request) async {
+    // ✅ Optimistic update - remove from requests immediately
+    final requestCopy = Map<String, dynamic>.from(request);
+    setState(() {
+      _clientRequests.remove(request);
+      // Add to day events immediately
+      _dayEvents.add({...requestCopy, 'status': 'Accepted'});
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Request accepted!'),
+        backgroundColor: AppColors.green,
+      ),
+    );
+
+    // Then sync with API in background
+    final id = int.tryParse(request['id'].toString()) ?? 0;
+    try {
+      final result = await ApiService.acceptPlannerRequest(id);
+      if (result['success'] == true) {
+        // Reload to get fresh data
+        _loadDashboard();
+      } else {
+        // Rollback if API fails
+        if (mounted) {
+          setState(() {
+            _clientRequests.add(requestCopy);
+            _dayEvents.removeWhere((e) => e['id'] == requestCopy['id']);
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to accept'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Accept error: $e');
+    }
+  }
+
+  // ✅ Decline request - calls API
+  void _declineRequest(Map<String, dynamic> request) async {
+    final id = int.tryParse(request['id'].toString()) ?? 0;
+    try {
+      final result = await ApiService.declinePlannerRequest(id);
+      if (result['success'] == true) {
+        setState(() => _clientRequests.remove(request));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Request declined'),
+              backgroundColor: AppColors.darkpink,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Decline error: $e');
+    }
+  }
+
   bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
@@ -72,38 +267,13 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
     return '${m[d.month - 1]} ${d.day}, ${d.year}';
   }
 
-  // Events on selected day from _dayEvents list
   List<Map<String, dynamic>> get _eventsOnSelectedDay {
     return _dayEvents.where((e) {
-      final date = e['date'] as DateTime?;
-      return date != null && _isSameDay(date, _selectedDate);
+      final date = e['date'];
+      if (date == null) return false;
+      if (date is! DateTime) return false;
+      return _isSameDay(date, _selectedDate);
     }).toList();
-  }
-
-  // ── Actions ───────────────────────────────────────────────────────────────
-  void _acceptRequest(Map<String, dynamic> request) {
-    // TODO: call API to accept
-    setState(() {
-      _clientRequests.remove(request);
-      _dayEvents.add({...request, 'status': 'Accepted'});
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Request accepted!'),
-        backgroundColor: AppColors.green,
-      ),
-    );
-  }
-
-  void _declineRequest(Map<String, dynamic> request) {
-    // TODO: call API to decline
-    setState(() => _clientRequests.remove(request));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Request declined'),
-        backgroundColor: AppColors.darkpink,
-      ),
-    );
   }
 
   Future<void> _handleLogout() async {
@@ -149,11 +319,11 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
 
   @override
   void dispose() {
+    _weekController.removeListener(_onWeekPageChanged); // ✅ Remove listener
     _weekController.dispose();
     super.dispose();
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     final eventsToday = _eventsOnSelectedDay;
@@ -175,7 +345,6 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        // Centered date
                         Text(
                           _formatDayMonth(_selectedDate),
                           style: const TextStyle(
@@ -184,8 +353,6 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-
-                        // Left side
                         Align(
                           alignment: Alignment.centerLeft,
                           child: PopupMenuButton<String>(
@@ -225,8 +392,6 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                             ),
                           ),
                         ),
-
-                        // Right side
                         Align(
                           alignment: Alignment.centerRight,
                           child: Row(
@@ -295,7 +460,9 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                     title: 'Events — ${_formatFullDate(_selectedDate)}',
                   ),
                   const SizedBox(height: 12),
-                  eventsToday.isEmpty
+                  _isLoadingDashboard
+                      ? const Center(child: CircularProgressIndicator())
+                      : eventsToday.isEmpty
                       ? _emptyBox(
                           icon: Icons.event_outlined,
                           message: 'No events on this day',
@@ -318,7 +485,9 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                         : null,
                   ),
                   const SizedBox(height: 12),
-                  _clientRequests.isEmpty
+                  _isLoadingRequests
+                      ? const Center(child: CircularProgressIndicator())
+                      : _clientRequests.isEmpty
                       ? _emptyBox(
                           icon: Icons.mark_email_read_outlined,
                           message: 'No pending requests',
@@ -335,6 +504,16 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
           ),
         ],
       ),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 10, right: 10),
+        child: EventPlannerFAB(
+          onMyEvent: () => Navigator.pushNamed(context, '/my-events'),
+          onArchiveEvent: () {},
+          onAnalytics: () => Navigator.pushNamed(context, '/analytic'),
+          onMessage: () {},
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
@@ -343,13 +522,27 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
     final isSelected = _isSameDay(day, _selectedDate);
     final isToday = _isSameDay(day, DateTime.now());
 
-    final hasDayEvent = _dayEvents.any((e) {
-      final d = e['date'] as DateTime?;
-      return d != null && _isSameDay(d, day);
-    });
+    // ✅ Safely build date string
+    final dayStr =
+        '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+
+    // ✅ Check if this day has events
+    bool hasDayEvent = false;
+    try {
+      hasDayEvent = _calendarDays.any((d) {
+        return d['date'] == dayStr &&
+            (d['events'] as List?)?.isNotEmpty == true;
+      });
+    } catch (_) {
+      hasDayEvent = false;
+    }
 
     return GestureDetector(
-      onTap: () => setState(() => _selectedDate = day),
+      onTap: () {
+        setState(() {
+          _selectedDate = day;
+        });
+      },
       child: SizedBox(
         width: 36,
         child: Column(
@@ -450,35 +643,44 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.6),
+        color: Colors.white.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         children: [
-          Icon(icon, size: 40, color: Colors.grey.shade400),
+          Icon(icon, size: 40, color: AppColors.green.withOpacity(0.4)),
           const SizedBox(height: 10),
           Text(
             message,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade600,
+              color: AppColors.green.withOpacity(0.6),
             ),
           ),
           const SizedBox(height: 4),
           Text(
             sub,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade400),
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.green.withOpacity(0.4),
+            ),
           ),
         ],
       ),
     );
   }
 
-  // ── Day Event Card (accepted events) ──────────────────────────────────────
+  // ── Day Event Card ────────────────────────────────────────────────────────
   Widget _buildDayEventCard(Map<String, dynamic> event) {
+    // Safer null handling - use toString() on the raw value
+    final title = (event['title'] ?? '').toString();
+    final clientName = (event['clientName'] ?? '').toString();
+    final location = (event['location'] ?? '').toString();
+    final guests = int.tryParse('${event['guests'] ?? 0}') ?? 0;
+    final budget = event['budget']?.toString() ?? '0';
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -487,7 +689,7 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -500,7 +702,7 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
             children: [
               Expanded(
                 child: Text(
-                  event['title'] ?? '',
+                  title,
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -514,9 +716,11 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.green.withOpacity(0.12),
+                  color: AppColors.green.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.green.withOpacity(0.3)),
+                  border: Border.all(
+                    color: AppColors.green.withValues(alpha: 0.3),
+                  ),
                 ),
                 child: const Text(
                   'Accepted',
@@ -530,15 +734,16 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
             ],
           ),
           const SizedBox(height: 8),
-          _infoRow(Icons.person_outline, event['clientName'] ?? ''),
+          _infoRow(Icons.person_outline, clientName),
           const SizedBox(height: 4),
-          _infoRow(Icons.location_on_outlined, event['location'] ?? ''),
+          _infoRow(Icons.location_on_outlined, location),
           const SizedBox(height: 4),
           Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              _infoRow(Icons.people_outline, '${event['guests'] ?? 0} guests'),
+              _infoRow(Icons.people_outline, '$guests guests'),
               const SizedBox(width: 16),
-              _infoRow(Icons.attach_money, '\$${event['budget'] ?? 0}'),
+              _infoRow(Icons.attach_money, '\$$budget'),
             ],
           ),
         ],
@@ -546,8 +751,18 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
     );
   }
 
-  // ── Request Card (pending requests with accept/decline) ────────────────────
+  // ── Request Card ──────────────────────────────────────────────────────────
   Widget _buildRequestCard(Map<String, dynamic> request) {
+    final title = request['title']?.toString() ?? '';
+    final clientName = request['clientName']?.toString() ?? '';
+    final location = request['location']?.toString() ?? '';
+    final guests = request['guests']?.toString() ?? '0';
+    final budget = request['budget']?.toString() ?? '0';
+    final description = request['description']?.toString() ?? '';
+    final date = request['date'] is DateTime
+        ? request['date'] as DateTime
+        : DateTime.now();
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -555,7 +770,7 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -568,11 +783,12 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Title + Pending badge row
                 Row(
                   children: [
                     Expanded(
                       child: Text(
-                        request['title'] ?? '',
+                        title,
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
@@ -586,10 +802,10 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.12),
+                        color: Colors.orange.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: Colors.orange.withOpacity(0.3),
+                          color: Colors.orange.withValues(alpha: 0.3),
                         ),
                       ),
                       child: const Text(
@@ -604,29 +820,54 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                _infoRow(Icons.person_outline, request['clientName'] ?? ''),
+                _infoRow(Icons.person_outline, clientName),
                 const SizedBox(height: 4),
-                _infoRow(
-                  Icons.calendar_today_outlined,
-                  _formatFullDate(request['date'] as DateTime),
-                ),
+                _infoRow(Icons.calendar_today_outlined, _formatFullDate(date)),
                 const SizedBox(height: 4),
-                _infoRow(Icons.location_on_outlined, request['location'] ?? ''),
+                _infoRow(Icons.location_on_outlined, location),
+
+                // Description (only if not empty)
+                if (description.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.description_outlined,
+                        size: 13,
+                        color: AppColors.coral,
+                      ),
+                      const SizedBox(width: 5),
+                      Expanded(
+                        child: Text(
+                          description,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.black.withOpacity(0.6),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+
                 const SizedBox(height: 4),
                 Row(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    _infoRow(
-                      Icons.people_outline,
-                      '${request['guests'] ?? 0} guests',
-                    ),
+                    _infoRow(Icons.people_outline, '$guests guests'),
                     const SizedBox(width: 16),
-                    _infoRow(Icons.attach_money, '\$${request['budget'] ?? 0}'),
+                    _infoRow(Icons.attach_money, '\$$budget'),
                   ],
                 ),
               ],
             ),
           ),
-          const Divider(height: 1),
+          // Divider + Accept/Decline buttons
+          Container(height: 1, color: Colors.grey.shade200),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
@@ -639,10 +880,10 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.darkpink,
                       side: const BorderSide(color: AppColors.darkpink),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                   ),
                 ),
@@ -655,11 +896,10 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.green,
                       foregroundColor: Colors.white,
-                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                      padding: const EdgeInsets.symmetric(vertical: 10),
                     ),
                   ),
                 ),
@@ -671,12 +911,13 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
     );
   }
 
-  Widget _infoRow(IconData icon, String text) => Row(
-    children: [
-      Icon(icon, size: 13, color: AppColors.coral),
-      const SizedBox(width: 5),
-      Flexible(
-        child: Text(
+  Widget _infoRow(IconData icon, String text) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: AppColors.coral),
+        const SizedBox(width: 5),
+        Text(
           text,
           style: TextStyle(
             fontSize: 12,
@@ -684,9 +925,9 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
             fontWeight: FontWeight.w500,
           ),
         ),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 
   PopupMenuItem<String> _popupItem(String value, IconData icon, String label) {
     return PopupMenuItem(
@@ -707,11 +948,11 @@ class _BgPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()..style = PaintingStyle.fill;
-    p.color = AppColors.coral.withOpacity(0.10);
+    p.color = AppColors.coral.withValues(alpha: 0.10);
     canvas.drawCircle(Offset(size.width * 0.92, size.height * 0.08), 130, p);
-    p.color = AppColors.darkpink.withOpacity(0.07);
+    p.color = AppColors.darkpink.withValues(alpha: 0.07);
     canvas.drawCircle(Offset(size.width * -0.12, size.height * 0.48), 170, p);
-    p.color = const Color.fromARGB(255, 176, 27, 44).withOpacity(0.06);
+    p.color = const Color.fromARGB(255, 176, 27, 44).withValues(alpha: 0.06);
     canvas.drawCircle(Offset(size.width * 1.08, size.height * 0.72), 190, p);
   }
 

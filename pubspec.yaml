@@ -19,7 +19,13 @@ dependencies:
   http: ^1.2.0
   font_awesome_flutter: ^10.7.0
   flutter_animate: ^4.5.0
-
+  
+  # File & Export
+  path_provider: ^2.1.2
+  share_plus: ^7.2.1
+  pdf: ^3.10.8
+  printing: ^5.12.0
+  excel: ^2.1.0
 
 dev_dependencies:
   flutter_test:

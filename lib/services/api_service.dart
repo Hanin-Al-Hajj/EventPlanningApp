@@ -2,9 +2,10 @@ import 'dart:convert';
 import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 
 class ApiService {
-  // ✅ Smart URL: automatically picks the right address per platform
+  // Smart URL: automatically picks the right address per platform
   static String get baseUrl {
     if (kIsWeb) {
       return 'http://127.0.0.1:8000/api'; // Web browser
@@ -198,5 +199,377 @@ class ApiService {
       }),
     );
     return jsonDecode(response.body);
+  }
+
+  // GET ALL GUESTS (optional filters)
+  static Future<Map<String, dynamic>> getGuests({
+    int? eventId,
+    String? status, // 'pending', 'accepted', 'declined'
+    String? search,
+    int? perPage,
+  }) async {
+    final params = <String, String>{};
+    if (eventId != null) params['event_id'] = eventId.toString();
+    if (status != null) params['status'] = status;
+    if (search != null) params['search'] = search;
+    if (perPage != null) params['per_page'] = perPage.toString();
+
+    final uri = Uri.parse(
+      '$baseUrl/client/guests',
+    ).replace(queryParameters: params.isNotEmpty ? params : null);
+
+    final response = await http.get(uri, headers: authHeaders);
+    return _decodeResponse(response);
+  }
+
+  // GET GUESTS FOR A SPECIFIC EVENT
+  static Future<Map<String, dynamic>> getEventGuests(
+    int eventId, {
+    String? status,
+    String? search,
+    int? perPage,
+  }) async {
+    final params = <String, String>{};
+    if (status != null) params['status'] = status;
+    if (search != null) params['search'] = search;
+    if (perPage != null) params['per_page'] = perPage.toString();
+
+    final uri = Uri.parse(
+      '$baseUrl/client/events/$eventId/guests',
+    ).replace(queryParameters: params.isNotEmpty ? params : null);
+
+    final response = await http.get(uri, headers: authHeaders);
+    return _decodeResponse(response);
+  }
+
+  // GET SINGLE GUEST
+  static Future<Map<String, dynamic>> getGuest(int guestId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/client/guests/$guestId'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // ADD GUEST + SEND INVITATION
+  // In api_service.dart, update the addGuest method:
+  static Future<Map<String, dynamic>> addGuest({
+    required int eventId,
+    required String name,
+    required String email,
+    String? phone,
+    bool? plusOneAllowed,
+    String? plusOneName,
+    String? dietaryRestrictions,
+    String? notes,
+    bool sendInvitation = true,
+  }) async {
+    final body = <String, dynamic>{
+      'name': name,
+      'email': email,
+      'send_invitation': sendInvitation,
+    };
+
+    if (phone != null) body['phone'] = phone;
+    if (plusOneAllowed != null) body['plus_one_allowed'] = plusOneAllowed;
+    if (plusOneName != null) body['plus_one_name'] = plusOneName;
+    if (dietaryRestrictions != null) {
+      body['dietary_restrictions'] = dietaryRestrictions;
+    }
+    if (notes != null) body['notes'] = notes;
+
+    final response = await http
+        .post(
+          Uri.parse('$baseUrl/client/events/$eventId/guests'),
+          headers: authHeaders,
+          body: jsonEncode(body),
+        )
+        .timeout(
+          const Duration(seconds: 30), // ✅ Add timeout
+        );
+
+    return _decodeResponse(response);
+  }
+
+  // UPDATE GUEST
+  static Future<Map<String, dynamic>> updateGuest({
+    required int guestId,
+    String? name,
+    String? email,
+    String? phone,
+    bool? plusOneAllowed,
+    String? plusOneName,
+    String? dietaryRestrictions,
+    String? notes,
+  }) async {
+    final body = <String, dynamic>{};
+
+    if (name != null) body['name'] = name;
+    if (email != null) body['email'] = email;
+    if (phone != null) body['phone'] = phone;
+    if (plusOneAllowed != null) body['plus_one_allowed'] = plusOneAllowed;
+    if (plusOneName != null) body['plus_one_name'] = plusOneName;
+    if (dietaryRestrictions != null) {
+      body['dietary_restrictions'] = dietaryRestrictions;
+    }
+    if (notes != null) body['notes'] = notes;
+
+    final response = await http.put(
+      Uri.parse('$baseUrl/client/guests/$guestId'),
+      headers: authHeaders,
+      body: jsonEncode(body),
+    );
+
+    return _decodeResponse(response);
+  }
+
+  // DELETE GUEST
+  static Future<Map<String, dynamic>> deleteGuest(int guestId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/client/guests/$guestId'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // RESEND INVITATION TO GUEST
+  static Future<Map<String, dynamic>> resendInvitation(int guestId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/client/guests/$guestId/resend'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // CHECK IN GUEST
+  static Future<Map<String, dynamic>> checkInGuest(int guestId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/client/guests/$guestId/check-in'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // UNDO CHECK IN
+  static Future<Map<String, dynamic>> undoCheckIn(int guestId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/client/guests/$guestId/check-in'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // GET RSVP DETAILS BY TOKEN
+  static Future<Map<String, dynamic>> getRsvpDetails(String token) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/rsvp/$token'),
+      headers: publicHeaders, // No auth needed
+    );
+    return _decodeResponse(response);
+  }
+
+  // SUBMIT RSVP RESPONSE
+  static Future<Map<String, dynamic>> submitRsvp({
+    required String token,
+    required String rsvpStatus, // 'accepted' or 'declined'
+    String? plusOneName,
+    String? dietaryRestrictions,
+    String? message,
+  }) async {
+    final body = <String, dynamic>{'rsvp_status': rsvpStatus};
+
+    if (plusOneName != null) body['plus_one_name'] = plusOneName;
+    if (dietaryRestrictions != null) {
+      body['dietary_restrictions'] = dietaryRestrictions;
+    }
+    if (message != null) body['rsvp_message'] = message;
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/rsvp/$token'),
+      headers: publicHeaders, // No auth needed
+      body: jsonEncode(body),
+    );
+
+    return _decodeResponse(response);
+  }
+
+  // GET events with messages preview
+  static Future<Map<String, dynamic>> getMessagesEvents() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/client/messages/events'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // GET messages for a specific event
+  static Future<Map<String, dynamic>> getMessages(int eventId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/client/events/$eventId/messages'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // SEND a message to planner
+  static Future<Map<String, dynamic>> sendMessage({
+    required int eventId,
+    required String message,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/client/events/$eventId/messages'),
+      headers: authHeaders,
+      body: jsonEncode({'message': message}),
+    );
+    return _decodeResponse(response);
+  }
+
+  // DELETE all messages for an event
+  static Future<Map<String, dynamic>> deleteAllMessages(int eventId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/client/events/$eventId/messages'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // GET notifications
+  static Future<Map<String, dynamic>> getNotifications({
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/client/notifications?page=$page&per_page=$perPage'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // GET notification stats
+  static Future<Map<String, dynamic>> getNotificationStats() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/client/notifications/stats'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // GET unread count only
+  static Future<Map<String, dynamic>> getUnreadNotificationCount() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/client/notifications/unread-count'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // MARK notification as read
+  static Future<Map<String, dynamic>> markNotificationRead(int id) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/client/notifications/$id/read'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // ARCHIVE notification
+  static Future<Map<String, dynamic>> archiveNotification(int id) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/client/notifications/$id/archive'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // MARK ALL as read
+  static Future<Map<String, dynamic>> markAllNotificationsRead() async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/client/notifications/read-all'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // ARCHIVE ALL notifications
+  static Future<Map<String, dynamic>> archiveAllNotifications() async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/client/notifications/archive-all'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // PLANNER IN GENERAL
+  //
+  //
+  //
+
+  // GET planner dashboard (weekly calendar with events)
+  static Future<Map<String, dynamic>> getPlannerDashboard({
+    String? date,
+  }) async {
+    String url = '$baseUrl/planner/dashboard';
+    if (date != null) {
+      url += '?date=$date';
+    }
+    final response = await http.get(Uri.parse(url), headers: authHeaders);
+    return _decodeResponse(response);
+  }
+
+  // GET events for a specific day
+  static Future<Map<String, dynamic>> getPlannerDayEvents(String date) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/planner/dashboard/events/$date'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // GET pending client requests
+  static Future<Map<String, dynamic>> getPlannerRequests({
+    String? filter,
+    String? sort,
+    String? search,
+    int? perPage,
+  }) async {
+    final params = <String, String>{};
+    if (filter != null) params['filter'] = filter;
+    if (sort != null) params['sort'] = sort;
+    if (search != null) params['search'] = search;
+    if (perPage != null) params['per_page'] = perPage.toString();
+
+    final uri = Uri.parse(
+      '$baseUrl/planner/requests',
+    ).replace(queryParameters: params.isNotEmpty ? params : null);
+
+    final response = await http.get(uri, headers: authHeaders);
+    return _decodeResponse(response);
+  }
+
+  // GET request stats
+  static Future<Map<String, dynamic>> getPlannerRequestStats() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/planner/requests/stats'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // ACCEPT a client request
+  static Future<Map<String, dynamic>> acceptPlannerRequest(int eventId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/planner/requests/$eventId/accept'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // DECLINE a client request
+  static Future<Map<String, dynamic>> declinePlannerRequest(int eventId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/planner/requests/$eventId/decline'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
   }
 }
