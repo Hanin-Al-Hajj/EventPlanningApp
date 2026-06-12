@@ -57,7 +57,7 @@ class _EventPlanningAppState extends State<EventPlanningApp> {
         primarySwatch: Colors.green,
         scaffoldBackgroundColor: AppColors.cream,
       ),
-      //home: Plannertabsscreen(event: dummyEvent),
+      /* home: Plannertabsscreen(event: dummyEvent),*/
       initialRoute: '/login',
       routes: {
         '/login': (context) => const LoginScreen(),

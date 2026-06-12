@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/screens/budget_tracker_screen.dart';
 import 'package:event_planner/screens/vendors_screen.dart';
-import 'package:event_planner/screens/Messages_screen_planner.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:event_planner/screens/check_list_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -26,9 +25,8 @@ class _PlannertabsscreenState extends State<Plannertabsscreen> {
   Widget build(BuildContext context) {
     final pages = [
       CheckListScreen(event: widget.event),
-      const VendorsScreen(),
+      VendorsScreen(eventId: widget.event.id),
       BudgetTrackerScreen(event: widget.event, onBudgetChanged: () async {}),
-      const MessagesScreenPlanner(),
     ];
 
     return Scaffold(
@@ -61,10 +59,6 @@ class _PlannertabsscreenState extends State<Plannertabsscreen> {
           BottomNavigationBarItem(
             icon: FaIcon(FontAwesomeIcons.moneyBillWave, size: 20),
             label: 'Budget',
-          ),
-          BottomNavigationBarItem(
-            icon: FaIcon(FontAwesomeIcons.solidMessage, size: 20),
-            label: 'Messages',
           ),
         ],
         onTap: _selectPage,

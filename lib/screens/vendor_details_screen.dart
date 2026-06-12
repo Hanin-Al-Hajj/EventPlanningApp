@@ -3,13 +3,46 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:event_planner/services/api_service.dart';
 
-class VendorDetailsScreen extends StatelessWidget {
-  const VendorDetailsScreen({super.key, required this.vendor});
-  final Vendor vendor;
+class VendorDetailsScreen extends StatefulWidget {
+  final String eventId;
+  final String vendorId;
+
+  const VendorDetailsScreen({
+    super.key,
+    required this.eventId,
+    required this.vendorId,
+  });
+
+  @override
+  State<VendorDetailsScreen> createState() => _VendorDetailsScreenState();
+}
+
+class _VendorDetailsScreenState extends State<VendorDetailsScreen> {
+  Vendor? vendor;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVendor();
+  }
+
+  Future<void> _loadVendor() async {
+    try {
+      final data = await ApiService.getVendor(widget.eventId, widget.vendorId);
+      setState(() => vendor = Vendor.fromJson(data['vendor']));
+    } catch (e) {
+      debugPrint('Error loading vendor: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   Future<void> _launchURL(String url) async {
     final Uri uri = Uri.parse(url);
+
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       throw Exception('Could not launch $url');
     }
@@ -17,6 +50,19 @@ class VendorDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    if (vendor == null) {
+      return Scaffold(
+        backgroundColor: AppColors.cream,
+        body: const Center(child: Text('Vendor not found')),
+      );
+    }
+
+    final v = vendor!;
+
     return Scaffold(
       backgroundColor: AppColors.cream,
       appBar: AppBar(
@@ -25,7 +71,6 @@ class VendorDetailsScreen extends StatelessWidget {
         toolbarHeight: 76,
         automaticallyImplyLeading: false,
         titleSpacing: 0,
-
         title: Padding(
           padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
           child: Row(
@@ -45,9 +90,7 @@ class VendorDetailsScreen extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(width: 12),
-
               const Expanded(
                 child: Text(
                   'Vendor Details',
@@ -59,8 +102,6 @@ class VendorDetailsScreen extends StatelessWidget {
                   ),
                 ),
               ),
-
-              // Invisible widget to balance the back button
               const SizedBox(width: 40, height: 40),
             ],
           ),
@@ -70,8 +111,7 @@ class VendorDetailsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            //discription la kil vendor
-            if (vendor.description != null) ...[
+            if (v.description != null) ...[
               const SizedBox(height: 16),
               Container(
                 width: double.infinity,
@@ -90,8 +130,8 @@ class VendorDetailsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      vendor.description!,
-                      style: TextStyle(
+                      v.description!,
+                      style: const TextStyle(
                         fontSize: 14,
                         color: AppColors.burgundy,
                         height: 1.5,
@@ -102,8 +142,8 @@ class VendorDetailsScreen extends StatelessWidget {
               ),
             ],
 
-            //contact info of vendor
             const SizedBox(height: 16),
+
             Container(
               width: double.infinity,
               color: Colors.white,
@@ -121,49 +161,46 @@ class VendorDetailsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  //phone nb
-                  if (vendor.phoneNumber.isNotEmpty)
+                  if (v.phoneNumber.isNotEmpty)
                     _buildContactItem(
                       icon: FontAwesomeIcons.whatsapp,
                       label: 'Phone',
-                      value: vendor.phoneNumber,
+                      value: v.phoneNumber,
                       onTap: () => _launchURL(
-                        'https://wa.me/961${vendor.phoneNumber.replaceAll(RegExp(r'[\s\-]'), '')}',
+                        'https://wa.me/961${v.phoneNumber.replaceAll(RegExp(r'[\s\-]'), '')}',
                       ),
                     ),
 
-                  if (vendor.instagram != null)
+                  if (v.instagram != null)
                     _buildContactItem(
                       icon: FontAwesomeIcons.instagram,
                       label: 'Instagram',
-                      value: vendor.instagram!,
-                      onTap: () => _launchURL(
-                        'https://instagram.com/${vendor.instagram!}',
-                      ),
+                      value: v.instagram!,
+                      onTap: () =>
+                          _launchURL('https://instagram.com/${v.instagram!}'),
                     ),
 
-                  //email
-                  if (vendor.email != null)
+                  if (v.email != null)
                     _buildContactItem(
                       icon: FontAwesomeIcons.envelope,
                       label: 'Email',
-                      value: vendor.email!,
-                      onTap: () => _launchURL('mailto:${vendor.email!}'),
+                      value: v.email!,
+                      onTap: () => _launchURL('mailto:${v.email!}'),
                     ),
 
-                  //website
-                  if (vendor.website != null)
+                  if (v.website != null)
                     _buildContactItem(
                       icon: FontAwesomeIcons.globe,
                       label: 'Website',
-                      value: vendor.website!,
-                      onTap: () => _launchURL(vendor.website!),
+                      value: v.website!,
+                      onTap: () => _launchURL(v.website!),
                     ),
                 ],
               ),
             ),
 
             const SizedBox(height: 16),
+
             Container(
               width: double.infinity,
               color: Colors.white,
@@ -180,7 +217,7 @@ class VendorDetailsScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  ...vendor.locations.map(
+                  ...v.locations.map(
                     (location) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: Row(
@@ -195,7 +232,6 @@ class VendorDetailsScreen extends StatelessWidget {
                           Expanded(
                             child: Text(
                               location,
-                              softWrap: true,
                               style: const TextStyle(
                                 fontSize: 14,
                                 color: AppColors.burgundy,
@@ -245,7 +281,10 @@ class VendorDetailsScreen extends StatelessWidget {
                 children: [
                   Text(
                     label,
-                    style: TextStyle(fontSize: 12, color: AppColors.burgundy),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.burgundy,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(

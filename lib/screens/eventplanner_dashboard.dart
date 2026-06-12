@@ -16,8 +16,8 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
   late final PageController _weekController = PageController(
     initialPage: _initialWeekPage,
   );
-final Map<String, List<Map<String, dynamic>>> _cachedCalendarDays = {};
-final Map<String, List<Map<String, dynamic>>> _cachedDayEvents = {};
+  final Map<String, List<Map<String, dynamic>>> _cachedCalendarDays = {};
+  final Map<String, List<Map<String, dynamic>>> _cachedDayEvents = {};
   DateTime _selectedDate = DateTime.now();
   bool _isLoadingDashboard = false;
   bool _isLoadingRequests = false;
@@ -173,7 +173,7 @@ final Map<String, List<Map<String, dynamic>>> _cachedDayEvents = {};
     );
 
     // Then sync with API in background
-    final id = int.tryParse(request['id'].toString()) ?? 0;
+    final id = (request['id'].toString());
     try {
       final result = await ApiService.acceptPlannerRequest(id);
       if (result['success'] == true) {
@@ -201,7 +201,7 @@ final Map<String, List<Map<String, dynamic>>> _cachedDayEvents = {};
 
   // ✅ Decline request - calls API
   void _declineRequest(Map<String, dynamic> request) async {
-    final id = int.tryParse(request['id'].toString()) ?? 0;
+    final id = (request['id'].toString());
     try {
       final result = await ApiService.declinePlannerRequest(id);
       if (result['success'] == true) {

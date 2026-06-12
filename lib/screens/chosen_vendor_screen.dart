@@ -1,25 +1,59 @@
 import 'package:event_planner/constants/app_colors.dart';
-import 'package:event_planner/db/vendor_storage.dart';
 import 'package:event_planner/models/vendor.dart';
 import 'package:event_planner/screens/vendor_details_screen.dart';
+import 'package:event_planner/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class ChosenVendorScreen extends StatefulWidget {
-  final List<Vendor> favoriteVendors;
-  const ChosenVendorScreen({super.key, required this.favoriteVendors});
+  final String eventId;
+  const ChosenVendorScreen({super.key, required this.eventId});
 
   @override
   State<ChosenVendorScreen> createState() => _ChosenVendorScreenState();
 }
 
 class _ChosenVendorScreenState extends State<ChosenVendorScreen> {
-  late List<Vendor> _favorites;
+  List<Vendor> _favorites = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _favorites = List.from(widget.favoriteVendors);
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
+    setState(() => _isLoading = true);
+    try {
+      final data = await ApiService.getFavoriteVendors(widget.eventId);
+      final List vendorList = data['vendors'] ?? [];
+      setState(
+        () => _favorites = vendorList.map((v) => Vendor.fromJson(v)).toList(),
+      );
+    } catch (e) {
+      debugPrint('Error loading favorite vendors: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _removeFavorite(int index) async {
+    final vendor = _favorites[index];
+
+    setState(() => _favorites.removeAt(index));
+    try {
+      await ApiService.removeFavoriteVendor(widget.eventId, vendor.id);
+    } catch (e) {
+      setState(() => _favorites.insert(index, vendor));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to remove favourite. Try again.'),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -66,20 +100,22 @@ class _ChosenVendorScreenState extends State<ChosenVendorScreen> {
                   ),
                 ),
               ),
-
-              // Balance the back button so the title stays centered
-              SizedBox(width: 40, height: 40),
+              const SizedBox(width: 40, height: 40),
             ],
           ),
         ),
       ),
-      body: _favorites.isEmpty
-          ? Center(
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.darkpink),
+            )
+          : _favorites.isEmpty
+          ? const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.favorite_border, size: 30, color: AppColors.coral),
-                  const SizedBox(height: 16),
+                  Icon(Icons.favorite_border, size: 60, color: AppColors.coral),
+                  SizedBox(height: 16),
                   Text(
                     'No favorite vendors yet',
                     style: TextStyle(
@@ -106,13 +142,7 @@ class _ChosenVendorScreenState extends State<ChosenVendorScreen> {
                     contentPadding: const EdgeInsets.all(12),
                     leading: IconButton(
                       icon: Icon(Icons.favorite, color: AppColors.darkpink),
-                      onPressed: () async {
-                        setState(() {
-                          vendor.isFavorite = false;
-                          _favorites.removeAt(index);
-                        });
-                        await updateVendor(vendor);
-                      },
+                      onPressed: () => _removeFavorite(index),
                     ),
 
                     title: Text(
@@ -136,8 +166,10 @@ class _ChosenVendorScreenState extends State<ChosenVendorScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) =>
-                              VendorDetailsScreen(vendor: vendor),
+                          builder: (context) => VendorDetailsScreen(
+                            eventId: widget.eventId,
+                            vendorId: vendor.id,
+                          ),
                         ),
                       );
                     },

@@ -556,7 +556,9 @@ class ApiService {
   }
 
   // ACCEPT a client request
-  static Future<Map<String, dynamic>> acceptPlannerRequest(int eventId) async {
+  static Future<Map<String, dynamic>> acceptPlannerRequest(
+    String eventId,
+  ) async {
     final response = await http.post(
       Uri.parse('$baseUrl/planner/requests/$eventId/accept'),
       headers: authHeaders,
@@ -565,9 +567,66 @@ class ApiService {
   }
 
   // DECLINE a client request
-  static Future<Map<String, dynamic>> declinePlannerRequest(int eventId) async {
+  static Future<Map<String, dynamic>> declinePlannerRequest(
+    String eventId,
+  ) async {
     final response = await http.post(
       Uri.parse('$baseUrl/planner/requests/$eventId/decline'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  //get all vendors for an event
+  static Future<Map<String, dynamic>> getVendors(String eventId) async {
+    debugPrint('>>> token is: $_token');
+    final response = await http.get(
+      Uri.parse('$baseUrl/planner/events/$eventId/vendors'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  //get single vendor for an event
+  static Future<Map<String, dynamic>> getVendor(
+    String eventId,
+    String vendorId,
+  ) async {
+    final response = await http.get(
+      Uri.parse("$baseUrl/planner/events/$eventId/vendors/$vendorId"),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  //get favorite vendors for an event
+  static Future<Map<String, dynamic>> getFavoriteVendors(String eventId) async {
+    final response = await http.get(
+      Uri.parse("$baseUrl/planner/events/$eventId/vendors/favorites"),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  //toggle favorite status of a vendor for an event
+  static Future<Map<String, dynamic>> toggleFavoriteVendor(
+    String eventId,
+    String vendorId,
+  ) async {
+    final response = await http.post(
+      Uri.parse("$baseUrl/planner/events/$eventId/vendors/$vendorId/favorite"),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // remove a vendor from favorites
+  static Future<Map<String, dynamic>> removeFavoriteVendor(
+    String eventId,
+    String vendorId,
+  ) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/planner/events/$eventId/vendors/$vendorId/favorite'),
       headers: authHeaders,
     );
     return _decodeResponse(response);
