@@ -3,6 +3,7 @@ import 'package:event_planner/constants/app_colors.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:event_planner/services/api_service.dart';
 import 'package:event_planner/widgets/floating_action_button.dart';
+import 'package:event_planner/screens/planner/planner_notification_screen.dart';
 
 class EventPlannerDashboard extends StatefulWidget {
   const EventPlannerDashboard({super.key});
@@ -398,7 +399,17 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                onPressed: () {},
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          PlannerNotificationScreen(
+                                            notifications: [],
+                                          ),
+                                    ),
+                                  );
+                                },
                                 icon: const FaIcon(
                                   FontAwesomeIcons.bell,
                                   size: 20,
