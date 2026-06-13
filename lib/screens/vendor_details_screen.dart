@@ -6,14 +6,10 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:event_planner/services/api_service.dart';
 
 class VendorDetailsScreen extends StatefulWidget {
-  final String eventId;
+  final String? eventId;
   final String vendorId;
 
-  const VendorDetailsScreen({
-    super.key,
-    required this.eventId,
-    required this.vendorId,
-  });
+  const VendorDetailsScreen({super.key, this.eventId, required this.vendorId});
 
   @override
   State<VendorDetailsScreen> createState() => _VendorDetailsScreenState();
@@ -21,6 +17,7 @@ class VendorDetailsScreen extends StatefulWidget {
 
 class _VendorDetailsScreenState extends State<VendorDetailsScreen> {
   Vendor? vendor;
+  List<Map<String, dynamic>> _orders = [];
   bool _isLoading = true;
 
   @override
@@ -31,8 +28,32 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> {
 
   Future<void> _loadVendor() async {
     try {
-      final data = await ApiService.getVendor(widget.eventId, widget.vendorId);
-      setState(() => vendor = Vendor.fromJson(data['vendor']));
+      Map<String, dynamic> data;
+
+      if (widget.eventId != null) {
+        data = await ApiService.getVendor(widget.eventId!, widget.vendorId);
+        if (data['vendor'] != null) {
+          final vendorMap = Map<String, dynamic>.from(data['vendor'] as Map);
+          setState(() {
+            vendor = Vendor.fromJson(vendorMap);
+            final rawOrders = vendorMap['orders'];
+            if (rawOrders != null && rawOrders is List) {
+              _orders = rawOrders
+                  .map((o) => Map<String, dynamic>.from(o as Map))
+                  .toList();
+            }
+          });
+        }
+      } else {
+        data = await ApiService.getAssistantVendor(int.parse(widget.vendorId));
+        if (data['data'] != null) {
+          setState(
+            () => vendor = Vendor.fromJson(
+              Map<String, dynamic>.from(data['data'] as Map),
+            ),
+          );
+        }
+      }
     } catch (e) {
       debugPrint('Error loading vendor: $e');
     } finally {
@@ -245,6 +266,182 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> {
                 ],
               ),
             ),
+            // Orders (planner only)
+            if (widget.eventId != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                color: Colors.white,
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text(
+                          'Orders',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.burgundy,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.coral.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            '${_orders.length}',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.burgundy,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _orders.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 20),
+                              child: Column(
+                                children: [
+                                  Icon(
+                                    Icons.shopping_cart_outlined,
+                                    size: 48,
+                                    color: AppColors.green.withOpacity(0.3),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    'No orders placed yet',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : Column(
+                            children: _orders.map((order) {
+                              final task =
+                                  order['task'] as Map<String, dynamic>?;
+                              final assistant =
+                                  order['assistant'] as Map<String, dynamic>?;
+                              final price =
+                                  double.tryParse(
+                                    order['price']?.toString() ?? '0',
+                                  ) ??
+                                  0.0;
+                              final notes = order['notes'] as String?;
+                              return Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: AppColors.cream.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: AppColors.coral.withOpacity(0.3),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            task?['title'] ?? 'Unknown Task',
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.burgundy,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Text(
+                                          '\$${price.toStringAsFixed(2)}',
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w800,
+                                            color: AppColors.green,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.person_outline,
+                                          size: 14,
+                                          color: AppColors.darkpink,
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          'By ${assistant?['name'] ?? 'Unknown'}',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: AppColors.darkpink,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    if (notes != null && notes.isNotEmpty) ...[
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            const Icon(
+                                              Icons.sticky_note_2,
+                                              size: 13,
+                                              color: AppColors.coral,
+                                            ),
+                                            const SizedBox(width: 5),
+                                            Expanded(
+                                              child: Text(
+                                                notes,
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey.shade700,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

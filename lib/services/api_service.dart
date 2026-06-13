@@ -33,6 +33,7 @@ class ApiService {
   };
 
   // REGISTER
+  // REGISTER
   static Future<Map<String, dynamic>> register({
     required String name,
     required String email,
@@ -51,7 +52,10 @@ class ApiService {
         'phone': phone,
       }),
     );
-    return jsonDecode(response.body);
+    final data = jsonDecode(response.body);
+
+    if (data['token'] != null) setToken(data['token']);
+    return data;
   }
 
   // LOGIN
@@ -503,6 +507,8 @@ class ApiService {
   //
   //
   //
+  //
+  //
 
   // GET planner dashboard (weekly calendar with events)
   static Future<Map<String, dynamic>> getPlannerDashboard({
@@ -627,6 +633,105 @@ class ApiService {
   ) async {
     final response = await http.delete(
       Uri.parse('$baseUrl/planner/events/$eventId/vendors/$vendorId/favorite'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  //Assistant
+  //
+  //
+  //
+  //
+  //
+
+  // GET assistant tasks
+  static Future<Map<String, dynamic>> getAssistantTasks({
+    String? filter,
+  }) async {
+    String url = '$baseUrl/assistant/tasks';
+    if (filter != null) url += '?filter=$filter';
+
+    final response = await http.get(Uri.parse(url), headers: authHeaders);
+    return _decodeResponse(response);
+  }
+
+  // MARK task as complete
+  static Future<Map<String, dynamic>> completeAssistantTask(int taskId) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/assistant/tasks/$taskId/complete'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // GET vendors for a task
+  static Future<Map<String, dynamic>> getTaskVendors(int taskId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/assistant/tasks/$taskId/vendors'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // GET vendor details (assistant)
+  static Future<Map<String, dynamic>> getAssistantVendor(int vendorId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/assistant/vendor/$vendorId'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // PLACE/UPDATE order
+  static Future<Map<String, dynamic>> submitOrder({
+    required int taskId,
+    required int vendorId,
+    required double price,
+    String? notes,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/assistant/task/$taskId/vendor/$vendorId/order'),
+      headers: authHeaders,
+      body: jsonEncode({'price': price, 'notes': notes}),
+    );
+    return _decodeResponse(response);
+  }
+
+  // GET my orders
+  static Future<Map<String, dynamic>> getMyOrders() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/assistant/orders'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // GET assistant dashboard
+  static Future<Map<String, dynamic>> getAssistantDashboard() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/assistant/dashboard'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // GET assigned vendors for an event
+  static Future<Map<String, dynamic>> getAssignedVendors(String eventId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/client/events/$eventId/assigned-vendors'),
+        headers: authHeaders,
+      );
+      return _decodeResponse(response);
+    } catch (e) {
+      throw Exception('Failed to load assigned vendors');
+    }
+  }
+
+  static Future<Map<String, dynamic>> deleteOrder(int orderId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/assistant/orders/$orderId'),
       headers: authHeaders,
     );
     return _decodeResponse(response);
