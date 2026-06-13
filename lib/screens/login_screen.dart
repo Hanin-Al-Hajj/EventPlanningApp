@@ -5,6 +5,7 @@ import 'package:event_planner/screens/tab_bar_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:event_planner/services/api_service.dart';
+import 'package:event_planner/screens/assistant/assistant_tabs_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -96,6 +97,11 @@ class _LoginScreenState extends State<LoginScreen> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const EventPlannerDashboard()),
+          );
+        } else if (role == 'assistant') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const AssistantTabsScreen()),
           );
         } else {
           Navigator.pushReplacement(

@@ -4,6 +4,7 @@ import 'package:event_planner/db/User_storage.dart';
 import 'package:event_planner/screens/tab_bar_screen.dart';
 import 'package:event_planner/services/api_service.dart';
 import 'package:event_planner/screens/eventplanner_dashboard.dart';
+import 'package:event_planner/screens/assistant/assistant_tabs_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -60,7 +61,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
       onTap: () => setState(() => _selectedRole = role),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
         decoration: BoxDecoration(
           color: isSelected ? AppColors.darkpink : Colors.white,
           borderRadius: BorderRadius.circular(14),
@@ -132,7 +133,17 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
     try {
       // Convert 'eventplanner' to 'planner' for the API
-      final apiRole = _selectedRole == 'eventplanner' ? 'planner' : 'client';
+      String apiRole;
+      switch (_selectedRole) {
+        case 'eventplanner':
+          apiRole = 'planner';
+          break;
+        case 'assistant':
+          apiRole = 'assistant';
+          break;
+        default:
+          apiRole = 'client';
+      }
 
       final result = await ApiService.register(
         name: fullName,
@@ -151,6 +162,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (_) => const EventPlannerDashboard()),
+          );
+        } else if (role == 'assistant') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const AssistantTabsScreen()),
           );
         } else {
           Navigator.pushReplacement(
@@ -221,12 +237,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               icon: Icons.person_outline_rounded,
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: _roleCard(
                               role: 'eventplanner',
-                              label: 'Event Planner',
+                              label: 'Planner',
                               icon: Icons.event_note_rounded,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _roleCard(
+                              role: 'assistant',
+                              label: 'Assistant',
+                              icon: Icons.work_outline,
                             ),
                           ),
                         ],
