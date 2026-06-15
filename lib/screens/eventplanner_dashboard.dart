@@ -404,9 +404,7 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) =>
-                                          PlannerNotificationScreen(
-                                            notifications: [],
-                                          ),
+                                          PlannerNotificationScreen(),
                                     ),
                                   );
                                 },

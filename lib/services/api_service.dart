@@ -638,6 +638,61 @@ class ApiService {
     return _decodeResponse(response);
   }
 
+  static Future<Map<String, dynamic>> getPlannerNotifications() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/notifications'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // GET notification stats (total_today, unread, urgent)
+  static Future<Map<String, dynamic>> getPlannerNotificationStats() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/notifications/stats'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // MARK single notification as read
+  static Future<Map<String, dynamic>> markPlannerNotificationRead(
+    int id,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/notifications/$id/read'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // ARCHIVE single notification (swipe to dismiss)
+  static Future<Map<String, dynamic>> archivePlannerNotification(int id) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/notifications/$id/archive'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // MARK ALL notifications as read
+  static Future<Map<String, dynamic>> markAllPlannerNotificationsRead() async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/notifications/mark-all-read'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // DELETE ALL active notifications (Clear button)
+  static Future<Map<String, dynamic>> deleteAllPlannerNotifications() async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/notifications'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
   //Assistant
   //
   //

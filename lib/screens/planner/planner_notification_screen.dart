@@ -1,11 +1,11 @@
+import 'package:event_planner/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:event_planner/models/plannerNotification.dart';
 import 'package:event_planner/widgets/planner/filterTab.dart';
 
 class PlannerNotificationScreen extends StatefulWidget {
-  final List<plannerNotification> notifications;
-  const PlannerNotificationScreen({super.key, required this.notifications});
+  const PlannerNotificationScreen({super.key});
 
   @override
   State<PlannerNotificationScreen> createState() =>
@@ -13,26 +13,132 @@ class PlannerNotificationScreen extends StatefulWidget {
 }
 
 class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
-  late List<plannerNotification> _items;
+  List<plannerNotification> _items = [];
   String _filter = 'all';
+  bool _isLoading = true;
+  String? _error;
 
   int get _total => _items.length;
-  int get _unread => _items.where((n) => n.isRead).length;
+  int get _unread => _items.where((n) => !n.isRead).length;
   int get _urgent => _items.where((n) => n.priority == 'urgent').length;
 
-  List<plannerNotification> get _filtered => _filter == 'all'
-      ? _items
-      : _items.where((n) => n.type == _filter).toList();
+  List<plannerNotification> get _filtered {
+    if (_filter == 'all') return _items;
+    if (_filter == 'urgent') {
+      return _items.where((n) => n.priority == 'urgent').toList();
+    }
+    return _items.where((n) => n.type == _filter).toList();
+  }
 
   @override
   void initState() {
     super.initState();
-    _items = List.from(widget.notifications);
+    _loadNotifications();
+  }
+  //Api calls
+
+  Future<void> _loadNotifications() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+    try {
+      final data = await ApiService.getPlannerNotifications();
+      if (!mounted) return;
+      if (data['success'] == true || data['notifications'] != null) {
+        final raw = data['notifications'] as List<dynamic>? ?? [];
+        setState(() {
+          _items = raw
+              .map(
+                (e) => plannerNotification.fromJson(e as Map<String, dynamic>),
+              )
+              .toList();
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _error = data['message'] ?? 'Failed to load notifications';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Something went wrong. Please try again.';
+        _isLoading = false;
+      });
+    }
   }
 
-  @override
-  void dispose() {
-    super.dispose();
+  Future<void> _dismissNotification(plannerNotification n) async {
+    // Optimistic removal
+    setState(() => _items.removeWhere((item) => item.id == n.id));
+
+    try {
+      await ApiService.archivePlannerNotification(n.id);
+    } catch (_) {
+      // Restore on failure
+      if (mounted) {
+        setState(() => _items.insert(0, n));
+        _showSnackBar('Could not archive notification.');
+      }
+    }
+  }
+
+  Future<void> _markAllRead() async {
+    // Optimistic update
+    setState(() {
+      _items = _items
+          .map(
+            (n) => plannerNotification(
+              id: n.id,
+              userId: n.userId,
+              type: n.type,
+              priority: n.priority,
+              title: n.title,
+              message: n.message,
+              icon: n.icon,
+              actionUrl: n.actionUrl,
+              isRead: true,
+              readAt: n.readAt ?? DateTime.now(),
+              createdAt: n.createdAt,
+            ),
+          )
+          .toList();
+    });
+
+    try {
+      await ApiService.markAllPlannerNotificationsRead();
+    } catch (_) {
+      if (mounted) _showSnackBar('Could not mark all as read.');
+      await _loadNotifications(); // Refresh to real state
+    }
+  }
+
+  Future<void> _clearAll() async {
+    final backup = List<plannerNotification>.from(_items);
+
+    // Optimistic clear
+    setState(() => _items.clear());
+
+    try {
+      await ApiService.deleteAllPlannerNotifications();
+    } catch (_) {
+      if (mounted) {
+        setState(() => _items = backup);
+        _showSnackBar('Could not clear notifications.');
+      }
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.burgundy,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -203,27 +309,27 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
 
           Filtertab(
             label: 'Requests',
-            ontap: () => setState(() => _filter = 'requests'),
+            ontap: () => setState(() => _filter = 'request'),
             icon: Icons.request_page_rounded,
-            isSelected: _filter == 'requests',
+            isSelected: _filter == 'request',
           ),
 
           const SizedBox(width: 10),
 
           Filtertab(
             label: 'Messages',
-            ontap: () => setState(() => _filter = 'messages'),
+            ontap: () => setState(() => _filter = 'message'),
             icon: Icons.chat_bubble_outline_rounded,
-            isSelected: _filter == 'messages',
+            isSelected: _filter == 'message',
           ),
 
           const SizedBox(width: 10),
 
           Filtertab(
             label: 'Tasks',
-            ontap: () => setState(() => _filter = 'tasks'),
+            ontap: () => setState(() => _filter = 'task'),
             icon: Icons.task_alt_rounded,
-            isSelected: _filter == 'tasks',
+            isSelected: _filter == 'task',
           ),
 
           const SizedBox(width: 10),
@@ -249,6 +355,7 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
             const SizedBox(height: 40),
             Icon(
               Icons.notifications_off_rounded,
+              // ignore: deprecated_member_use
               color: AppColors.green.withOpacity(0.5),
               size: 60,
             ),
@@ -280,12 +387,10 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
             child: Icon(
               Icons.delete_outline_rounded,
               color: AppColors.coral,
-              size: 18,
+              size: 30,
             ),
           ),
-          onDismissed: (_) {
-            setState(() => _items.removeWhere((item) => item.id == n.id));
-          },
+          onDismissed: (_) => _dismissNotification(n),
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -298,21 +403,24 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
               mainAxisAlignment: MainAxisAlignment.start,
               children: [
                 Container(
-                  height: 42,
-                  width: 42,
+                  height: 48,
+                  width: 48,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    // ignore: deprecated_member_use
-                    color: Colors.pink.withOpacity(0.5),
+                    color: n.isRead
+                        // ignore: deprecated_member_use
+                        ? Colors.pink.withOpacity(0.01)
+                        // ignore: deprecated_member_use
+                        : Colors.pink.withOpacity(0.1),
                   ),
                   child: Icon(
-                    n.type == 'requests'
+                    n.type == 'request'
                         ? Icons.request_page_rounded
-                        : n.type == 'messages'
+                        : n.type == 'message'
                         ? Icons.chat_bubble_outline_rounded
-                        : n.type == 'tasks'
+                        : n.type == 'task'
                         ? Icons.task_alt_rounded
-                        : n.type == 'urgent'
+                        : n.priority == 'urgent'
                         ? Icons.error_rounded
                         : Icons.notifications_none_rounded,
                     color: AppColors.darkpink,
@@ -328,27 +436,33 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            n.title,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.burgundy,
+                          Flexible(
+                            child: Text(
+                              n.title,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: n.isRead
+                                    ? Colors.grey
+                                    : AppColors.burgundy,
+                                fontWeight: n.isRead
+                                    ? FontWeight.w400
+                                    : FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          const SizedBox(width: 8),
                           Text(
-                            n.createdAt.toString(),
-                            style: TextStyle(
-                              color: AppColors.green,
-                              fontSize: 11,
-                            ),
+                            n.timeAgo(),
+                            style: TextStyle(color: Colors.grey, fontSize: 12),
                           ),
                         ],
                       ),
 
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
                       Text(
                         n.message,
-                        style: TextStyle(color: AppColors.green, fontSize: 15),
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
                       ),
                     ],
                   ),
@@ -367,7 +481,8 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
       children: [
         Expanded(
           child: ElevatedButton.icon(
-            onPressed: () {},
+            onPressed: _unread == 0 ? null : _markAllRead,
+
             icon: const Icon(
               Icons.done_all_rounded,
               size: 18,
@@ -379,6 +494,7 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.darkpink,
+              disabledBackgroundColor: AppColors.darkpink,
               foregroundColor: Colors.white,
               padding: EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
@@ -391,7 +507,7 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
         const SizedBox(width: 12),
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: () {},
+            onPressed: _items.isEmpty ? null : _clearAll,
             icon: const Icon(
               Icons.delete_outline_rounded,
               size: 18,
