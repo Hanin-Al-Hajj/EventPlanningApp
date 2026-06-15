@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:event_planner/services/api_service.dart';
 import 'package:event_planner/widgets/floating_action_button.dart';
 import 'package:event_planner/screens/planner/planner_notification_screen.dart';
+import 'package:event_planner/screens/planner/my_events.dart';
 
 class EventPlannerDashboard extends StatefulWidget {
   const EventPlannerDashboard({super.key});
@@ -331,6 +332,7 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
 
     return Scaffold(
       body: Stack(
+        clipBehavior: Clip.none,
         children: [
           Positioned.fill(child: CustomPaint(painter: _BgPainter())),
           SafeArea(
@@ -515,11 +517,21 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
       ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 10, right: 10),
-        child: EventPlannerFAB(
-          onMyEvent: () => Navigator.pushNamed(context, '/my-events'),
-          onArchiveEvent: () {},
-          onAnalytics: () => Navigator.pushNamed(context, '/analytic'),
-          onMessage: () {},
+
+        child: SizedBox(
+          width: 160,
+          height: 320,
+          child: EventPlannerFAB(
+            onMyEvent: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const MyEvents()),
+              );
+            },
+            onArchiveEvent: () {},
+            onAnalytics: () {},
+            onMessage: () {},
+          ),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,

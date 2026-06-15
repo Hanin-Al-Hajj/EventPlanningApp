@@ -640,7 +640,7 @@ class ApiService {
 
   static Future<Map<String, dynamic>> getPlannerNotifications() async {
     final response = await http.get(
-      Uri.parse('$baseUrl/notifications'),
+      Uri.parse('$baseUrl/planner/notifications'),
       headers: authHeaders,
     );
     return _decodeResponse(response);

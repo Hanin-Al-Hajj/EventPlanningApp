@@ -149,57 +149,64 @@ class _EventPlannerFABState extends State<EventPlannerFAB>
     );
   }
 
+  // In _fabItem, wrap the whole Row in a Container with Material
   Widget _fabItem({
     required String label,
     required IconData icon,
     required Color color,
     required VoidCallback onTap,
   }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: AppColors.coral.withOpacity(0.3),
-                  blurRadius: 10,
-                  offset: const Offset(2, 10),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(24),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
                 ),
-              ],
-            ),
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: color,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.coral.withOpacity(0.3),
+                      blurRadius: 10,
+                      offset: const Offset(2, 10),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: color,
+                  ),
+                ),
               ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: color.withOpacity(0.35),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
+              const SizedBox(width: 10),
+              Material(
+                // ✅ Wrap icon in Material
+                color: color,
+                shape: const CircleBorder(),
+                elevation: 4,
+                child: Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(shape: BoxShape.circle),
+                  child: Icon(icon, color: Colors.white, size: 20),
                 ),
-              ],
-            ),
-            child: Icon(icon, color: Colors.white, size: 20),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

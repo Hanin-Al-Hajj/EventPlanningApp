@@ -44,6 +44,7 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
     });
     try {
       final data = await ApiService.getPlannerNotifications();
+
       if (!mounted) return;
       if (data['success'] == true || data['notifications'] != null) {
         final raw = data['notifications'] as List<dynamic>? ?? [];
