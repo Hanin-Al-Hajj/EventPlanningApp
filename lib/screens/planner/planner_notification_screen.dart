@@ -356,7 +356,6 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
             const SizedBox(height: 40),
             Icon(
               Icons.notifications_off_rounded,
-              // ignore: deprecated_member_use
               color: AppColors.green.withOpacity(0.5),
               size: 60,
             ),
@@ -392,83 +391,108 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
             ),
           ),
           onDismissed: (_) => _dismissNotification(n),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              // ignore: deprecated_member_use
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-            ),
-
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                Container(
-                  height: 48,
-                  width: 48,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: n.isRead
-                        // ignore: deprecated_member_use
-                        ? Colors.pink.withOpacity(0.01)
-                        // ignore: deprecated_member_use
-                        : Colors.pink.withOpacity(0.1),
+          child: GestureDetector(
+            onTap: () async {
+              if (!n.isRead) {
+                await ApiService.markPlannerNotificationRead(n.id);
+                setState(() {
+                  final index = _items.indexWhere((item) => item.id == n.id);
+                  if (index != -1) {
+                    _items[index] = plannerNotification(
+                      id: n.id,
+                      userId: n.userId,
+                      type: n.type,
+                      priority: n.priority,
+                      title: n.title,
+                      message: n.message,
+                      icon: n.icon,
+                      actionUrl: n.actionUrl,
+                      isRead: true,
+                      readAt: DateTime.now(),
+                      createdAt: n.createdAt,
+                    );
+                  }
+                });
+              }
+            },
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 48,
+                    width: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: n.isRead
+                          ? Colors.pink.withOpacity(0.01)
+                          : Colors.pink.withOpacity(0.1),
+                    ),
+                    child: Icon(
+                      n.type == 'request'
+                          ? Icons.request_page_rounded
+                          : n.type == 'message'
+                          ? Icons.chat_bubble_outline_rounded
+                          : n.type == 'task'
+                          ? Icons.task_alt_rounded
+                          : n.priority == 'urgent'
+                          ? Icons.error_rounded
+                          : Icons.notifications_none_rounded,
+                      color: AppColors.darkpink,
+                      size: 20,
+                    ),
                   ),
-                  child: Icon(
-                    n.type == 'request'
-                        ? Icons.request_page_rounded
-                        : n.type == 'message'
-                        ? Icons.chat_bubble_outline_rounded
-                        : n.type == 'task'
-                        ? Icons.task_alt_rounded
-                        : n.priority == 'urgent'
-                        ? Icons.error_rounded
-                        : Icons.notifications_none_rounded,
-                    color: AppColors.darkpink,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 12),
-
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              n.title,
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: n.isRead
-                                    ? Colors.grey
-                                    : AppColors.burgundy,
-                                fontWeight: n.isRead
-                                    ? FontWeight.w400
-                                    : FontWeight.bold,
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                n.title,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: n.isRead
+                                      ? Colors.grey
+                                      : AppColors.burgundy,
+                                  fontWeight: n.isRead
+                                      ? FontWeight.w400
+                                      : FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
-                              overflow: TextOverflow.ellipsis,
                             ),
+                            const SizedBox(width: 8),
+                            Text(
+                              n.timeAgo(),
+                              style: const TextStyle(
+                                color: Colors.grey,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          n.message,
+                          style: const TextStyle(
+                            color: Colors.grey,
+                            fontSize: 12,
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            n.timeAgo(),
-                            style: TextStyle(color: Colors.grey, fontSize: 12),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: 8),
-                      Text(
-                        n.message,
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );
