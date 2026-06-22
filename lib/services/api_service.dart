@@ -693,6 +693,115 @@ class ApiService {
     return _decodeResponse(response);
   }
 
+  // GET planner events list
+  static Future<Map<String, dynamic>> getPlannerEvents() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/planner/events'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // UPDATE event status
+  static Future<Map<String, dynamic>> updateEventStatus(
+    int eventId,
+    String status,
+  ) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/planner/events/$eventId/status'),
+      headers: authHeaders,
+      body: jsonEncode({'status': status}),
+    );
+    return _decodeResponse(response);
+  }
+
+  // GET tasks for a specific event
+  static Future<Map<String, dynamic>> getEventTasks(int eventId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/planner/events/$eventId/tasks'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // CREATE a task for an event
+  static Future<Map<String, dynamic>> createTask({
+    required int eventId,
+    required String title,
+    String? description,
+    required String priority,
+    String? dueDate,
+    int? progress,
+    int? assistantId,
+    List<int>? vendorIds,
+  }) async {
+    final body = <String, dynamic>{'title': title, 'priority': priority};
+    if (description != null) body['description'] = description;
+    if (dueDate != null) body['due_date'] = dueDate;
+    if (progress != null) body['progress'] = progress;
+    if (assistantId != null) body['assistant_id'] = assistantId;
+    if (vendorIds != null) body['vendor_ids'] = vendorIds;
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/planner/events/$eventId/tasks'),
+      headers: authHeaders,
+      body: jsonEncode(body),
+    );
+    return _decodeResponse(response);
+  }
+
+  // UPDATE a task
+  static Future<Map<String, dynamic>> updateTask({
+    required int taskId,
+    String? title,
+    String? description,
+    String? priority,
+    String? dueDate,
+    int? progress,
+    String? status,
+    int? assistantId,
+    List<int>? vendorIds,
+  }) async {
+    final body = <String, dynamic>{};
+    if (title != null) body['title'] = title;
+    if (description != null) body['description'] = description;
+    if (priority != null) body['priority'] = priority;
+    if (dueDate != null) body['due_date'] = dueDate;
+    if (progress != null) body['progress'] = progress;
+    if (status != null) body['status'] = status;
+    if (assistantId != null) body['assistant_id'] = assistantId;
+    if (vendorIds != null) body['vendor_ids'] = vendorIds;
+
+    final response = await http.put(
+      Uri.parse('$baseUrl/planner/tasks/$taskId'),
+      headers: authHeaders,
+      body: jsonEncode(body),
+    );
+    return _decodeResponse(response);
+  }
+
+  // UPDATE task status
+  static Future<Map<String, dynamic>> updateTaskStatus(
+    int taskId,
+    String status,
+  ) async {
+    final response = await http.put(
+      Uri.parse('$baseUrl/planner/tasks/$taskId/status'),
+      headers: authHeaders,
+      body: jsonEncode({'status': status}),
+    );
+    return _decodeResponse(response);
+  }
+
+  // DELETE a task
+  static Future<Map<String, dynamic>> deleteTask(int taskId) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/planner/tasks/$taskId'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
   //Assistant
   //
   //
