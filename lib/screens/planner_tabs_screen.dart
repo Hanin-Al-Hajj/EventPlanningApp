@@ -3,8 +3,8 @@ import 'package:event_planner/models/event.dart';
 import 'package:event_planner/screens/budget_tracker_screen.dart';
 import 'package:event_planner/screens/vendors_screen.dart';
 import 'package:event_planner/constants/app_colors.dart';
-import 'package:event_planner/screens/check_list_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:event_planner/screens/planner/task_screen.dart';
 
 class Plannertabsscreen extends StatefulWidget {
   final Event event;
@@ -24,7 +24,10 @@ class _PlannertabsscreenState extends State<Plannertabsscreen> {
   @override
   Widget build(BuildContext context) {
     final pages = [
-      CheckListScreen(event: widget.event),
+      PlannerTaskScreen(
+        eventId: int.parse(widget.event.id),
+        eventName: widget.event.title,
+      ),
       VendorsScreen(eventId: widget.event.id),
       BudgetTrackerScreen(event: widget.event, onBudgetChanged: () async {}),
     ];
@@ -49,7 +52,7 @@ class _PlannertabsscreenState extends State<Plannertabsscreen> {
       bottomNavigationBar: BottomNavigationBar(
         items: const [
           BottomNavigationBarItem(
-            icon: FaIcon(FontAwesomeIcons.clipboardList, size: 20),
+            icon: FaIcon(FontAwesomeIcons.listCheck, size: 20),
             label: 'Checklist',
           ),
           BottomNavigationBarItem(

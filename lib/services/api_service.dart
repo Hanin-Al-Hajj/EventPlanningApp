@@ -802,6 +802,15 @@ class ApiService {
     return _decodeResponse(response);
   }
 
+  // GET list of assistants
+  static Future<Map<String, dynamic>> getAssistants() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/planner/assistants'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
   //Assistant
   //
   //
