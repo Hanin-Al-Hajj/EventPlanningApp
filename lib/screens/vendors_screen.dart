@@ -152,7 +152,7 @@ class _VendorsScreenState extends State<VendorsScreen> {
                   height: 40,
                   child: Center(
                     child: Icon(
-                      FontAwesomeIcons.arrowLeft,
+                      FontAwesomeIcons.xmark,
                       color: AppColors.darkpink,
                       size: 20,
                     ),

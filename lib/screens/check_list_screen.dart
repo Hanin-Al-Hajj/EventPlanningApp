@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+/*import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/models/timeline_task.dart';
 import 'package:event_planner/db/timeline_storage.dart';
@@ -234,3 +234,4 @@ class _CheckListScreenState extends State<CheckListScreen> {
     );
   }
 }
+*/
