@@ -25,6 +25,10 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
   int _todoCount = 0;
   int _inProgressCount = 0;
   int _doneCount = 0;
+  int _eventGuests = 0;
+  double _eventBudget = 0;
+  String _eventDescription = '';
+  String? _eventLocation;
 
   @override
   void initState() {
@@ -44,6 +48,10 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
         final data = result['data'];
         final tasksList = data['tasks'] as List? ?? [];
         final stats = data['stats'] as Map<String, dynamic>? ?? {};
+
+        // Get event details from task response AND from separate API
+        final eventData = data['event'] as Map<String, dynamic>? ?? {};
+
         setState(() {
           _tasks = tasksList
               .map((t) => Task.fromJson(Map<String, dynamic>.from(t)))
@@ -51,11 +59,19 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
           _todoCount = stats['todo'] ?? 0;
           _inProgressCount = stats['in_progress'] ?? 0;
           _doneCount = stats['done'] ?? 0;
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _errorMessage = result['message'] ?? 'Failed to load tasks';
+          _eventGuests =
+              int.tryParse(
+                '${eventData['guest_estimate'] ?? eventData['guests'] ?? 0}',
+              ) ??
+              0;
+          _eventBudget =
+              double.tryParse(
+                '${eventData['budget'] ?? eventData['budget_overall'] ?? 0}',
+              ) ??
+              0;
+          _eventDescription = eventData['description'] ?? '';
+          _eventLocation =
+              eventData['location'] ?? eventData['location_text'] ?? '';
           _isLoading = false;
         });
       }
@@ -76,20 +92,28 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
     } catch (e) {}
   }
 
-  void _showAddTaskDialog() async {
+  void _showTaskDialog({Task? task}) async {
     final formData = await _loadFormData();
     final assistants = formData['assistants'] ?? [];
     final vendors = formData['vendors'] ?? [];
 
     if (!mounted) return;
 
-    final titleController = TextEditingController();
-    final descriptionController = TextEditingController();
-    String priority = 'medium';
-    String? assistantId;
-    List<int> vendorIds = [];
-    DateTime? dueDate;
-    int progress = 0;
+    final isEditing = task != null;
+    final titleController = TextEditingController(text: task?.title ?? '');
+    final descriptionController = TextEditingController(
+      text: task?.description ?? '',
+    );
+    String priority = task?.priority.name ?? 'medium';
+    String? assistantId = task?.planner?['id']?.toString();
+    List<int> vendorIds =
+        task?.vendors
+            ?.map((v) => int.tryParse(v['id']?.toString() ?? '') ?? 0)
+            .where((id) => id > 0)
+            .toList() ??
+        [];
+    DateTime? dueDate = task?.dueDate;
+    int progress = task?.progress ?? 0;
 
     showDialog(
       context: context,
@@ -99,9 +123,9 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Text(
-            'Add Task',
-            style: TextStyle(
+          title: Text(
+            isEditing ? 'Edit Task' : 'Add Task',
+            style: const TextStyle(
               color: AppColors.darkpink,
               fontWeight: FontWeight.bold,
               fontSize: 20,
@@ -185,7 +209,7 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                             onTap: () async {
                               final picked = await showDatePicker(
                                 context: ctx,
-                                initialDate: DateTime.now(),
+                                initialDate: dueDate ?? DateTime.now(),
                                 firstDate: DateTime.now(),
                                 lastDate: DateTime.now().add(
                                   const Duration(days: 365),
@@ -261,7 +285,6 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                // Assistant - always visible
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -313,7 +336,6 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                       onChanged: (v) => setDialogState(() => assistantId = v),
                     ),
                     const SizedBox(height: 8),
-                    // Vendors
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -339,7 +361,6 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Selected vendors
                               if (vendorIds.isNotEmpty)
                                 Wrap(
                                   spacing: 6,
@@ -379,7 +400,6 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                                   ),
                                 ),
                               const SizedBox(height: 8),
-                              // Vendor dropdown
                               if (vendors.isNotEmpty)
                                 Container(
                                   constraints: const BoxConstraints(
@@ -440,20 +460,37 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
               onPressed: () async {
                 if (titleController.text.isEmpty) return;
                 try {
-                  await ApiService.createTask(
-                    eventId: widget.eventId,
-                    title: titleController.text,
-                    description: descriptionController.text.isNotEmpty
-                        ? descriptionController.text
-                        : null,
-                    priority: priority,
-                    dueDate: dueDate?.toIso8601String(),
-                    progress: progress,
-                    assistantId: assistantId != null
-                        ? int.tryParse(assistantId!)
-                        : null,
-                    vendorIds: vendorIds.isNotEmpty ? vendorIds : null,
-                  );
+                  if (isEditing) {
+                    await ApiService.updateTask(
+                      taskId: task!.id,
+                      title: titleController.text,
+                      description: descriptionController.text.isNotEmpty
+                          ? descriptionController.text
+                          : null,
+                      priority: priority,
+                      dueDate: dueDate?.toIso8601String(),
+                      progress: progress,
+                      assistantId: assistantId != null
+                          ? int.tryParse(assistantId!)
+                          : null,
+                      vendorIds: vendorIds.isNotEmpty ? vendorIds : null,
+                    );
+                  } else {
+                    await ApiService.createTask(
+                      eventId: widget.eventId,
+                      title: titleController.text,
+                      description: descriptionController.text.isNotEmpty
+                          ? descriptionController.text
+                          : null,
+                      priority: priority,
+                      dueDate: dueDate?.toIso8601String(),
+                      progress: progress,
+                      assistantId: assistantId != null
+                          ? int.tryParse(assistantId!)
+                          : null,
+                      vendorIds: vendorIds.isNotEmpty ? vendorIds : null,
+                    );
+                  }
                   Navigator.pop(ctx);
                   _loadTasks();
                 } catch (e) {}
@@ -465,7 +502,7 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              child: const Text('Add Task'),
+              child: Text(isEditing ? 'Update' : 'Add Task'),
             ),
           ],
         ),
@@ -575,7 +612,7 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
               ),
               const SizedBox(width: 12),
               InkWell(
-                onTap: _showAddTaskDialog,
+                onTap: () => _showTaskDialog(),
                 borderRadius: BorderRadius.circular(22),
                 child: const SizedBox(
                   width: 40,
@@ -635,6 +672,106 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                           '$_doneCount',
                           AppColors.green,
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Event Summary Card
+                Container(
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 8,
+                  ),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          if (_eventGuests > 0) ...[
+                            const Icon(
+                              Icons.people,
+                              size: 14,
+                              color: AppColors.coral,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$_eventGuests guests',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.burgundy,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                          ],
+                          if (_eventBudget > 0) ...[
+                            const Icon(
+                              Icons.attach_money,
+                              size: 14,
+                              color: AppColors.coral,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '\$${_eventBudget.toStringAsFixed(0)}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.burgundy,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      if (_eventLocation != null &&
+                          _eventLocation!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.location_on,
+                              size: 13,
+                              color: AppColors.coral,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                _eventLocation!,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 6),
+                      Text(
+                        _eventDescription.isNotEmpty
+                            ? _eventDescription
+                            : 'Description: The client didn\'t specify a description',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: _eventDescription.isNotEmpty
+                              ? Colors.grey.shade600
+                              : Colors.grey.shade400,
+                          fontStyle: _eventDescription.isNotEmpty
+                              ? FontStyle.normal
+                              : FontStyle.italic,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -768,77 +905,130 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
         );
       },
       onDismissed: (direction) => _deleteTask(task.id),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4),
-          ],
-        ),
-        child: Row(
-          children: [
-            Checkbox(
-              value: task.status == TaskStatus.done,
-              onChanged: (_) => _toggleTaskStatus(task),
-              activeColor: AppColors.darkpink,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      child: GestureDetector(
+        onTap: () => _showTaskDialog(task: task),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
                 children: [
-                  Text(
-                    task.title,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: task.status == TaskStatus.done
-                          ? AppColors.green
-                          : AppColors.burgundy,
-                      decoration: task.status == TaskStatus.done
-                          ? TextDecoration.lineThrough
-                          : null,
+                  Checkbox(
+                    value: task.status == TaskStatus.done,
+                    onChanged: (_) => _toggleTaskStatus(task),
+                    activeColor: AppColors.darkpink,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          task.title,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: task.status == TaskStatus.done
+                                ? AppColors.green
+                                : AppColors.burgundy,
+                            decoration: task.status == TaskStatus.done
+                                ? TextDecoration.lineThrough
+                                : null,
+                          ),
+                        ),
+                        if (task.description != null &&
+                            task.description!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              task.description!,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey.shade600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                  if (task.description != null && task.description!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        task.description!,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(task.status).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      task.status == TaskStatus.done
+                          ? 'Done'
+                          : task.status == TaskStatus.inProgress
+                          ? 'In Progress'
+                          : 'To Do',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: _getStatusColor(task.status),
                       ),
                     ),
+                  ),
                 ],
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: _getStatusColor(task.status).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                task.status == TaskStatus.done
-                    ? 'Done'
-                    : task.status == TaskStatus.inProgress
-                    ? 'In Progress'
-                    : 'To Do',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: _getStatusColor(task.status),
+              // Assistant
+              if (task.plannerName.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: 40, top: 4),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.person,
+                        size: 12,
+                        color: AppColors.coral,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Assigned to: ${task.plannerName}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ),
-          ],
+              // Vendors
+              if (task.vendors != null && task.vendors!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: 40, top: 4),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.check_circle,
+                        size: 12,
+                        color: AppColors.green,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${task.vendors!.length} vendor(s) assigned',
+                        style: TextStyle(fontSize: 11, color: AppColors.green),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );

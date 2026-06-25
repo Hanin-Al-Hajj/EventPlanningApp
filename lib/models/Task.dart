@@ -99,14 +99,18 @@ class Task {
       event: json['event'] != null
           ? Map<String, dynamic>.from(json['event'] as Map)
           : null,
+      // After parsing vendors:
       planner:
-          json['assignments'] != null &&
-              (json['assignments'] as List).isNotEmpty
-          ? Map<String, dynamic>.from(
-              ((json['assignments'] as List).first as Map)['planner'] as Map? ??
-                  {},
-            )
-          : null,
+          json['assistants'] != null && (json['assistants'] as List).isNotEmpty
+          ? Map<String, dynamic>.from((json['assistants'] as List).first as Map)
+          : (json['assignments'] != null &&
+                    (json['assignments'] as List).isNotEmpty
+                ? Map<String, dynamic>.from(
+                    ((json['assignments'] as List).first as Map)['planner']
+                            as Map? ??
+                        {},
+                  )
+                : null),
       vendors: json['vendors'] != null
           ? (json['vendors'] as List)
                 .map((v) => Map<String, dynamic>.from(v as Map))
@@ -116,7 +120,12 @@ class Task {
   }
 
   // Get planner name
-  String get plannerName => planner?['name'] ?? 'Unknown';
+  String get plannerName {
+    if (planner != null && planner!['name'] != null) {
+      return planner!['name'];
+    }
+    return '';
+  }
 
   // Get event name
   String get eventName => event?['name'] ?? '';
@@ -129,7 +138,6 @@ class Task {
     if (dueDate == null || status == TaskStatus.done) return false;
     return dueDate!.isBefore(DateTime.now());
   }
-  
 
   Task copyWith({
     int? id,
