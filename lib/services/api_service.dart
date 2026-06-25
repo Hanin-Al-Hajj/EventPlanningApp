@@ -669,7 +669,7 @@ class ApiService {
   // ARCHIVE single notification (swipe to dismiss)
   static Future<Map<String, dynamic>> archivePlannerNotification(int id) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/notifications/$id/archive'),
+      Uri.parse('$baseUrl/planner/notifications/$id/archive'),
       headers: authHeaders,
     );
     return _decodeResponse(response);
@@ -678,7 +678,7 @@ class ApiService {
   // MARK ALL notifications as read
   static Future<Map<String, dynamic>> markAllPlannerNotificationsRead() async {
     final response = await http.post(
-      Uri.parse('$baseUrl/notifications/mark-all-read'),
+      Uri.parse('$baseUrl/planner/notifications/mark-all-read'),
       headers: authHeaders,
     );
     return _decodeResponse(response);
@@ -687,7 +687,7 @@ class ApiService {
   // DELETE ALL active notifications (Clear button)
   static Future<Map<String, dynamic>> deleteAllPlannerNotifications() async {
     final response = await http.delete(
-      Uri.parse('$baseUrl/notifications'),
+      Uri.parse('$baseUrl/planner/notifications'),
       headers: authHeaders,
     );
     return _decodeResponse(response);
@@ -806,6 +806,58 @@ class ApiService {
   static Future<Map<String, dynamic>> getAssistants() async {
     final response = await http.get(
       Uri.parse('$baseUrl/planner/assistants'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  //messages
+  // GET planner events with message previews
+  static Future<Map<String, dynamic>> getPlannerMessagesEvents() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/planner/messages/events'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // GET planner messages for a specific event
+  static Future<Map<String, dynamic>> getPlannerMessages(int eventId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/planner/events/$eventId/messages'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // SEND planner message
+  static Future<Map<String, dynamic>> sendPlannerMessage({
+    required int eventId,
+    required String message,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/planner/events/$eventId/messages'),
+      headers: authHeaders,
+      body: jsonEncode({'message': message}),
+    );
+    return _decodeResponse(response);
+  }
+
+  // DELETE all planner messages for an event
+  static Future<Map<String, dynamic>> deleteAllPlannerMessages(
+    int eventId,
+  ) async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/planner/events/$eventId/messages'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  //analytics
+  static Future<Map<String, dynamic>> getPlannerAnalytics() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/planner/analytics'),
       headers: authHeaders,
     );
     return _decodeResponse(response);

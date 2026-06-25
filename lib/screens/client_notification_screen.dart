@@ -83,8 +83,10 @@ class _ClientNotificationScreenState extends State<ClientNotificationScreen> {
           MaterialPageRoute(
             builder: (context) => ChatScreen(
               eventId: eventId!,
-              eventName: eventName, // ✅ Real event name
+              eventName: eventName,
               plannerName: plannerName,
+              isPlanner: false,
+              onRead: null,
             ),
           ),
         );

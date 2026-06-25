@@ -5,6 +5,8 @@ import 'package:event_planner/services/api_service.dart';
 import 'package:event_planner/widgets/floating_action_button.dart';
 import 'package:event_planner/screens/planner/planner_notification_screen.dart';
 import 'package:event_planner/screens/planner/my_events.dart';
+import 'package:event_planner/screens/planner/Messages_screen_planner.dart';
+import 'package:event_planner/screens/planner/analytics.dart';
 
 class EventPlannerDashboard extends StatefulWidget {
   const EventPlannerDashboard({super.key});
@@ -15,6 +17,8 @@ class EventPlannerDashboard extends StatefulWidget {
 
 class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
   static const int _initialWeekPage = 500;
+  List<Map<String, dynamic>> _notifications = [];
+  int _unreadNotifications = 0;
   late final PageController _weekController = PageController(
     initialPage: _initialWeekPage,
   );
@@ -342,7 +346,6 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── Top Bar ──────────────────────────────────────────────
                   SizedBox(
                     height: 40,
                     child: Stack(
@@ -401,27 +404,54 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                onPressed: () {
-                                  Navigator.push(
+                                onPressed: () async {
+                                  final count = await Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder: (context) =>
-                                          PlannerNotificationScreen(),
+                                          const PlannerNotificationScreen(),
                                     ),
                                   );
+                                  if (count != null) {
+                                    setState(
+                                      () => _unreadNotifications = count,
+                                    );
+                                  }
                                 },
-                                icon: const FaIcon(
-                                  FontAwesomeIcons.bell,
-                                  size: 20,
-                                  color: AppColors.darkpink,
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: () {},
-                                icon: const FaIcon(
-                                  FontAwesomeIcons.calendarDays,
-                                  size: 20,
-                                  color: AppColors.darkpink,
+                                icon: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    const FaIcon(
+                                      FontAwesomeIcons.bell,
+                                      size: 20,
+                                      color: AppColors.darkpink,
+                                    ),
+                                    if (_unreadNotifications > 0)
+                                      Positioned(
+                                        top: -4,
+                                        right: -4,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(3),
+                                          decoration: const BoxDecoration(
+                                            color: AppColors.darkpink,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          constraints: const BoxConstraints(
+                                            minWidth: 14,
+                                            minHeight: 14,
+                                          ),
+                                          child: Text(
+                                            '$_unreadNotifications',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                             ],
@@ -529,8 +559,20 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
               );
             },
             onArchiveEvent: () {},
-            onAnalytics: () {},
-            onMessage: () {},
+            onAnalytics: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
+              );
+            },
+            onMessage: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const MessagesScreenPlanner(),
+                ),
+              );
+            },
           ),
         ),
       ),

@@ -7,12 +7,16 @@ class ChatScreen extends StatefulWidget {
   final int eventId;
   final String eventName;
   final String plannerName;
+  final bool isPlanner;
+  final VoidCallback? onRead;
 
   const ChatScreen({
     super.key,
     required this.eventId,
     required this.eventName,
     required this.plannerName,
+    required this.isPlanner,
+    this.onRead,
   });
 
   @override
@@ -41,17 +45,25 @@ class _ChatScreenState extends State<ChatScreen> {
 
   Future<void> _loadMessages() async {
     try {
-      final result = await ApiService.getMessages(widget.eventId);
-
+      final result = widget.isPlanner
+          ? await ApiService.getPlannerMessages(widget.eventId)
+          : await ApiService.getMessages(widget.eventId);
+      _loadMessages();
       if (!mounted) return;
 
       if (result['success'] == true) {
-        final data = result['data'];
+        final messages = widget.isPlanner
+            ? result['messages']
+            : result['data']?['messages'];
+
         setState(() {
-          _messages = List<Map<String, dynamic>>.from(data['messages'] ?? []);
+          _messages = List<Map<String, dynamic>>.from(messages ?? []);
           _isLoading = false;
         });
         _scrollToBottom();
+        widget.onRead?.call();
+      } else {
+        setState(() => _isLoading = false);
       }
     } catch (e) {
       if (!mounted) return;
@@ -66,16 +78,30 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() => _isSending = true);
 
     try {
-      final result = await ApiService.sendMessage(
-        eventId: widget.eventId,
-        message: text,
-      );
+      final result = widget.isPlanner
+          ? await ApiService.sendPlannerMessage(
+              eventId: widget.eventId,
+              message: text,
+            )
+          : await ApiService.sendMessage(
+              eventId: widget.eventId,
+              message: text,
+            );
 
       if (!mounted) return;
 
       if (result['success'] == true) {
         _messageController.clear();
-        _loadMessages();
+        final messages = widget.isPlanner ? null : result['data']?['messages'];
+
+        if (messages != null) {
+          setState(() {
+            _messages = List<Map<String, dynamic>>.from(messages);
+          });
+          _scrollToBottom();
+        } else {
+          _loadMessages();
+        }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
