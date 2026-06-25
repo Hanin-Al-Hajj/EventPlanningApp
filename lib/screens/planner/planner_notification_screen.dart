@@ -35,7 +35,6 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
     super.initState();
     _loadNotifications();
   }
-  //Api calls
 
   Future<void> _loadNotifications() async {
     setState(() {
@@ -43,26 +42,30 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
       _error = null;
     });
     try {
-      final data = await ApiService.getPlannerNotifications();
-
+      final response = await ApiService.getPlannerNotifications();
       if (!mounted) return;
-      if (data['success'] == true || data['notifications'] != null) {
-        final raw = data['notifications'] as List<dynamic>? ?? [];
+
+      if (response['success'] == true) {
+        final raw = response['notifications'] as List<dynamic>? ?? [];
+        final List<plannerNotification> parsed = [];
+        for (final item in raw) {
+          try {
+            parsed.add(
+              plannerNotification.fromJson(item as Map<String, dynamic>),
+            );
+          } catch (_) {}
+        }
         setState(() {
-          _items = raw
-              .map(
-                (e) => plannerNotification.fromJson(e as Map<String, dynamic>),
-              )
-              .toList();
+          _items = parsed;
           _isLoading = false;
         });
       } else {
         setState(() {
-          _error = data['message'] ?? 'Failed to load notifications';
+          _error = response['message'] ?? 'Failed to load notifications';
           _isLoading = false;
         });
       }
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
         _error = 'Something went wrong. Please try again.';
@@ -72,13 +75,15 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
   }
 
   Future<void> _dismissNotification(plannerNotification n) async {
-    // Optimistic removal
     setState(() => _items.removeWhere((item) => item.id == n.id));
-
     try {
-      await ApiService.archivePlannerNotification(n.id);
+      final result = await ApiService.archivePlannerNotification(n.id);
+      if (result['success'] != true && mounted) {
+        // ← add this check
+        setState(() => _items.insert(0, n));
+        _showSnackBar('Could not archive notification.');
+      }
     } catch (_) {
-      // Restore on failure
       if (mounted) {
         setState(() => _items.insert(0, n));
         _showSnackBar('Could not archive notification.');
@@ -182,7 +187,9 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
         Align(
           alignment: Alignment.centerLeft,
           child: GestureDetector(
-            onTap: () => Navigator.of(context).maybePop(),
+            onTap: () {
+              Navigator.pop(context, _unread);
+            },
             child: const Icon(Icons.close, color: AppColors.darkpink, size: 29),
           ),
         ),
