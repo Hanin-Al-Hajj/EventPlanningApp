@@ -30,10 +30,78 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
   String _eventDescription = '';
   String? _eventLocation;
 
+  List<Map<String, dynamic>> _assistants = [];
+  List<Map<String, dynamic>> _vendors = [];
+  bool _isFormDataLoading = false;
+
   @override
   void initState() {
     super.initState();
-    _loadTasks();
+    _loadAll();
+  }
+
+  Future<void> _loadAll() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final results = await Future.wait([
+        ApiService.getEventTasks(widget.eventId),
+        ApiService.getPlannerEvent(widget.eventId),
+        ApiService.getAssistants(),
+        ApiService.getVendors(widget.eventId.toString()),
+      ], eagerError: false);
+
+      if (!mounted) return;
+
+      // Tasks (index 0)
+      final taskResult = results[0];
+      if (taskResult is Map && taskResult['success'] == true) {
+        final data = taskResult['data'];
+        final tasksList = data['tasks'] as List? ?? [];
+        final stats = data['stats'] as Map<String, dynamic>? ?? {};
+        _tasks = tasksList
+            .map((t) => Task.fromJson(Map<String, dynamic>.from(t)))
+            .toList();
+        _todoCount = stats['todo'] ?? 0;
+        _inProgressCount = stats['in_progress'] ?? 0;
+        _doneCount = stats['done'] ?? 0;
+      }
+
+      // Event details (index 1)
+      final eventResult = results[1];
+      if (eventResult is Map && eventResult['success'] == true) {
+        final event = eventResult['data'] as Map<String, dynamic>? ?? {};
+        _eventGuests = int.tryParse('${event['guest_estimate'] ?? 0}') ?? 0;
+        _eventBudget =
+            double.tryParse(
+              '${event['budget'] ?? event['budget_overall'] ?? 0}',
+            ) ??
+            0;
+        _eventDescription = event['description'] ?? '';
+        _eventLocation = event['location'] ?? event['location_text'] ?? '';
+      }
+
+      // Assistants (index 2)
+      final assistantsResult = results[2] as Map<String, dynamic>?;
+      if (assistantsResult != null && assistantsResult['success'] == true) {
+        _assistants = List<Map<String, dynamic>>.from(
+          assistantsResult['data'] ?? [],
+        );
+      }
+
+      // Vendors (index 3)
+      final vendorsResult = results[3] as Map<String, dynamic>?;
+      if (vendorsResult != null && vendorsResult['success'] == true) {
+        _vendors = List<Map<String, dynamic>>.from(
+          vendorsResult['vendors'] ?? vendorsResult['data'] ?? [],
+        );
+      }
+    } catch (e) {
+      debugPrint('Load error: $e');
+      if (mounted) _errorMessage = 'Connection error';
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _loadTasks() async {
@@ -42,16 +110,19 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
       _errorMessage = null;
     });
     try {
-      final result = await ApiService.getEventTasks(widget.eventId);
+      final results = await Future.wait([
+        ApiService.getEventTasks(widget.eventId),
+        ApiService.getPlannerEvent(widget.eventId),
+      ], eagerError: false);
+
       if (!mounted) return;
-      if (result['success'] == true) {
-        final data = result['data'];
+
+      // Parse tasks (index 0)
+      final taskResult = results[0];
+      if (taskResult is Map && taskResult['success'] == true) {
+        final data = taskResult['data'];
         final tasksList = data['tasks'] as List? ?? [];
         final stats = data['stats'] as Map<String, dynamic>? ?? {};
-
-        // Get event details from task response AND from separate API
-        final eventData = data['event'] as Map<String, dynamic>? ?? {};
-
         setState(() {
           _tasks = tasksList
               .map((t) => Task.fromJson(Map<String, dynamic>.from(t)))
@@ -59,23 +130,28 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
           _todoCount = stats['todo'] ?? 0;
           _inProgressCount = stats['in_progress'] ?? 0;
           _doneCount = stats['done'] ?? 0;
-          _eventGuests =
-              int.tryParse(
-                '${eventData['guest_estimate'] ?? eventData['guests'] ?? 0}',
-              ) ??
-              0;
-          _eventBudget =
-              double.tryParse(
-                '${eventData['budget'] ?? eventData['budget_overall'] ?? 0}',
-              ) ??
-              0;
-          _eventDescription = eventData['description'] ?? '';
-          _eventLocation =
-              eventData['location'] ?? eventData['location_text'] ?? '';
-          _isLoading = false;
         });
       }
+
+      // Parse event details (index 1)
+      final eventResult = results[1];
+      if (eventResult is Map && eventResult['success'] == true) {
+        final event = eventResult['data'] as Map<String, dynamic>? ?? {};
+        setState(() {
+          _eventGuests = int.tryParse('${event['guest_estimate'] ?? 0}') ?? 0;
+          _eventBudget =
+              double.tryParse(
+                '${event['budget'] ?? event['budget_overall'] ?? 0}',
+              ) ??
+              0;
+          _eventDescription = event['description'] ?? '';
+          _eventLocation = event['location'] ?? event['location_text'] ?? '';
+        });
+      }
+
+      setState(() => _isLoading = false);
     } catch (e) {
+      debugPrint('Load tasks error: $e');
       if (!mounted) return;
       setState(() {
         _errorMessage = 'Connection error';
@@ -93,9 +169,8 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
   }
 
   void _showTaskDialog({Task? task}) async {
-    final formData = await _loadFormData();
-    final assistants = formData['assistants'] ?? [];
-    final vendors = formData['vendors'] ?? [];
+    final assistants = _assistants;
+    final vendors = _vendors;
 
     if (!mounted) return;
 
@@ -214,6 +289,28 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                                 lastDate: DateTime.now().add(
                                   const Duration(days: 365),
                                 ),
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      colorScheme: const ColorScheme.light(
+                                        primary: AppColors
+                                            .darkpink, // header & selected day
+                                        onPrimary:
+                                            Colors.white, // text on header
+                                        onSurface: AppColors
+                                            .burgundy, // calendar day text
+                                        surface: AppColors.cream, // background
+                                      ),
+                                      textButtonTheme: TextButtonThemeData(
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: AppColors
+                                              .darkpink, // OK / Cancel buttons
+                                        ),
+                                      ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
                               );
                               if (picked != null)
                                 setDialogState(() => dueDate = picked);
@@ -536,27 +633,6 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
     );
   }
 
-  Future<Map<String, List<Map<String, dynamic>>>> _loadFormData() async {
-    try {
-      final assistantsResult = await ApiService.getAssistants();
-      final vendorsResult = await ApiService.getVendors(
-        widget.eventId.toString(),
-      );
-      return {
-        'assistants': assistantsResult['success'] == true
-            ? List<Map<String, dynamic>>.from(assistantsResult['data'] ?? [])
-            : [],
-        'vendors': vendorsResult['success'] == true
-            ? List<Map<String, dynamic>>.from(
-                vendorsResult['vendors'] ?? vendorsResult['data'] ?? [],
-              )
-            : [],
-      };
-    } catch (e) {
-      return {'assistants': [], 'vendors': []};
-    }
-  }
-
   Color _getStatusColor(TaskStatus status) {
     switch (status) {
       case TaskStatus.done:
@@ -646,7 +722,7 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 20,
-                    vertical: 12,
+                    vertical: 1,
                   ),
                   child: Row(
                     children: [
@@ -680,11 +756,11 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                 Container(
                   margin: const EdgeInsets.symmetric(
                     horizontal: 20,
-                    vertical: 8,
+                    vertical: 10,
                   ),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Colors.white.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
@@ -730,52 +806,53 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                                 color: AppColors.burgundy,
                               ),
                             ),
+                            const SizedBox(width: 16),
                           ],
-                        ],
-                      ),
-                      if (_eventLocation != null &&
-                          _eventLocation!.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
+                          if (_eventLocation != null &&
+                              _eventLocation!.isNotEmpty) ...[
                             const Icon(
                               Icons.location_on,
-                              size: 13,
+                              size: 14,
                               color: AppColors.coral,
                             ),
                             const SizedBox(width: 4),
-                            Expanded(
+                            Flexible(
                               child: Text(
                                 _eventLocation!,
                                 style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey.shade600,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.burgundy,
                                 ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
-                        ),
-                      ],
+                        ],
+                      ),
+
                       const SizedBox(height: 6),
                       Text(
                         _eventDescription.isNotEmpty
-                            ? _eventDescription
+                            ? '" $_eventDescription "'
                             : 'Description: The client didn\'t specify a description',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
                           color: _eventDescription.isNotEmpty
-                              ? Colors.grey.shade600
-                              : Colors.grey.shade400,
+                              ? AppColors.burgundy
+                              : AppColors.green.withOpacity(0.7),
                           fontStyle: _eventDescription.isNotEmpty
-                              ? FontStyle.normal
+                              ? FontStyle.italic
                               : FontStyle.italic,
                         ),
-                        maxLines: 2,
+                        maxLines: 10,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
+                SizedBox(height: 10),
                 Expanded(
                   child: _tasks.isEmpty
                       ? Center(
@@ -822,6 +899,7 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
@@ -1040,22 +1118,24 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
       if (!mounted) return;
       if (result['success'] == true) {
         _loadTasks();
-        if (mounted)
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Task deleted'),
               backgroundColor: AppColors.green,
             ),
           );
+        }
       }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Failed to delete'),
-            backgroundColor: Colors.red,
+            backgroundColor: AppColors.burgundy,
           ),
         );
+      }
     }
   }
 }

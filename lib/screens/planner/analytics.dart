@@ -19,8 +19,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   List<Map<String, dynamic>> _eventTypeStats = [];
 
   static const Color _card = Color(0xFFFFFFFF);
-  static const Color _textDark = Color(0xFF1A1A1A);
-  static const Color _textMid = Color(0xFF6B6B6B);
   static const Color _badgeBg = Color(0xFFF5E8E8);
 
   static const List<Color> _donutColors = [
@@ -42,11 +40,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       _error = null;
     });
     try {
-      // ── swap with: final data = await ApiService.getPlannerAnalytics(); ──
       await Future.delayed(const Duration(milliseconds: 800));
       final data = _mockData();
-      // ─────────────────────────────────────────────────────
-
       setState(() {
         _stats = Map<String, dynamic>.from(data['stats'] ?? {});
         _monthlyData = List<Map<String, dynamic>>.from(
@@ -65,7 +60,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
   }
 
-  // ── mock data — remove when API is wired ─────────────────
   Map<String, dynamic> _mockData() => {
     'stats': {
       'total_events': 44,
@@ -95,14 +89,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     ],
   };
 
-  // ── helpers ──────────────────────────────────────────────
   String _formatRevenue(dynamic v) {
     final n = (v ?? 0).toDouble();
     if (n >= 1000) return '\$${(n / 1000).toStringAsFixed(1)}k';
     return '\$$n';
   }
 
-  // ── build ─────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -110,23 +102,44 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.cream,
         elevation: 0,
-        leading: IconButton(
-          icon: const FaIcon(
-            FontAwesomeIcons.arrowLeft,
-            color: AppColors.darkpink,
-            size: 20,
+        toolbarHeight: 76,
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+        title: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+          child: Row(
+            children: [
+              InkWell(
+                onTap: () => Navigator.pop(context),
+                borderRadius: BorderRadius.circular(22),
+                child: const SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: Center(
+                    child: FaIcon(
+                      FontAwesomeIcons.arrowLeft,
+                      size: 20,
+                      color: AppColors.darkpink,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Analytics',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.burgundy,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 52),
+            ],
           ),
-          onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Analytics',
-          style: TextStyle(
-            color: AppColors.burgundy,
-            fontWeight: FontWeight.w700,
-            fontSize: 18,
-          ),
-        ),
-        centerTitle: true,
       ),
       body: _isLoading
           ? const Center(
@@ -138,7 +151,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               color: AppColors.darkpink,
               onRefresh: _loadAnalytics,
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                 children: [
                   _buildStatCards(),
                   const SizedBox(height: 16),
@@ -155,11 +168,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     child: Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Icon(Icons.wifi_off_rounded, size: 48, color: _textMid),
+        const Icon(Icons.wifi_off_rounded, size: 48, color: Color(0xFF6B6B6B)),
         const SizedBox(height: 12),
         const Text(
           'Could not load analytics',
-          style: TextStyle(color: _textMid),
+          style: TextStyle(color: Color(0xFF6B6B6B)),
         ),
         const SizedBox(height: 16),
         ElevatedButton(
@@ -171,7 +184,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     ),
   );
 
-  // ── 4-stat cards ─────────────────────────────────────────
   Widget _buildStatCards() {
     final cards = [
       _StatItem(
@@ -199,15 +211,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         label: 'Satisfaction',
       ),
     ];
-
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.55,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 1.4,
       ),
       itemCount: cards.length,
       itemBuilder: (_, i) => _buildStatCard(cards[i]),
@@ -215,20 +226,21 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 
   Widget _buildStatCard(_StatItem item) => Container(
-    padding: const EdgeInsets.all(14),
+    padding: const EdgeInsets.all(10),
     decoration: BoxDecoration(
       color: _card,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(14),
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Icon(item.icon, color: AppColors.green, size: 18),
+            Icon(item.icon, color: AppColors.green, size: 16),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
                 color: _badgeBg,
                 borderRadius: BorderRadius.circular(20),
@@ -237,32 +249,33 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 item.badge,
                 style: const TextStyle(
                   color: AppColors.burgundy,
-                  fontSize: 11,
+                  fontSize: 10,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
           ],
         ),
-        const Spacer(),
+        const SizedBox(height: 8),
         Text(
           item.value,
           style: const TextStyle(
             color: AppColors.burgundy,
-            fontSize: 22,
+            fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
+          overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 2),
         Text(
           item.label,
-          style: const TextStyle(color: AppColors.green, fontSize: 12),
+          style: const TextStyle(color: AppColors.green, fontSize: 10),
+          overflow: TextOverflow.ellipsis,
         ),
       ],
     ),
   );
 
-  // ── line chart ───────────────────────────────────────────
   Widget _buildLineChartCard() => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
@@ -296,13 +309,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     ),
   );
 
-  // ── donut chart ──────────────────────────────────────────
   Widget _buildDonutCard() {
     final total = _eventTypeStats.fold<int>(
       0,
       (s, e) => s + ((e['count'] ?? 0) as int),
     );
-
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -379,7 +390,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                             child: Text(
                               e['name'] ?? '',
                               style: const TextStyle(
-                                color: _textDark,
+                                color: Color(0xFF1A1A1A),
                                 fontSize: 13,
                               ),
                             ),
@@ -387,7 +398,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           Text(
                             '${e['count'] ?? 0}',
                             style: const TextStyle(
-                              color: _textDark,
+                              color: Color(0xFF1A1A1A),
                               fontWeight: FontWeight.w600,
                               fontSize: 13,
                             ),
@@ -406,7 +417,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   }
 }
 
-// ── data holder ──────────────────────────────────────────────
 class _StatItem {
   final IconData icon;
   final String badge, value, label;
@@ -418,12 +428,10 @@ class _StatItem {
   });
 }
 
-// ── line chart ────────────────────────────────────────────────
 class _LineChart extends StatelessWidget {
   final List<Map<String, dynamic>> data;
   final Color color;
   const _LineChart({required this.data, required this.color});
-
   @override
   Widget build(BuildContext context) => CustomPaint(
     painter: _LineChartPainter(data: data, color: color),
@@ -435,20 +443,15 @@ class _LineChartPainter extends CustomPainter {
   final List<Map<String, dynamic>> data;
   final Color color;
   _LineChartPainter({required this.data, required this.color});
-
   @override
   void paint(Canvas canvas, Size size) {
     if (data.isEmpty) return;
-
     const double leftPad = 28, bottomPad = 24, topPad = 8;
-    final double chartW = size.width - leftPad;
-    final double chartH = size.height - bottomPad - topPad;
-
+    final double chartW = size.width - leftPad,
+        chartH = size.height - bottomPad - topPad;
     final counts = data.map((e) => (e['count'] ?? 0) as int).toList();
     final maxVal = counts.reduce(math.max).toDouble();
     final range = maxVal == 0 ? 1.0 : maxVal;
-
-    // grid
     final gridPaint = Paint()
       ..color = const Color(0xFFE8E0D5)
       ..strokeWidth = 1;
@@ -456,7 +459,6 @@ class _LineChartPainter extends CustomPainter {
       color: AppColors.burgundy.withOpacity(0.4),
       fontSize: 10,
     );
-
     for (int i = 0; i <= 4; i++) {
       final y = topPad + chartH - (i / 4) * chartH;
       canvas.drawLine(Offset(leftPad, y), Offset(size.width, y), gridPaint);
@@ -467,8 +469,6 @@ class _LineChartPainter extends CustomPainter {
         labelStyle,
       );
     }
-
-    // points
     final points = <Offset>[
       for (int i = 0; i < data.length; i++)
         Offset(
@@ -476,8 +476,6 @@ class _LineChartPainter extends CustomPainter {
           topPad + chartH - (counts[i] / range) * chartH,
         ),
     ];
-
-    // fill
     final fillPath = Path()..moveTo(points.first.dx, topPad + chartH);
     fillPath.lineTo(points.first.dx, points.first.dy);
     for (int i = 1; i < points.length; i++) {
@@ -498,7 +496,6 @@ class _LineChartPainter extends CustomPainter {
     fillPath
       ..lineTo(points.last.dx, topPad + chartH)
       ..close();
-
     canvas.drawPath(
       fillPath,
       Paint()
@@ -508,8 +505,6 @@ class _LineChartPainter extends CustomPainter {
           colors: [color.withOpacity(0.20), color.withOpacity(0.0)],
         ).createShader(Rect.fromLTWH(0, topPad, size.width, chartH)),
     );
-
-    // line
     final linePath = Path()..moveTo(points.first.dx, points.first.dy);
     for (int i = 1; i < points.length; i++) {
       final cp1 = Offset(
@@ -534,13 +529,11 @@ class _LineChartPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round
         ..style = PaintingStyle.stroke,
     );
-
-    // x labels
     final xStyle = TextStyle(
       color: AppColors.burgundy.withOpacity(0.4),
       fontSize: 10,
     );
-    for (int i = 0; i < data.length; i++) {
+    for (int i = 0; i < data.length; i++)
       _drawText(
         canvas,
         data[i]['month'] ?? '',
@@ -550,21 +543,19 @@ class _LineChartPainter extends CustomPainter {
         ),
         xStyle,
       );
-    }
   }
 
-  void _drawText(Canvas canvas, String text, Offset offset, TextStyle style) {
+  void _drawText(Canvas c, String t, Offset o, TextStyle s) {
     (TextPainter(
-      text: TextSpan(text: text, style: style),
+      text: TextSpan(text: t, style: s),
       textDirection: TextDirection.ltr,
-    )..layout()).paint(canvas, offset);
+    )..layout()).paint(c, o);
   }
 
   @override
-  bool shouldRepaint(_LineChartPainter old) => old.data != data;
+  bool shouldRepaint(_LineChartPainter o) => o.data != data;
 }
 
-// ── donut painter ─────────────────────────────────────────────
 class _DonutPainter extends CustomPainter {
   final List<Map<String, dynamic>> data;
   final int total;
@@ -574,13 +565,11 @@ class _DonutPainter extends CustomPainter {
     required this.total,
     required this.colors,
   });
-
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - 6;
     double startAngle = -math.pi / 2;
-
     for (int i = 0; i < data.length; i++) {
       final count = (data[i]['count'] ?? 0) as int;
       final sweep = total == 0 ? 0.0 : (count / total) * 2 * math.pi;
@@ -600,6 +589,5 @@ class _DonutPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_DonutPainter old) =>
-      old.data != data || old.total != total;
+  bool shouldRepaint(_DonutPainter o) => o.data != data || o.total != total;
 }

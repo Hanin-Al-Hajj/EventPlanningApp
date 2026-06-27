@@ -1,9 +1,11 @@
-import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:event_planner/services/api_service.dart';
 import 'package:event_planner/models/event.dart';
+import 'package:event_planner/models/plannerEvent.dart';
 import 'package:event_planner/screens/planner_tabs_screen.dart';
+import 'package:event_planner/services/api_service.dart';
+import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:event_planner/screens/planner/monthly_calender.dart';
 
 class MyEvents extends StatefulWidget {
   const MyEvents({super.key});
@@ -14,19 +16,18 @@ class MyEvents extends StatefulWidget {
 
 class _MyEventsState extends State<MyEvents> {
   final TextEditingController _searchController = TextEditingController();
+
   List<Event> _events = [];
   List<Event> _filteredEvents = [];
-  String _selectedFilter = 'All';
+  List<Event>? _cachedEvents;
+
+  MyEventFilter _selectedFilter = MyEventFilter.all;
+  MyEventStats _stats = const MyEventStats.empty();
+  MyEventStats _cachedStats = const MyEventStats.empty();
+
   bool _isLoading = true;
   String? _errorMessage;
-  List<Event>? _cachedEvents;
-  int _cachedConfirmed = 0;
-  int _cachedInProgress = 0;
-  int _cachedCompleted = 0;
-
-  int _confirmedCount = 0;
-  int _inProgressCount = 0;
-  int _completedCount = 0;
+  bool _statusChanged = false;
 
   @override
   void initState() {
@@ -46,9 +47,8 @@ class _MyEventsState extends State<MyEvents> {
       setState(() {
         _events = _cachedEvents!;
         _filteredEvents = List.from(_events);
-        _confirmedCount = _cachedConfirmed;
-        _inProgressCount = _cachedInProgress;
-        _completedCount = _cachedCompleted;
+        _stats = _cachedStats;
+        _isLoading = false;
       });
       return;
     }
@@ -60,35 +60,31 @@ class _MyEventsState extends State<MyEvents> {
 
     try {
       final result = await ApiService.getPlannerEvents();
-
       if (!mounted) return;
 
       if (result['success'] == true) {
         final data = result['data'];
-        final eventsList = data['events'] as List? ?? [];
-        final stats = data['stats'] as Map<String, dynamic>? ?? {};
+        if (data is! Map) {
+          setState(() {
+            _errorMessage = 'Invalid events data';
+            _isLoading = false;
+          });
+          return;
+        }
 
-        final parsedEvents = eventsList
-            .map((e) => Event.fromJson(Map<String, dynamic>.from(e)))
-            .toList();
-        final confirmed = stats['confirmed'] ?? 0;
-        final inProgress = stats['in_progress'] ?? 0;
-        final completed = stats['completed'] ?? 0;
+        final response = MyEventsResponse.fromJson(
+          Map<String, dynamic>.from(data),
+        );
 
-        // Cache the data
-        _cachedEvents = parsedEvents;
-        _cachedConfirmed = confirmed;
-        _cachedInProgress = inProgress;
-        _cachedCompleted = completed;
+        _cachedEvents = response.events;
+        _cachedStats = response.stats;
 
         setState(() {
-          _events = parsedEvents;
-          _filteredEvents = List.from(_events);
-          _confirmedCount = confirmed;
-          _inProgressCount = inProgress;
-          _completedCount = completed;
+          _events = response.events;
+          _stats = response.stats;
           _isLoading = false;
         });
+        _filterEvents();
       } else {
         setState(() {
           _errorMessage = result['message'] ?? 'Failed to load events';
@@ -104,189 +100,233 @@ class _MyEventsState extends State<MyEvents> {
     }
   }
 
-  // Add refresh method
   Future<void> _refreshEvents() async {
-    _cachedEvents = null;
+    _clearCache();
     await _loadEvents();
+  }
+
+  void _clearCache() {
+    _cachedEvents = null;
+    _cachedStats = const MyEventStats.empty();
   }
 
   void _filterEvents() {
     final query = _searchController.text.toLowerCase();
+
     setState(() {
-      _filteredEvents = _events.where((e) {
+      _filteredEvents = _events.where((event) {
         final matchesSearch =
             query.isEmpty ||
-            e.title.toLowerCase().contains(query) ||
-            (e.plannerName?.toLowerCase().contains(query) ?? false);
-
-        final matchesFilter =
-            _selectedFilter == 'All' || e.status == _selectedFilter;
-
+            event.title.toLowerCase().contains(query) ||
+            (event.clientName?.toLowerCase().contains(query) ?? false);
+        final matchesFilter = _selectedFilter.matches(event);
         return matchesSearch && matchesFilter;
       }).toList();
     });
   }
 
-  Future<void> _updateStatus(int eventId, String newStatus) async {
-    // ✅ Optimistic update
+  Future<void> _updateStatus(int eventId, MyEventStatus newStatus) async {
+    final index = _events.indexWhere((event) => event.id == eventId.toString());
+    if (index == -1) return;
+
+    final oldEvent = _events[index];
+    final oldStats = _stats;
+
     setState(() {
-      final index = _events.indexWhere((e) => e.id == eventId.toString());
-      if (index != -1) {
-        final oldStatus = _events[index].status;
-        _events[index] = Event(
-          id: _events[index].id,
-          title: _events[index].title,
-          date: _events[index].date,
-          location: _events[index].location,
-          guests: _events[index].guests,
-          budget: _events[index].budget,
-          progress: _events[index].progress,
-          status: newStatus,
-          eventType: _events[index].eventType,
-          description: _events[index].description,
-          plannerId: _events[index].plannerId,
-          plannerName: _events[index].plannerName,
-        );
-        _filteredEvents = List.from(_events);
-
-        // Update counts
-        if (oldStatus == 'confirmed') _confirmedCount--;
-        if (oldStatus == 'in_progress') _inProgressCount--;
-        if (oldStatus == 'completed') _completedCount--;
-        if (newStatus == 'confirmed') _confirmedCount++;
-        if (newStatus == 'in_progress') _inProgressCount++;
-        if (newStatus == 'completed') _completedCount++;
-
-        // Clear cache to force reload next time
-        _cachedEvents = null;
-      }
+      _events = List<Event>.from(_events);
+      _events[index] = oldEvent.copyWithStatus(newStatus);
+      _stats = _stats.applyStatusChange(
+        oldStatus: oldEvent.status,
+        newStatus: newStatus,
+      );
+      _cachedEvents = null;
     });
+    _filterEvents();
 
-    // Then sync with API
     try {
-      final result = await ApiService.updateEventStatus(eventId, newStatus);
+      final result = await ApiService.updateEventStatus(
+        eventId,
+        newStatus.apiValue,
+      );
+      if (!mounted) return;
+
       if (result['success'] == true) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Status updated!'),
-              backgroundColor: AppColors.green,
-            ),
-          );
-        }
+        _statusChanged = true;
+
+        final isCancelled = newStatus == MyEventStatus.cancelled;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Status updated to ${newStatus.label}!'),
+            backgroundColor: isCancelled ? AppColors.darkpink : AppColors.green,
+          ),
+        );
+      } else {
+        _rollbackStatusUpdate(index, oldEvent, oldStats);
+        await _refreshEvents();
       }
     } catch (e) {
-      // Reload on error to revert
-      _cachedEvents = null;
-      _loadEvents();
+      if (!mounted) return;
+      _rollbackStatusUpdate(index, oldEvent, oldStats);
+      await _refreshEvents();
     }
   }
 
+  void _rollbackStatusUpdate(int index, Event oldEvent, MyEventStats oldStats) {
+    if (index < 0 || index >= _events.length) return;
+
+    setState(() {
+      _events = List<Event>.from(_events);
+      _events[index] = oldEvent;
+      _stats = oldStats;
+      _cachedEvents = null;
+    });
+    _filterEvents();
+  }
+
   void _showStatusPicker(Event event) {
-    final statuses = ['confirmed', 'in_progress', 'completed'];
+    final currentStatus = MyEventStatus.fromString(event.status);
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppColors.cream,
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.green.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Update Status',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.burgundy,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                event.title,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.green.withOpacity(0.6),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ...statuses.map((status) {
-                final isSelected = event.status == status;
-                return ListTile(
-                  leading: Icon(
-                    status == 'confirmed'
-                        ? Icons.check_circle_outline
-                        : status == 'in_progress'
-                        ? Icons.pending
-                        : Icons.check_circle,
-                    color: isSelected
-                        ? AppColors.darkpink
-                        : AppColors.green.withOpacity(0.8),
+      builder: (ctx) => SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              20,
+              20,
+              20,
+              20 + MediaQuery.of(ctx).viewInsets.bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.green.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
                   ),
-                  title: Text(
-                    status == 'in_progress'
-                        ? 'In Progress'
-                        : status[0].toUpperCase() + status.substring(1),
-                    style: TextStyle(
-                      color: isSelected ? AppColors.darkpink : AppColors.green,
-                      fontWeight: isSelected
-                          ? FontWeight.w700
-                          : FontWeight.w400,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Update Status',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.burgundy,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  event.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.green.withOpacity(0.6),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ...MyEventStatus.pickerValues.map((status) {
+                  final isSelected = currentStatus == status;
+
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? AppColors.darkpink.withOpacity(0.1)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isSelected
+                            ? AppColors.darkpink.withOpacity(0.3)
+                            : Colors.transparent,
+                        width: 1,
+                      ),
                     ),
-                  ),
-                  trailing: isSelected
-                      ? const Icon(Icons.check, color: AppColors.darkpink)
-                      : null,
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _updateStatus(int.parse(event.id), status);
-                  },
-                );
-              }),
-              const SizedBox(height: 10),
-            ],
+                    child: ListTile(
+                      dense: true,
+                      leading: Icon(
+                        _statusIcon(status),
+                        color: isSelected
+                            ? AppColors.darkpink
+                            : AppColors.green.withOpacity(0.8),
+                      ),
+                      title: Text(
+                        status.label,
+                        style: TextStyle(
+                          color: isSelected
+                              ? AppColors.darkpink
+                              : AppColors.green,
+                          fontWeight: isSelected
+                              ? FontWeight.w700
+                              : FontWeight.w400,
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? const Icon(Icons.check, color: AppColors.darkpink)
+                          : null,
+                      onTap: () {
+                        final parsedId = int.tryParse(event.id);
+                        Navigator.pop(ctx);
+
+                        if (parsedId == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Invalid event id'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+
+                        _updateStatus(parsedId, status);
+                      },
+                    ),
+                  );
+                }),
+              ],
+            ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
-  Color _getStatusColor(String status) {
+  Color _statusColor(MyEventStatus status) {
     switch (status) {
-      case 'confirmed':
+      case MyEventStatus.confirmed:
         return Colors.blue;
-      case 'in_progress':
+      case MyEventStatus.inProgress:
         return Colors.orange;
-      case 'completed':
+      case MyEventStatus.completed:
         return AppColors.green;
-      default:
+      case MyEventStatus.cancelled:
+        return Colors.red;
+      case MyEventStatus.unknown:
         return Colors.grey;
     }
   }
 
-  String _getStatusLabel(String status) {
+  IconData _statusIcon(MyEventStatus status) {
     switch (status) {
-      case 'confirmed':
-        return 'Confirmed';
-      case 'in_progress':
-        return 'In Progress';
-      case 'completed':
-        return 'Completed';
-      default:
-        return status;
+      case MyEventStatus.confirmed:
+        return Icons.check_circle_outline;
+      case MyEventStatus.inProgress:
+        return Icons.pending;
+      case MyEventStatus.completed:
+        return Icons.check_circle;
+      case MyEventStatus.cancelled:
+        return Icons.cancel_outlined;
+      case MyEventStatus.unknown:
+        return Icons.help_outline;
     }
   }
 
@@ -300,13 +340,12 @@ class _MyEventsState extends State<MyEvents> {
           SafeArea(
             child: Column(
               children: [
-                // Header
                 Padding(
                   padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
                   child: Row(
                     children: [
                       InkWell(
-                        onTap: () => Navigator.pop(context),
+                        onTap: () => Navigator.pop(context, _statusChanged),
                         borderRadius: BorderRadius.circular(22),
                         child: const SizedBox(
                           width: 40,
@@ -349,96 +388,111 @@ class _MyEventsState extends State<MyEvents> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 50), // ✅ Space on the right
+                      const SizedBox(width: 10),
+                      InkWell(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const MonthlyCalendar(),
+                            ),
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(22),
+                        child: const SizedBox(
+                          width: 40,
+                          height: 40,
+                          child: Center(
+                            child: FaIcon(
+                              FontAwesomeIcons.calendarDays,
+                              size: 20,
+                              color: AppColors.darkpink,
+                            ),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                // Stats Cards
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
                         child: _buildStatCard(
                           'Confirmed',
-                          '$_confirmedCount',
+                          '${_stats.confirmed}',
                           Colors.blue,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       Expanded(
                         child: _buildStatCard(
-                          'In Progress',
-                          '$_inProgressCount',
+                          'In Prog.',
+                          '${_stats.inProgress}',
                           Colors.orange,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       Expanded(
                         child: _buildStatCard(
                           'Completed',
-                          '$_completedCount',
+                          '${_stats.completed}',
                           AppColors.green,
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
-
-                // Filter Chips
+                const SizedBox(height: 8),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: SizedBox(
                     height: 36,
                     child: ListView(
                       scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 2),
-                      children: ['All', 'confirmed', 'in_progress', 'completed']
-                          .map((filter) {
-                            final isSelected = _selectedFilter == filter;
-                            final label = filter == 'in_progress'
-                                ? 'In Progress'
-                                : filter[0].toUpperCase() + filter.substring(1);
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() => _selectedFilter = filter);
-                                  _filterEvents();
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? AppColors.darkpink
-                                        : Colors.white,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    label,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: isSelected
-                                          ? Colors.white
-                                          : AppColors.darkpink,
-                                    ),
-                                  ),
+                      children: MyEventFilter.values.map((filter) {
+                        final isSelected = _selectedFilter == filter;
+
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() => _selectedFilter = filter);
+                              _filterEvents();
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 9,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppColors.darkpink
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                filter.label,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: isSelected
+                                      ? Colors.white
+                                      : AppColors.darkpink,
                                 ),
                               ),
-                            );
-                          })
-                          .toList(),
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-
-                // Events List
+                const SizedBox(height: 12),
                 Expanded(
                   child: _isLoading
                       ? const Center(
@@ -514,8 +568,8 @@ class _MyEventsState extends State<MyEvents> {
 
   Widget _buildStatCard(String label, String value, Color color) {
     return Container(
-      height: 70,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      height: 65,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: color.withOpacity(0.15),
         borderRadius: BorderRadius.circular(10),
@@ -527,7 +581,7 @@ class _MyEventsState extends State<MyEvents> {
           Text(
             value,
             style: TextStyle(
-              fontSize: 22,
+              fontSize: 20,
               fontWeight: FontWeight.bold,
               color: color,
             ),
@@ -535,7 +589,6 @@ class _MyEventsState extends State<MyEvents> {
           Text(
             label,
             style: TextStyle(fontSize: 10, color: color.withOpacity(0.8)),
-            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -543,16 +596,16 @@ class _MyEventsState extends State<MyEvents> {
   }
 
   Widget _buildEventCard(Event event) {
-    final statusColor = _getStatusColor(event.status);
-    final statusLabel = _getStatusLabel(event.status);
+    final status = MyEventStatus.fromString(event.status);
+    final statusColor = _statusColor(status);
+    final formattedDate =
+        '${event.date.day}/${event.date.month}/${event.date.year}';
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => Plannertabsscreen(event: event)),
-        );
-      },
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => Plannertabsscreen(event: event)),
+      ),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
@@ -582,7 +635,6 @@ class _MyEventsState extends State<MyEvents> {
                     ),
                   ),
                 ),
-                // Status dropdown
                 GestureDetector(
                   onTap: () => _showStatusPicker(event),
                   child: Container(
@@ -599,7 +651,7 @@ class _MyEventsState extends State<MyEvents> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
-                          statusLabel,
+                          status.label,
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
@@ -619,9 +671,15 @@ class _MyEventsState extends State<MyEvents> {
               ],
             ),
             const SizedBox(height: 8),
-            _infoRow(Icons.person_outline, event.plannerName ?? 'N/A'),
+            _infoRow(Icons.person_outline, event.clientName ?? 'N/A'),
             const SizedBox(height: 4),
-            _infoRow(Icons.location_on, event.location),
+            Row(
+              children: [
+                _infoRow(FontAwesomeIcons.calendarDays, formattedDate),
+                const SizedBox(width: 16),
+                Expanded(child: _infoRow(Icons.location_on, event.location)),
+              ],
+            ),
             const SizedBox(height: 4),
             Row(
               children: [
@@ -668,5 +726,5 @@ class _BgPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _BgPainter old) => false;
+  bool shouldRepaint(covariant _BgPainter oldDelegate) => false;
 }

@@ -9,8 +9,9 @@ class Event {
   final String status;
   final String? eventType;
   final String? description;
-  final int? plannerId; // ADD
-  final String? plannerName; // ADD
+  final int? plannerId;
+  final String? plannerName;
+  final String? clientName;
 
   Event({
     required this.id,
@@ -23,8 +24,9 @@ class Event {
     required this.status,
     this.eventType,
     this.description,
-    this.plannerId, // ADD
-    this.plannerName, // ADD
+    this.plannerId,
+    this.plannerName,
+    this.clientName,
   });
 
   Map<String, dynamic> get eventMap {
@@ -41,10 +43,17 @@ class Event {
       'description': description,
       'plannerId': plannerId,
       'plannerName': plannerName,
+      'clientName': clientName,
     };
   }
 
   factory Event.fromJson(Map<String, dynamic> json) {
+    final planner = json['planner'];
+    final client = json['client'];
+    final user = json['user'];
+    final plannerIdValue =
+        json['planner_id'] ?? (planner is Map ? planner['id'] : null);
+
     return Event(
       id: json['id']?.toString() ?? '',
       title: json['name'] ?? json['title'] ?? '',
@@ -68,12 +77,18 @@ class Event {
       status: json['status'] ?? 'confirmed',
       eventType: json['event_type'] is Map
           ? json['event_type']['name']
-          : (json['event_type']?.toString()),
+          : json['event_type']?.toString(),
       description: json['description'],
-      plannerId: json['planner_id'] != null
-          ? int.tryParse(json['planner_id'].toString())
-          : null,
-      plannerName: json['client_name'] ?? json['planner_name'],
+      plannerId: int.tryParse(plannerIdValue?.toString() ?? ''),
+      plannerName:
+          json['planner_name']?.toString() ??
+          json['plannerName']?.toString() ??
+          (planner is Map ? planner['name']?.toString() : null),
+      clientName:
+          json['client_name']?.toString() ??
+          json['clientName']?.toString() ??
+          (client is Map ? client['name']?.toString() : null) ??
+          (user is Map ? user['name']?.toString() : null),
     );
   }
 }

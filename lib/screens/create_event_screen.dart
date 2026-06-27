@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+import 'package:event_planner/constants/app_colors.dart';
+import 'package:event_planner/models/create_event.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/services/api_service.dart';
-import 'package:intl/intl.dart';
-import 'package:event_planner/constants/app_colors.dart';
+import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:intl/intl.dart';
 
 class CreateEventScreen extends StatefulWidget {
   const CreateEventScreen({super.key, this.eventToEdit});
@@ -22,102 +23,97 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   final _descriptionController = TextEditingController();
   final _locationController = TextEditingController();
 
-  // API data
-  List<Map<String, dynamic>> _eventTypes = [];
-  List<Map<String, dynamic>> _planners = [];
-  bool _isLoadingData = true;
+  List<EventTypeOption> _eventTypes = [];
+  List<PlannerOption> _planners = [];
 
-  // Selected values
   int? _selectedEventTypeId;
   String? _selectedEventTypeName;
   int? _selectedPlannerId;
   String? _selectedPlannerName;
   DateTime? _selectedDate;
+
+  bool _isLoadingData = true;
   bool _isSaving = false;
+
   bool get isEditing => widget.eventToEdit != null;
 
   @override
   void initState() {
     super.initState();
+    _fillFormForEditing();
     _loadCreateData();
-
-    if (widget.eventToEdit != null) {
-      _eventNameController.text = widget.eventToEdit!.title;
-      _guestsController.text = widget.eventToEdit!.guests.toString();
-      _budgetController.text = widget.eventToEdit!.budget.toString();
-      _locationController.text = widget.eventToEdit!.location;
-      _selectedDate = widget.eventToEdit!.date;
-      _descriptionController.text = widget.eventToEdit!.description ?? '';
-    }
   }
 
-  // Load event types and planners from API
+  void _fillFormForEditing() {
+    final event = widget.eventToEdit;
+    if (event == null) return;
+
+    _eventNameController.text = event.title;
+    _guestsController.text = event.guests.toString();
+    _budgetController.text = event.budget.toString();
+    _locationController.text = event.location;
+    _selectedDate = event.date;
+    _descriptionController.text = event.description ?? '';
+  }
+
   Future<void> _loadCreateData() async {
     try {
       final result = await ApiService.getCreateData();
-
       if (!mounted) return;
 
       if (result['success'] == true) {
         final data = result['data'];
+        if (data is! Map) {
+          _showLoadError('Invalid form data');
+          return;
+        }
+
+        final createData = CreateEventData.fromJson(
+          Map<String, dynamic>.from(data),
+        );
+
+        final matchingType = isEditing
+            ? createData.eventTypeByName(widget.eventToEdit!.eventType)
+            : null;
+        final matchingPlanner = isEditing
+            ? createData.plannerById(widget.eventToEdit!.plannerId)
+            : null;
 
         setState(() {
-          _eventTypes = List<Map<String, dynamic>>.from(
-            data['event_types'] ?? [],
-          );
-          _planners = List<Map<String, dynamic>>.from(data['planners'] ?? []);
+          _eventTypes = createData.eventTypes;
+          _planners = createData.planners;
 
-          // Event type matching
-          // Event type matching
-          if (isEditing && _selectedEventTypeId == null) {
-            final matchingType = _eventTypes.where(
-              (type) => type['name'] == widget.eventToEdit!.eventType,
-            );
-            if (matchingType.isNotEmpty) {
-              _selectedEventTypeId = matchingType.first['id'] as int;
-              _selectedEventTypeName = matchingType.first['name'];
-            }
+          if (matchingType != null) {
+            _selectedEventTypeId = matchingType.id;
+            _selectedEventTypeName = matchingType.name;
           }
 
-          // Planner matching — MUST happen here after _planners is populated
-          if (isEditing && widget.eventToEdit!.plannerId != null) {
-            final matchingPlanner = _planners.where(
-              (p) => p['id'] == widget.eventToEdit!.plannerId,
-            );
-            if (matchingPlanner.isNotEmpty) {
-              _selectedPlannerId = matchingPlanner.first['id'] as int;
-              _selectedPlannerName = matchingPlanner.first['name'];
-            }
+          if (matchingPlanner != null) {
+            _selectedPlannerId = matchingPlanner.id;
+            _selectedPlannerName = matchingPlanner.name;
           }
 
           _isLoadingData = false;
         });
       } else {
-        setState(() {
-          _eventTypes = [];
-          _planners = [];
-          _isLoadingData = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Failed to load form data'),
-          ),
-        );
+        _showLoadError(result['message'] ?? 'Failed to load form data');
       }
     } catch (e) {
       if (!mounted) return;
-
-      setState(() {
-        _eventTypes = [];
-        _planners = [];
-        _isLoadingData = false;
-      });
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to load form data: $e')));
+      _showLoadError('Failed to load form data: $e');
     }
+  }
+
+  void _showLoadError(String message) {
+    setState(() {
+      _eventTypes = [];
+      _planners = [];
+      _isLoadingData = false;
+    });
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -131,11 +127,16 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   }
 
   Future<void> _selectDate(String label, Function(DateTime) onPicked) async {
+    final today = DateTime.now();
+    final firstDate = isEditing
+        ? DateTime(today.year - 5, today.month, today.day)
+        : today;
+
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+      initialDate: _selectedDate ?? today,
+      firstDate: firstDate,
+      lastDate: today.add(const Duration(days: 365 * 2)),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -149,6 +150,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
         );
       },
     );
+
     if (picked != null) onPicked(picked);
   }
 
@@ -220,59 +222,75 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
     setState(() => _isSaving = true);
 
     try {
-      final eventData = {
-        'event_type_id': _selectedEventTypeId,
-        'name': _eventNameController.text,
-        'start_date': DateFormat('yyyy-MM-dd').format(_selectedDate!),
-        'location_text': _locationController.text.isEmpty
-            ? 'TBD'
-            : _locationController.text,
-        'guest_estimate': int.parse(_guestsController.text),
-        'budget_overall': double.parse(_budgetController.text),
-        'description': _descriptionController.text,
-
-        if (_selectedPlannerId != null) 'planner_id': _selectedPlannerId,
-      };
+      final request = CreateEventRequest(
+        eventTypeId: _selectedEventTypeId!,
+        name: _eventNameController.text,
+        startDate: _selectedDate!,
+        locationText: _locationController.text,
+        guestEstimate: int.parse(_guestsController.text),
+        budgetOverall: double.parse(_budgetController.text),
+        description: _descriptionController.text,
+        plannerId: _selectedPlannerId,
+      );
 
       final result = isEditing
-          ? await ApiService.updateEvent(widget.eventToEdit!.id, eventData)
-          : await ApiService.createEvent(eventData);
-
-      setState(() => _isSaving = false);
+          ? await ApiService.updateEvent(
+              widget.eventToEdit!.id,
+              request.toJson(),
+            )
+          : await ApiService.createEvent(request.toJson());
 
       if (!mounted) return;
+      setState(() => _isSaving = false);
 
       if (result['success'] == true) {
-        // Convert API response back to local Event model
         final data = result['data'];
-        final newEvent = Event(
-          id: data['id'].toString(),
-          title: data['name'],
-          date: DateTime.parse(data['start_date']),
-          location: data['location_text'] ?? 'TBD',
-          guests: int.tryParse(data['guest_estimate'].toString()) ?? 0,
-          budget: double.tryParse(data['budget_overall'].toString()) ?? 0.0,
-          progress: 0.0,
-          status: data['status'] ?? 'Planning',
-          eventType: _selectedEventTypeName,
-          description: data['description'],
-          plannerId: data['planner_id'],
-          plannerName: data['planner_name'],
+        if (data is! Map) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Invalid saved event data')),
+          );
+          return;
+        }
+
+        final savedEvent = eventFromCreateResponse(
+          Map<String, dynamic>.from(data),
+          eventTypeName: _selectedEventTypeName,
+          plannerId: _selectedPlannerId,
+          plannerName: _selectedPlannerName,
         );
-        Navigator.pop(context, newEvent);
+
+        Navigator.pop(context, savedEvent);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Failed to create event'),
-          ),
+          SnackBar(content: Text(result['message'] ?? 'Failed to save event')),
         );
       }
     } catch (e) {
+      if (!mounted) return;
+
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
+  }
+
+  EventTypeOption? _eventTypeById(int? id) {
+    if (id == null) return null;
+
+    for (final type in _eventTypes) {
+      if (type.id == id) return type;
+    }
+    return null;
+  }
+
+  PlannerOption? _plannerById(int? id) {
+    if (id == null) return null;
+
+    for (final planner in _planners) {
+      if (planner.id == id) return planner;
+    }
+    return null;
   }
 
   @override
@@ -304,9 +322,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(width: 12),
-
               Expanded(
                 child: Text(
                   isEditing ? 'Edit Event' : 'Create Event',
@@ -318,7 +334,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   ),
                 ),
               ),
-
               const SizedBox(width: 52),
             ],
           ),
@@ -334,7 +349,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // EVENT TYPE DROPDOWN (from API)
                       const Text(
                         'Event Type',
                         style: TextStyle(
@@ -366,9 +380,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                           value: _selectedEventTypeId,
                           items: _eventTypes.map((type) {
                             return DropdownMenuItem<int>(
-                              value: type['id'] as int,
+                              value: type.id,
                               child: Text(
-                                type['name'],
+                                type.name,
                                 style: const TextStyle(
                                   color: AppColors.burgundy,
                                   fontWeight: FontWeight.w600,
@@ -377,18 +391,16 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             );
                           }).toList(),
                           onChanged: (value) {
+                            final selectedType = _eventTypeById(value);
+
                             setState(() {
-                              _selectedEventTypeId = value;
-                              _selectedEventTypeName = _eventTypes.firstWhere(
-                                (t) => t['id'] == value,
-                              )['name'];
+                              _selectedEventTypeId = selectedType?.id;
+                              _selectedEventTypeName = selectedType?.name;
                             });
                           },
                         ),
                       ),
                       const SizedBox(height: 20),
-
-                      // EVENT NAME
                       const Text(
                         'Event Name',
                         style: TextStyle(
@@ -425,15 +437,11 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-
-                      // EVENT DATE
                       _dateField('Event Date', _selectedDate, () {
                         _selectDate('Event Date', (picked) {
                           setState(() => _selectedDate = picked);
                         });
                       }),
-
-                      // LOCATION
                       const Text(
                         'Location (Optional)',
                         style: TextStyle(
@@ -464,8 +472,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-
-                      // NUMBER OF GUESTS
                       const Text(
                         'Number of Guests',
                         style: TextStyle(
@@ -506,8 +512,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-
-                      // BUDGET
                       const Text(
                         'Budget',
                         style: TextStyle(
@@ -549,8 +553,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         ),
                       ),
                       const SizedBox(height: 20),
-
-                      // PLANNER SELECTOR (Optional)
                       const Text(
                         'Choose a Planner (Optional)',
                         style: TextStyle(
@@ -590,9 +592,9 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             ),
                             ..._planners.map((planner) {
                               return DropdownMenuItem<int>(
-                                value: planner['id'] as int,
+                                value: planner.id,
                                 child: Text(
-                                  planner['name'],
+                                  planner.name,
                                   style: const TextStyle(
                                     color: AppColors.burgundy,
                                     fontWeight: FontWeight.w600,
@@ -602,20 +604,16 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                             }),
                           ],
                           onChanged: (value) {
+                            final selectedPlanner = _plannerById(value);
+
                             setState(() {
-                              _selectedPlannerId = value;
-                              _selectedPlannerName = value == null
-                                  ? null
-                                  : _planners.firstWhere(
-                                      (p) => p['id'] == value,
-                                    )['name'];
+                              _selectedPlannerId = selectedPlanner?.id;
+                              _selectedPlannerName = selectedPlanner?.name;
                             });
                           },
                         ),
                       ),
                       const SizedBox(height: 20),
-
-                      // DESCRIPTION
                       const Text(
                         'Description (Optional)',
                         style: TextStyle(
@@ -648,8 +646,6 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
                         ),
                       ),
                       const SizedBox(height: 32),
-
-                      // SAVE BUTTON
                       SizedBox(
                         width: double.infinity,
                         height: 50,

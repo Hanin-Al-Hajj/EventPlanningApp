@@ -1,4 +1,3 @@
-// lib/models/Guest.dart
 
 enum GuestStatus {
   pending,
