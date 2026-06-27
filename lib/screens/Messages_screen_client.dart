@@ -328,26 +328,46 @@ class _MessagesScreenClientState extends State<MessagesScreenClient> {
         final lastMessage =
             chat['last_message']?['message'] ?? 'Start conversation...';
         final lastTime = chat['last_message']?['created_at'] ?? '';
-        final unreadCount = chat['unread_count'] ?? 0;
+        final unreadCount = int.tryParse('${chat['unread_count'] ?? 0}') ?? 0;
         final eventId = chat['id']?.toString() ?? '';
 
         return InkWell(
           onTap: () async {
+            final parsedEventId = int.tryParse(eventId);
+            if (parsedEventId == null) return;
+
             setState(() {
               _chats[index]['unread_count'] = 0;
             });
+
+            ApiService.markClientEventMessagesAsRead(parsedEventId).catchError((
+              e,
+            ) {
+              debugPrint('Mark client messages as read error: $e');
+            });
+
             await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => ChatScreen(
-                  eventId: int.parse(eventId),
+                  eventId: parsedEventId,
                   eventName: eventName,
                   plannerName: plannerName,
                   isPlanner: false,
-                  onRead: null,
+                  onRead: () {
+                    if (!mounted || index >= _chats.length) return;
+
+                    setState(() {
+                      _chats[index]['unread_count'] = 0;
+                    });
+                  },
                 ),
               ),
             );
+
+            if (mounted) {
+              _loadChats();
+            }
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),

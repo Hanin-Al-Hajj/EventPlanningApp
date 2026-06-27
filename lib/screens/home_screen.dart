@@ -144,24 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final List rawEvents = result['data'] ?? [];
 
       final List<Event> events = rawEvents
-          .map(
-            (e) => Event(
-              id: e['id'].toString(),
-              title: e['name'] ?? '',
-              date:
-                  DateTime.tryParse(
-                    e['start_date'].toString().split(' ').first,
-                  ) ??
-                  DateTime.now(),
-              location: e['location_text'] ?? 'TBD',
-              guests: int.tryParse(e['guest_estimate'].toString()) ?? 0,
-              budget: double.tryParse(e['budget_overall'].toString()) ?? 0.0,
-              progress: 0.0,
-              status: e['status'] ?? 'Planning',
-              eventType: e['event_type']?['name'],
-              description: e['description'],
-            ),
-          )
+          .map((e) => Event.fromJson(Map<String, dynamic>.from(e)))
           .toList();
 
       final currentEvents = List<Event>.from(widget.registeredEvents);
@@ -646,11 +629,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                     const SizedBox(height: 24),
                                     //upcoming events
                                     Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
                                       children: [
                                         const Text(
-                                          'My Events   ',
+                                          'My Events',
                                           style: TextStyle(
                                             fontSize: 18,
                                             fontWeight: FontWeight.w800,
@@ -662,23 +643,28 @@ class _HomeScreenState extends State<HomeScreen> {
                                             ),
                                           ),
                                         ),
-                                        if (_filteredEvents.isNotEmpty)
+
+                                        if (_filteredEvents.isNotEmpty) ...[
+                                          Spacer(),
                                           Text(
                                             'Swipe Card',
                                             style: TextStyle(
-                                              fontSize: 12,
+                                              fontSize: 11,
                                               color: AppColors.coral,
                                               fontStyle: FontStyle.italic,
                                             ),
                                           ),
-                                        SizedBox(width: 10),
+                                        ],
+
+                                        const Spacer(),
+
                                         TextButton(
                                           onPressed: _navigateToCreateEvent,
                                           style: TextButton.styleFrom(
                                             backgroundColor: AppColors.darkpink,
                                             foregroundColor: Colors.white,
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 15,
+                                              horizontal: 12,
                                               vertical: 10,
                                             ),
                                             shape: RoundedRectangleBorder(
@@ -686,7 +672,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   BorderRadius.circular(20),
                                             ),
                                           ),
-                                          child: Text('Create Event'),
+                                          child: const Text('Create Event'),
                                         ),
                                       ],
                                     ),

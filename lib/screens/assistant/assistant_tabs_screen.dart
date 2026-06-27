@@ -3,7 +3,6 @@ import 'package:event_planner/constants/app_colors.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:event_planner/screens/assistant/assistant_task_screen.dart';
 import 'package:event_planner/screens/assistant/my_orders_screen.dart';
-import 'package:event_planner/screens/assistant/messages_screen.dart';
 
 class AssistantTabsScreen extends StatefulWidget {
   const AssistantTabsScreen({super.key});
@@ -49,10 +48,6 @@ class _AssistantTabsScreenState extends State<AssistantTabsScreen> {
           BottomNavigationBarItem(
             icon: FaIcon(FontAwesomeIcons.clipboardList, size: 20),
             label: 'Orders',
-          ),
-          BottomNavigationBarItem(
-            icon: FaIcon(FontAwesomeIcons.solidMessage, size: 20),
-            label: 'Messages',
           ),
         ],
         onTap: (index) => setState(() => _selectedIndex = index),

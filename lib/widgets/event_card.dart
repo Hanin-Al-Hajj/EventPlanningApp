@@ -19,53 +19,100 @@ class EventCard extends StatelessWidget {
   final Function(Event)? onEventUpdated;
 
   Color _getStatusColor() {
-    switch (event.status.toLowerCase()) {
+    switch (_normalizedStatus) {
+      case 'confirmed':
+        return Colors.blue;
+      case 'in_progress':
+        return Colors.orange;
       case 'completed':
-        return const Color(0xFF4CAF50); // Green
-      case 'in progress':
-        return const Color(0xFFFFA726); // Orange
+      case 'done':
+        return AppColors.green;
+      case 'cancelled':
+      case 'canceled':
+        return Colors.red;
+      case 'pending':
+        return AppColors.coral;
+      case 'accepted':
+        return Colors.teal;
       case 'planning':
-        return const Color(0xFF42A5F5); // Blue
+        return AppColors.darkpink;
+      case 'declined':
+        return AppColors.burgundy;
       default:
         return Colors.grey;
     }
   }
 
+  String _getStatusLabel() {
+    switch (_normalizedStatus) {
+      case 'confirmed':
+        return 'Confirmed';
+      case 'pending':
+        return 'Pending';
+      case 'in_progress':
+        return 'In Progress';
+      case 'completed':
+      case 'done':
+        return 'Completed';
+      case 'cancelled':
+      case 'canceled':
+        return 'Cancelled';
+      case 'accepted':
+        return 'Accepted';
+      case 'planning':
+        return 'Planning';
+      case 'declined':
+        return 'declined';
+      default:
+        return event.status;
+    }
+  }
+
+  String get _normalizedStatus {
+    return event.status
+        .toLowerCase()
+        .trim()
+        .replaceAll('-', '_')
+        .replaceAll(' ', '_');
+  }
+
   String getEventBackgroundImage() {
     switch (event.eventType) {
-      case "Wedding":
-        return "assets/images/wedding.jpeg";
-      case "Birthday":
-        return "assets/images/birthday.jpg";
-      case "Corporate":
-        return "assets/images/corporate.jpeg";
-      case "Anniversary":
-        return "assets/images/anniversary.jpeg";
-      case "Gender Reveal":
-        return "assets/images/gender.jpeg";
-      case "Graduation":
-        return "assets/images/grad.jpg";
+      case 'Wedding':
+        return 'assets/images/wedding.jpeg';
+      case 'Birthday':
+        return 'assets/images/birthday.jpg';
+      case 'Corporate':
+        return 'assets/images/corporate.jpeg';
+      case 'Anniversary':
+        return 'assets/images/anniversary.jpeg';
+      case 'Gender Reveal':
+        return 'assets/images/gender.jpeg';
+      case 'Graduation':
+        return 'assets/images/grad.jpg';
       default:
-        return "";
+        return '';
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final statusColor = _getStatusColor();
+    final backgroundImage = getEventBackgroundImage();
+    final plannerName = event.plannerName?.trim();
+    final plannerLabel = plannerName?.isNotEmpty == true
+        ? plannerName!
+        : 'Not selected';
+
     return Dismissible(
       key: Key(event.id),
       direction: DismissDirection.horizontal,
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd) {
-          // Swipe right - Edit
-          if (onTap != null) {
-            onTap!();
-          }
-          return false; // Don't dismiss
-        } else {
-          // Swipe left - Delete
-          return true; // Allow dismiss for delete
+          if (onTap != null) onTap!();
+          return false;
         }
+        return true;
       },
       onDismissed: (direction) {
         if (direction == DismissDirection.endToStart) {
@@ -77,7 +124,6 @@ class EventCard extends StatelessWidget {
         padding: const EdgeInsets.only(left: 20),
         decoration: BoxDecoration(
           color: AppColors.coral,
-
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Row(
@@ -130,31 +176,31 @@ class EventCard extends StatelessWidget {
             ),
           );
 
-          // Refresh when coming back from details screen
           if (onEventUpdated != null) {
             await onEventUpdated!(event);
           }
         },
         child: Container(
-          height: 140,
+          height: 146,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey.shade300),
-            image: DecorationImage(
-              image: AssetImage(getEventBackgroundImage()),
-              fit: BoxFit.cover,
-              colorFilter: ColorFilter.mode(
-                Colors.black.withOpacity(0.45),
-                BlendMode.darken,
-              ),
-            ),
+            image: backgroundImage.isEmpty
+                ? null
+                : DecorationImage(
+                    image: AssetImage(backgroundImage),
+                    fit: BoxFit.cover,
+                    colorFilter: ColorFilter.mode(
+                      Colors.black.withOpacity(0.45),
+                      BlendMode.darken,
+                    ),
+                  ),
+            color: backgroundImage.isEmpty ? AppColors.burgundy : null,
           ),
-
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title and Status Badge
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,6 +208,8 @@ class EventCard extends StatelessWidget {
                   Expanded(
                     child: Text(
                       event.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -170,47 +218,50 @@ class EventCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // Status Badge
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: _getStatusColor(),
+                      color: statusColor.withOpacity(0.3),
                       borderRadius: BorderRadius.circular(999),
+                      border: Border.all(color: statusColor.withOpacity(0.8)),
                     ),
                     child: Text(
-                      event.status,
-                      style: const TextStyle(
+                      _getStatusLabel(),
+                      style: TextStyle(
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.cream,
                       ),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 8),
-
-              // Date and Location
               Text(
-                '${DateFormat('MMM dd, yyyy').format(event.date)} • ${event.location}',
-                style: TextStyle(fontSize: 13, color: Colors.white70),
+                '${DateFormat('MMM dd, yyyy').format(event.date)} - ${event.location}',
+                style: const TextStyle(fontSize: 13, color: Colors.white70),
               ),
               const SizedBox(height: 8),
-
-              // Guests and Budget
+              Text(
+                'Planner: $plannerLabel',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 13, color: Colors.white70),
+              ),
+              const SizedBox(height: 8),
               Row(
                 children: [
                   Text(
                     '${event.guests} Guests',
-                    style: TextStyle(fontSize: 13, color: Colors.white70),
+                    style: const TextStyle(fontSize: 13, color: Colors.white70),
                   ),
                   const SizedBox(width: 16),
                   Text(
                     '\$${event.budget.toStringAsFixed(0)} Budget',
-                    style: TextStyle(fontSize: 13, color: Colors.white70),
+                    style: const TextStyle(fontSize: 13, color: Colors.white70),
                   ),
                 ],
               ),

@@ -503,6 +503,16 @@ class ApiService {
     return _decodeResponse(response);
   }
 
+  static Future<Map<String, dynamic>> markClientEventMessagesAsRead(
+    int eventId,
+  ) async {
+    final uri = Uri.parse('$baseUrl/client/messages/events/$eventId/read');
+
+    final response = await http.post(uri, headers: authHeaders);
+
+    return _decodeResponse(response);
+  }
+
   // PLANNER IN GENERAL
   //
   //
@@ -812,7 +822,6 @@ class ApiService {
   }
 
   //messages
-  // GET planner events with message previews
   static Future<Map<String, dynamic>> getPlannerMessagesEvents() async {
     final response = await http.get(
       Uri.parse('$baseUrl/planner/messages/events'),
@@ -830,7 +839,6 @@ class ApiService {
     return _decodeResponse(response);
   }
 
-  // SEND planner message
   static Future<Map<String, dynamic>> sendPlannerMessage({
     required int eventId,
     required String message,
@@ -860,6 +868,43 @@ class ApiService {
       Uri.parse('$baseUrl/planner/analytics'),
       headers: authHeaders,
     );
+    return _decodeResponse(response);
+  }
+
+  // GET event details for planner
+  static Future<Map<String, dynamic>> getPlannerEvent(int id) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/planner/events/$id'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // GET planner monthly calendar
+  static Future<Map<String, dynamic>> getPlannerMonthlyCalendar({
+    String? month, // format: 2026-06
+    String? date, // format: 2026-06-26
+  }) async {
+    final params = <String, String>{};
+
+    if (month != null) params['month'] = month;
+    if (date != null) params['date'] = date;
+
+    final uri = Uri.parse(
+      '$baseUrl/planner/monthly-calendar',
+    ).replace(queryParameters: params.isNotEmpty ? params : null);
+
+    final response = await http.get(uri, headers: authHeaders);
+    return _decodeResponse(response);
+  }
+
+  static Future<Map<String, dynamic>> markPlannerEventMessagesAsRead(
+    int eventId,
+  ) async {
+    final uri = Uri.parse('$baseUrl/planner/messages/events/$eventId/read');
+
+    final response = await http.post(uri, headers: authHeaders);
+
     return _decodeResponse(response);
   }
 

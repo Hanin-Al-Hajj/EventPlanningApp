@@ -1,12 +1,13 @@
-import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:event_planner/services/api_service.dart';
-import 'package:event_planner/widgets/floating_action_button.dart';
-import 'package:event_planner/screens/planner/planner_notification_screen.dart';
-import 'package:event_planner/screens/planner/my_events.dart';
+import 'package:event_planner/models/planner_dashboard.dart';
 import 'package:event_planner/screens/planner/Messages_screen_planner.dart';
 import 'package:event_planner/screens/planner/analytics.dart';
+import 'package:event_planner/screens/planner/my_events.dart';
+import 'package:event_planner/screens/planner/planner_notification_screen.dart';
+import 'package:event_planner/services/api_service.dart';
+import 'package:event_planner/widgets/floating_action_button.dart';
+import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class EventPlannerDashboard extends StatefulWidget {
   const EventPlannerDashboard({super.key});
@@ -17,158 +18,191 @@ class EventPlannerDashboard extends StatefulWidget {
 
 class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
   static const int _initialWeekPage = 500;
-  List<Map<String, dynamic>> _notifications = [];
+
   int _unreadNotifications = 0;
   late final PageController _weekController = PageController(
     initialPage: _initialWeekPage,
   );
-  final Map<String, List<Map<String, dynamic>>> _cachedCalendarDays = {};
-  final Map<String, List<Map<String, dynamic>>> _cachedDayEvents = {};
+
+  final Map<String, List<PlannerCalendarDay>> _cachedCalendarDays = {};
+  final Map<String, List<PlannerDashboardEvent>> _cachedDayEvents = {};
+  final Map<String, Future<void>> _dashboardLoads = {};
+  Future<void>? _requestsLoad;
+
   DateTime _selectedDate = DateTime.now();
   bool _isLoadingDashboard = false;
   bool _isLoadingRequests = false;
+  bool _hasLoadedRequests = false;
+  String? _activeDashboardKey;
 
-  List<Map<String, dynamic>> _calendarDays = [];
-  List<Map<String, dynamic>> _dayEvents = [];
-  List<Map<String, dynamic>> _clientRequests = [];
+  List<PlannerCalendarDay> _calendarDays = [];
+  List<PlannerDashboardEvent> _dayEvents = [];
+  List<PlannerClientRequest> _clientRequests = [];
 
   @override
   void initState() {
     super.initState();
-    _loadDashboard();
+    _activeDashboardKey = _dateKey(_startOfWeek(_selectedDate));
+    _loadDashboard(date: _activeDashboardKey);
     _loadRequests();
-
-    _weekController.addListener(_onWeekPageChanged);
+    _loadUnreadCount();
   }
 
-  void _onWeekPageChanged() {
-    if (!_weekController.hasClients) return;
+  Future<void> _loadUnreadCount() async {
+    try {
+      final result = await ApiService.getUnreadNotificationCount();
+      if (!mounted) return;
 
-    final page = _weekController.page?.round() ?? _initialWeekPage;
-    final weekStart = _startOfWeek(
-      DateTime.now().add(Duration(days: (page - _initialWeekPage) * 7)),
-    );
+      if (result['success'] == true) {
+        final data = result['data'];
+        if (data is! Map) return;
+        final unreadCount = data['unread_count'];
 
-    // Only reload if we're on a different week
-    final dateStr =
-        '${weekStart.year}-${weekStart.month.toString().padLeft(2, '0')}-${weekStart.day.toString().padLeft(2, '0')}';
-    _loadDashboard(date: dateStr);
+        setState(() {
+          _unreadNotifications = unreadCount is int
+              ? unreadCount
+              : int.tryParse('$unreadCount') ?? 0;
+        });
+      }
+    } catch (e) {
+      debugPrint('Unread count load error: $e');
+    }
   }
 
-  // Load dashboard (calendar + events)
-  Future<void> _loadDashboard({String? date}) async {
-    final cacheKey = date ?? 'current';
+  void _onWeekPageChanged(int page) {
+    final weekStart = _weekStartForPage(page);
+    _loadDashboard(date: _dateKey(weekStart));
+  }
 
-    // Return cached data instantly
-    if (_cachedCalendarDays.containsKey(cacheKey)) {
-      setState(() {
-        _calendarDays = _cachedCalendarDays[cacheKey]!;
-        _dayEvents = _cachedDayEvents[cacheKey]!;
-      });
+  Future<void> _loadDashboard({String? date, bool forceRefresh = false}) async {
+    final cacheKey = date ?? _dateKey(_startOfWeek(_selectedDate));
+    _activeDashboardKey = cacheKey;
+
+    if (!forceRefresh && _showCachedDashboard(cacheKey)) {
       return;
     }
 
-    setState(() => _isLoadingDashboard = true);
-    try {
-      final result = await ApiService.getPlannerDashboard(date: date);
-      if (result['success'] == true) {
-        final data = result['data'];
-        final calendarDays = List<Map<String, dynamic>>.from(
-          data['calendar_days'] ?? [],
-        );
-        final dayEvents = <Map<String, dynamic>>[];
+    final pendingLoad = _dashboardLoads[cacheKey];
+    if (!forceRefresh && pendingLoad != null) {
+      await pendingLoad;
+      return;
+    }
 
-        for (var day in calendarDays) {
-          final events = day['events'] as List? ?? [];
-          for (var event in events) {
-            if (event is! Map) continue;
+    final shouldShowLoader = _calendarDays.isEmpty && _dayEvents.isEmpty;
+    if (mounted && shouldShowLoader) {
+      setState(() => _isLoadingDashboard = true);
+    }
 
-            final rawDate = event['start_date'];
-            if (rawDate == null) continue;
+    final load = () async {
+      try {
+        final result = await ApiService.getPlannerDashboard(date: cacheKey);
+        if (!mounted) return;
 
-            DateTime? parsedDate;
-            try {
-              final dateStr = rawDate.toString();
-              final dateOnly = dateStr.split(' ').first;
-              parsedDate = DateTime.tryParse(dateOnly);
-            } catch (_) {
-              continue;
-            }
+        if (result['success'] == true) {
+          final data = result['data'];
+          if (data is! Map) return;
 
-            if (parsedDate == null) continue;
+          final dashboard = PlannerDashboard.fromJson(
+            Map<String, dynamic>.from(data),
+          );
 
-            dayEvents.add({
-              'id': event['id'] ?? 0,
-              'title': event['title'] ?? '',
-              'clientName': event['client_name'] ?? '',
-              'date': parsedDate,
-              'location': event['location'] ?? '',
-              'guests': event['guest_estimate'] ?? event['guests'] ?? 0,
-              'budget': (event['budget'] ?? 0).toString(),
-              'status': event['status'] ?? 'Accepted',
-              'event_type': event['event_type'] ?? '',
-            });
-          }
+          _cachedCalendarDays[cacheKey] = dashboard.calendarDays;
+          _cachedDayEvents[cacheKey] = dashboard.dayEvents;
+
+          if (_activeDashboardKey != cacheKey) return;
+
+          setState(() {
+            _calendarDays = dashboard.calendarDays;
+            _dayEvents = dashboard.dayEvents;
+          });
         }
-
-        //  Save to cache
-        _cachedCalendarDays[cacheKey] = calendarDays;
-        _cachedDayEvents[cacheKey] = dayEvents;
-
-        setState(() {
-          _calendarDays = calendarDays;
-          _dayEvents = dayEvents;
-        });
+      } catch (e) {
+        debugPrint('Dashboard load error: $e');
+      } finally {
+        if (mounted && _activeDashboardKey == cacheKey) {
+          setState(() => _isLoadingDashboard = false);
+        }
       }
-    } catch (e) {
-      debugPrint('Dashboard load error: $e');
+    }();
+
+    _dashboardLoads[cacheKey] = load;
+    await load;
+    if (_dashboardLoads[cacheKey] == load) {
+      _dashboardLoads.remove(cacheKey);
     }
-    setState(() => _isLoadingDashboard = false);
   }
 
-  //  Load client requests
-  Future<void> _loadRequests() async {
-    setState(() => _isLoadingRequests = true);
-    try {
-      final result = await ApiService.getPlannerRequests();
-      if (result['success'] == true) {
-        final data = result['data'];
-        final requests = data['requests'] as List? ?? [];
-        setState(() {
-          _clientRequests = requests
-              .map(
-                (r) => {
-                  'id': r['id'],
-                  'title': r['name'],
-                  'clientName': r['client']?['name'] ?? 'Unknown',
-                  'date':
-                      DateTime.tryParse(
-                        (r['start_date_iso'] ?? '').toString().split(' ').first,
-                      ) ??
-                      DateTime.now(),
-                  'location': r['location'] ?? '',
-                  'guests': r['guest_estimate'] ?? 0,
-                  'budget': (r['budget_raw'] ?? 0).toString(),
-                  'description':
-                      r['description']?.toString() ?? '', //  ADD THIS
-                },
-              )
-              .toList();
-        });
-      }
-    } catch (e) {
-      debugPrint('Requests load error: $e');
+  bool _showCachedDashboard(String cacheKey) {
+    final cachedCalendarDays = _cachedCalendarDays[cacheKey];
+    if (cachedCalendarDays == null) return false;
+
+    if (mounted) {
+      setState(() {
+        _calendarDays = cachedCalendarDays;
+        _dayEvents = _cachedDayEvents[cacheKey] ?? [];
+        _isLoadingDashboard = false;
+      });
     }
-    setState(() => _isLoadingRequests = false);
+
+    return true;
   }
 
-  void _acceptRequest(Map<String, dynamic> request) async {
-    // ✅ Optimistic update - remove from requests immediately
-    final requestCopy = Map<String, dynamic>.from(request);
+  Future<void> _loadRequests({bool forceRefresh = false}) async {
+    if (!forceRefresh && _hasLoadedRequests) return;
+
+    final pendingLoad = _requestsLoad;
+    if (!forceRefresh && pendingLoad != null) {
+      await pendingLoad;
+      return;
+    }
+
+    if (mounted && _clientRequests.isEmpty) {
+      setState(() => _isLoadingRequests = true);
+    }
+
+    final load = () async {
+      try {
+        final result = await ApiService.getPlannerRequests();
+        if (!mounted) return;
+
+        if (result['success'] == true) {
+          final data = result['data'];
+          if (data is! Map) return;
+
+          final response = PlannerRequestsResponse.fromJson(
+            Map<String, dynamic>.from(data),
+          );
+
+          setState(() {
+            _clientRequests = response.requests;
+            _hasLoadedRequests = true;
+          });
+        }
+      } catch (e) {
+        debugPrint('Requests load error: $e');
+      } finally {
+        if (mounted) {
+          setState(() => _isLoadingRequests = false);
+        }
+      }
+    }();
+
+    _requestsLoad = load;
+    await load;
+    if (_requestsLoad == load) {
+      _requestsLoad = null;
+    }
+  }
+
+  Future<void> _acceptRequest(PlannerClientRequest request) async {
+    final acceptedEvent = request.toDashboardEvent();
+
     setState(() {
-      _clientRequests.remove(request);
-      // Add to day events immediately
-      _dayEvents.add({...requestCopy, 'status': 'Accepted'});
+      _clientRequests.removeWhere((item) => item.id == request.id);
+      _dayEvents = [
+        ..._dayEvents.where((event) => event.id != acceptedEvent.id),
+        acceptedEvent,
+      ];
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -178,64 +212,101 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
       ),
     );
 
-    // Then sync with API in background
-    final id = (request['id'].toString());
     try {
-      final result = await ApiService.acceptPlannerRequest(id);
+      final result = await ApiService.acceptPlannerRequest(
+        request.id.toString(),
+      );
+      if (!mounted) return;
+
       if (result['success'] == true) {
-        // Reload to get fresh data
-        _loadDashboard();
+        _clearDashboardCacheFor(request.date);
+        _loadDashboard(forceRefresh: true);
       } else {
-        // Rollback if API fails
-        if (mounted) {
-          setState(() {
-            _clientRequests.add(requestCopy);
-            _dayEvents.removeWhere((e) => e['id'] == requestCopy['id']);
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Failed to accept'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
+        _rollbackAcceptedRequest(request, acceptedEvent);
       }
     } catch (e) {
       debugPrint('Accept error: $e');
+      if (mounted) {
+        _rollbackAcceptedRequest(request, acceptedEvent);
+      }
     }
   }
 
-  // ✅ Decline request - calls API
-  void _declineRequest(Map<String, dynamic> request) async {
-    final id = (request['id'].toString());
+  Future<void> _declineRequest(PlannerClientRequest request) async {
     try {
-      final result = await ApiService.declinePlannerRequest(id);
+      final result = await ApiService.declinePlannerRequest(
+        request.id.toString(),
+      );
+      if (!mounted) return;
+
       if (result['success'] == true) {
-        setState(() => _clientRequests.remove(request));
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Request declined'),
-              backgroundColor: AppColors.darkpink,
-            ),
-          );
-        }
+        setState(() {
+          _clientRequests.removeWhere((item) => item.id == request.id);
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Request declined'),
+            backgroundColor: AppColors.darkpink,
+          ),
+        );
       }
     } catch (e) {
       debugPrint('Decline error: $e');
     }
   }
 
-  bool _isSameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
+  void _rollbackAcceptedRequest(
+    PlannerClientRequest request,
+    PlannerDashboardEvent acceptedEvent,
+  ) {
+    setState(() {
+      if (!_clientRequests.any((item) => item.id == request.id)) {
+        _clientRequests.add(request);
+      }
+      _dayEvents = _dayEvents
+          .where((event) => event.id != acceptedEvent.id)
+          .toList();
+    });
 
-  DateTime _startOfWeek(DateTime d) {
-    final c = DateTime(d.year, d.month, d.day);
-    return c.subtract(Duration(days: c.weekday - 1));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Failed to accept'),
+        backgroundColor: Colors.red,
+      ),
+    );
   }
 
-  String _weekdayLabel(DateTime d) =>
-      ['M', 'T', 'W', 'T', 'F', 'S', 'S'][d.weekday - 1];
+  void _clearDashboardCacheFor(DateTime date) {
+    final cacheKey = _dateKey(_startOfWeek(date));
+    _cachedCalendarDays.remove(cacheKey);
+    _cachedDayEvents.remove(cacheKey);
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  DateTime _startOfWeek(DateTime d) {
+    final current = DateTime(d.year, d.month, d.day);
+    return current.subtract(Duration(days: current.weekday - 1));
+  }
+
+  DateTime _weekStartForPage(int page) {
+    return _startOfWeek(
+      DateTime.now().add(Duration(days: (page - _initialWeekPage) * 7)),
+    );
+  }
+
+  String _dateKey(DateTime date) {
+    return '${date.year}-'
+        '${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')}';
+  }
+
+  String _weekdayLabel(DateTime d) {
+    return ['M', 'T', 'W', 'T', 'F', 'S', 'S'][d.weekday - 1];
+  }
 
   String _formatDayMonth(DateTime d) {
     const months = [
@@ -256,7 +327,7 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
   }
 
   String _formatFullDate(DateTime d) {
-    const m = [
+    const months = [
       'Jan',
       'Feb',
       'Mar',
@@ -270,16 +341,11 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
       'Nov',
       'Dec',
     ];
-    return '${m[d.month - 1]} ${d.day}, ${d.year}';
+    return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }
 
-  List<Map<String, dynamic>> get _eventsOnSelectedDay {
-    return _dayEvents.where((e) {
-      final date = e['date'];
-      if (date == null) return false;
-      if (date is! DateTime) return false;
-      return _isSameDay(date, _selectedDate);
-    }).toList();
+  List<PlannerDashboardEvent> get _eventsOnSelectedDay {
+    return _dayEvents.where((event) => event.isOnDate(_selectedDate)).toList();
   }
 
   Future<void> _handleLogout() async {
@@ -318,6 +384,7 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
         ],
       ),
     );
+
     if (confirm == true && mounted) {
       Navigator.pushReplacementNamed(context, '/login');
     }
@@ -325,9 +392,25 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
 
   @override
   void dispose() {
-    _weekController.removeListener(_onWeekPageChanged); // ✅ Remove listener
     _weekController.dispose();
     super.dispose();
+  }
+
+  Future<void> _openMyEvents() async {
+    final shouldRefresh = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const MyEvents()),
+    );
+
+    if (!mounted || shouldRefresh != true) return;
+
+    _cachedCalendarDays.clear();
+    _cachedDayEvents.clear();
+
+    await _loadDashboard(
+      date: _dateKey(_startOfWeek(_selectedDate)),
+      forceRefresh: true,
+    );
   }
 
   @override
@@ -400,70 +483,58 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                         ),
                         Align(
                           alignment: Alignment.centerRight,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                onPressed: () async {
-                                  final count = await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const PlannerNotificationScreen(),
-                                    ),
-                                  );
-                                  if (count != null) {
-                                    setState(
-                                      () => _unreadNotifications = count,
-                                    );
-                                  }
-                                },
-                                icon: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    const FaIcon(
-                                      FontAwesomeIcons.bell,
-                                      size: 20,
-                                      color: AppColors.darkpink,
-                                    ),
-                                    if (_unreadNotifications > 0)
-                                      Positioned(
-                                        top: -4,
-                                        right: -4,
-                                        child: Container(
-                                          padding: const EdgeInsets.all(3),
-                                          decoration: const BoxDecoration(
-                                            color: AppColors.darkpink,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          constraints: const BoxConstraints(
-                                            minWidth: 14,
-                                            minHeight: 14,
-                                          ),
-                                          child: Text(
-                                            '$_unreadNotifications',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 9,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            textAlign: TextAlign.center,
+                          child: IconButton(
+                            onPressed: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const PlannerNotificationScreen(),
+                                ),
+                              );
+                              _loadUnreadCount();
+                            },
+                            icon: Stack(
+                              clipBehavior: Clip.none,
+                              children: [
+                                const FaIcon(
+                                  FontAwesomeIcons.bell,
+                                  size: 20,
+                                  color: AppColors.darkpink,
+                                ),
+                                if (_unreadNotifications > 0)
+                                  Positioned(
+                                    top: -4,
+                                    right: -4,
+                                    child: Container(
+                                      width: _unreadNotifications > 9 ? 18 : 14,
+                                      height: 14,
+                                      decoration: const BoxDecoration(
+                                        color: AppColors.darkpink,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          _unreadNotifications > 9
+                                              ? '9+'
+                                              : '$_unreadNotifications',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 8,
+                                            fontWeight: FontWeight.bold,
                                           ),
                                         ),
                                       ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
                   ),
-
                   const SizedBox(height: 18),
-
-                  // ── Weekly Calendar ──────────────────────────────────────
                   Container(
                     height: 72,
                     decoration: BoxDecoration(
@@ -475,16 +546,14 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                     ),
                     child: PageView.builder(
                       controller: _weekController,
+                      onPageChanged: _onWeekPageChanged,
                       itemBuilder: (context, page) {
-                        final weekStart = _startOfWeek(
-                          DateTime.now().add(
-                            Duration(days: (page - _initialWeekPage) * 7),
-                          ),
-                        );
+                        final weekStart = _weekStartForPage(page);
                         final days = List.generate(
                           7,
                           (i) => weekStart.add(Duration(days: i)),
                         );
+
                         return Row(
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: days.map(_buildWeekDay).toList(),
@@ -492,13 +561,10 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                       },
                     ),
                   ),
-
                   const SizedBox(height: 24),
-
-                  // ── Events on Selected Day ───────────────────────────────
                   _sectionHeader(
                     icon: Icons.event_available,
-                    title: 'Events — ${_formatFullDate(_selectedDate)}',
+                    title: 'Events - ${_formatFullDate(_selectedDate)}',
                   ),
                   const SizedBox(height: 12),
                   _isLoadingDashboard
@@ -511,13 +577,10 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                         )
                       : Column(
                           children: eventsToday
-                              .map((e) => _buildDayEventCard(e))
+                              .map((event) => _buildDayEventCard(event))
                               .toList(),
                         ),
-
                   const SizedBox(height: 28),
-
-                  // ── Client Requests ──────────────────────────────────────
                   _sectionHeader(
                     icon: Icons.inbox_outlined,
                     title: 'Client Requests',
@@ -536,7 +599,7 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                         )
                       : Column(
                           children: _clientRequests
-                              .map((r) => _buildRequestCard(r))
+                              .map((request) => _buildRequestCard(request))
                               .toList(),
                         ),
                 ],
@@ -547,17 +610,11 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
       ),
       floatingActionButton: Padding(
         padding: const EdgeInsets.only(bottom: 10, right: 10),
-
         child: SizedBox(
           width: 160,
           height: 320,
           child: EventPlannerFAB(
-            onMyEvent: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const MyEvents()),
-              );
-            },
+            onMyEvent: _openMyEvents,
             onArchiveEvent: () {},
             onAnalytics: () {
               Navigator.push(
@@ -580,25 +637,13 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
     );
   }
 
-  // ── Week Day Cell ─────────────────────────────────────────────────────────
   Widget _buildWeekDay(DateTime day) {
     final isSelected = _isSameDay(day, _selectedDate);
     final isToday = _isSameDay(day, DateTime.now());
-
-    // ✅ Safely build date string
-    final dayStr =
-        '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
-
-    // ✅ Check if this day has events
-    bool hasDayEvent = false;
-    try {
-      hasDayEvent = _calendarDays.any((d) {
-        return d['date'] == dayStr &&
-            (d['events'] as List?)?.isNotEmpty == true;
-      });
-    } catch (_) {
-      hasDayEvent = false;
-    }
+    final dayStr = _dateKey(day);
+    final hasDayEvent = _calendarDays.any(
+      (calendarDay) => calendarDay.dateKey == dayStr && calendarDay.hasEvents,
+    );
 
     return GestureDetector(
       onTap: () {
@@ -656,7 +701,6 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
     );
   }
 
-  // ── Section Header ────────────────────────────────────────────────────────
   Widget _sectionHeader({
     required IconData icon,
     required String title,
@@ -696,7 +740,6 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
     );
   }
 
-  // ── Empty Box ─────────────────────────────────────────────────────────────
   Widget _emptyBox({
     required IconData icon,
     required String message,
@@ -736,14 +779,9 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
     );
   }
 
-  // ── Day Event Card ────────────────────────────────────────────────────────
-  Widget _buildDayEventCard(Map<String, dynamic> event) {
-    // Safer null handling - use toString() on the raw value
-    final title = (event['title'] ?? '').toString();
-    final clientName = (event['clientName'] ?? '').toString();
-    final location = (event['location'] ?? '').toString();
-    final guests = int.tryParse('${event['guests'] ?? 0}') ?? 0;
-    final budget = event['budget']?.toString() ?? '0';
+  Widget _buildDayEventCard(PlannerDashboardEvent event) {
+    final statusColor = _statusColor(event.status);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
@@ -765,7 +803,7 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
             children: [
               Expanded(
                 child: Text(
-                  title,
+                  event.title,
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -776,37 +814,35 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
               Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
-                  vertical: 4,
+                  vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.green.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: AppColors.green.withValues(alpha: 0.3),
-                  ),
+                  color: statusColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: statusColor.withOpacity(0.3)),
                 ),
-                child: const Text(
-                  'Accepted',
+                child: Text(
+                  event.status.label,
                   style: TextStyle(
                     fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.green,
+                    fontWeight: FontWeight.w600,
+                    color: statusColor,
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 8),
-          _infoRow(Icons.person_outline, clientName),
+          _infoRow(Icons.person_outline, event.clientName),
           const SizedBox(height: 4),
-          _infoRow(Icons.location_on_outlined, location),
+          _infoRow(Icons.location_on_outlined, event.location),
           const SizedBox(height: 4),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _infoRow(Icons.people_outline, '$guests guests'),
+              _infoRow(Icons.people_outline, '${event.guests} guests'),
               const SizedBox(width: 16),
-              _infoRow(Icons.attach_money, '\$$budget'),
+              _infoRow(Icons.attach_money, '\$${event.budget}'),
             ],
           ),
         ],
@@ -814,18 +850,22 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
     );
   }
 
-  // ── Request Card ──────────────────────────────────────────────────────────
-  Widget _buildRequestCard(Map<String, dynamic> request) {
-    final title = request['title']?.toString() ?? '';
-    final clientName = request['clientName']?.toString() ?? '';
-    final location = request['location']?.toString() ?? '';
-    final guests = request['guests']?.toString() ?? '0';
-    final budget = request['budget']?.toString() ?? '0';
-    final description = request['description']?.toString() ?? '';
-    final date = request['date'] is DateTime
-        ? request['date'] as DateTime
-        : DateTime.now();
+  Color _statusColor(PlannerEventStatus status) {
+    switch (status) {
+      case PlannerEventStatus.confirmed:
+        return Colors.blue;
+      case PlannerEventStatus.inProgress:
+        return Colors.orange;
+      case PlannerEventStatus.completed:
+        return AppColors.green;
+      case PlannerEventStatus.cancelled:
+        return Colors.red;
+      case PlannerEventStatus.unknown:
+        return Colors.grey;
+    }
+  }
 
+  Widget _buildRequestCard(PlannerClientRequest request) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
@@ -846,12 +886,11 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title + Pending badge row
                 Row(
                   children: [
                     Expanded(
                       child: Text(
-                        title,
+                        request.title,
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
@@ -883,19 +922,20 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                _infoRow(Icons.person_outline, clientName),
+                _infoRow(Icons.person_outline, request.clientName),
                 const SizedBox(height: 4),
-                _infoRow(Icons.calendar_today_outlined, _formatFullDate(date)),
+                _infoRow(
+                  Icons.calendar_today_outlined,
+                  _formatFullDate(request.date),
+                ),
                 const SizedBox(height: 4),
-                _infoRow(Icons.location_on_outlined, location),
-
-                // Description (only if not empty)
-                if (description.isNotEmpty) ...[
+                _infoRow(Icons.location_on_outlined, request.location),
+                if (request.description.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.description_outlined,
                         size: 13,
                         color: AppColors.coral,
@@ -903,7 +943,7 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                       const SizedBox(width: 5),
                       Expanded(
                         child: Text(
-                          description,
+                          request.description,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -916,20 +956,18 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                     ],
                   ),
                 ],
-
                 const SizedBox(height: 4),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _infoRow(Icons.people_outline, '$guests guests'),
+                    _infoRow(Icons.people_outline, '${request.guests} guests'),
                     const SizedBox(width: 16),
-                    _infoRow(Icons.attach_money, '\$$budget'),
+                    _infoRow(Icons.attach_money, '\$${request.budget}'),
                   ],
                 ),
               ],
             ),
           ),
-          // Divider + Accept/Decline buttons
           Container(height: 1, color: Colors.grey.shade200),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -1006,7 +1044,6 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
   }
 }
 
-// ── Background Painter ────────────────────────────────────────────────────────
 class _BgPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
@@ -1020,5 +1057,5 @@ class _BgPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _BgPainter old) => false;
+  bool shouldRepaint(covariant _BgPainter oldDelegate) => false;
 }

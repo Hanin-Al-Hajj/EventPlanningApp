@@ -29,6 +29,9 @@ class _MessagesScreenPlannerState extends State<MessagesScreenPlanner> {
     });
     try {
       final response = await ApiService.getPlannerMessagesEvents();
+
+      debugPrint('Messages response: $response');
+
       if (response['success'] == true) {
         final raw = response['data'] as List<dynamic>? ?? [];
         setState(() {
@@ -199,26 +202,46 @@ class _MessagesScreenPlannerState extends State<MessagesScreenPlanner> {
         final lastMessage =
             chat['last_message']?['message'] ?? 'Start conversation...';
         final lastTime = chat['last_message']?['created_at'] ?? '';
-        final unreadCount = chat['unread_count'] ?? 0;
+        final unreadCount = int.tryParse('${chat['unread_count'] ?? 0}') ?? 0;
         final eventId = chat['id']?.toString() ?? '';
 
         return InkWell(
-          onTap: () async {
+          onTap: () {
+            final parsedEventId = int.tryParse(eventId);
+            if (parsedEventId == null) return;
+
             setState(() {
               _chats[index]['unread_count'] = 0;
             });
-            await Navigator.push(
+
+            ApiService.markPlannerEventMessagesAsRead(parsedEventId).catchError(
+              (e) {
+                debugPrint('Mark messages as read error: $e');
+              },
+            );
+
+            Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => ChatScreen(
-                  eventId: int.parse(eventId),
+                  eventId: parsedEventId,
                   eventName: eventName,
                   plannerName: clientName,
                   isPlanner: true,
-                  onRead: null,
+                  onRead: () {
+                    if (!mounted || index >= _chats.length) return;
+
+                    setState(() {
+                      _chats[index]['unread_count'] = 0;
+                    });
+                  },
                 ),
               ),
-            );
+            ).then((_) {
+              if (mounted) {
+                _loadChats();
+              }
+            });
           },
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
