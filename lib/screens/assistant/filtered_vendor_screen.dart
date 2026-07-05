@@ -176,6 +176,7 @@ class _FilteredVendorScreenState extends State<FilteredVendorScreen> {
                   Icon(
                     Icons.store_outlined,
                     size: 64,
+                    // ignore: deprecated_member_use
                     color: AppColors.green.withOpacity(0.6),
                   ),
                   const SizedBox(height: 16),
@@ -183,6 +184,7 @@ class _FilteredVendorScreenState extends State<FilteredVendorScreen> {
                     'No vendors assigned',
                     style: TextStyle(
                       fontSize: 16,
+                      // ignore: deprecated_member_use
                       color: AppColors.green.withOpacity(0.8),
                       fontWeight: FontWeight.w500,
                     ),

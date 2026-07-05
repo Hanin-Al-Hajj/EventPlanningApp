@@ -8,6 +8,8 @@ import 'package:event_planner/services/api_service.dart';
 import 'package:event_planner/widgets/floating_action_button.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:event_planner/screens/planner/archive.dart';
+import 'package:event_planner/screens/planner/planner_setting.dart';
 
 class EventPlannerDashboard extends StatefulWidget {
   const EventPlannerDashboard({super.key});
@@ -464,7 +466,17 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                               _popupItem('logout', Icons.logout, 'Logout'),
                             ],
                             onSelected: (value) {
-                              if (value == 'logout') _handleLogout();
+                              if (value == 'logout') {
+                                _handleLogout();
+                              } else if (value == "settings") {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const PlannerSetting(),
+                                  ),
+                                );
+                              }
                             },
                             child: Container(
                               width: 40,
@@ -615,7 +627,12 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
           height: 320,
           child: EventPlannerFAB(
             onMyEvent: _openMyEvents,
-            onArchiveEvent: () {},
+            onArchiveEvent: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const Archive()),
+              );
+            },
             onAnalytics: () {
               Navigator.push(
                 context,

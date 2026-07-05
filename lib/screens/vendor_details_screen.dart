@@ -19,6 +19,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> {
   Vendor? vendor;
   List<Map<String, dynamic>> _orders = [];
   bool _isLoading = true;
+  String? eventName;
 
   @override
   void initState() {
@@ -36,6 +37,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> {
           final vendorMap = Map<String, dynamic>.from(data['vendor'] as Map);
           setState(() {
             vendor = Vendor.fromJson(vendorMap);
+            eventName = data['event']?['name'];
             final rawOrders = vendorMap['orders'];
             if (rawOrders != null && rawOrders is List) {
               _orders = rawOrders
@@ -112,15 +114,19 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  'Vendor Details',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.burgundy,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                  ),
+              Expanded(
+                child: Column(
+                  children: [
+                    const Text(
+                      'Vendor Details',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: AppColors.burgundy,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(width: 40, height: 40),
@@ -132,6 +138,37 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (eventName != null) ...[
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                color: Colors.white,
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Event Name',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.burgundy,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      eventName!,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        color: AppColors.burgundy,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             if (v.description != null) ...[
               const SizedBox(height: 16),
               Container(

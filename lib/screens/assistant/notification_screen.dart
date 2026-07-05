@@ -1,100 +1,105 @@
-import 'package:event_planner/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:event_planner/models/planner_notification.dart';
 import 'package:event_planner/widgets/planner/filter_tab.dart';
-import 'package:event_planner/screens/vendor_details_screen.dart';
-import 'package:event_planner/screens/chat_screen.dart';
+import 'package:event_planner/services/api_service.dart';
 
-class PlannerNotificationScreen extends StatefulWidget {
-  const PlannerNotificationScreen({super.key});
+class NotificationScreen extends StatefulWidget {
+  const NotificationScreen({super.key});
 
   @override
-  State<PlannerNotificationScreen> createState() =>
-      _PlannerNotificationScreenState();
+  State<NotificationScreen> createState() => _NotificationScreenState();
 }
 
-class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
+class _NotificationScreenState extends State<NotificationScreen> {
   List<plannerNotification> _items = [];
   String _filter = 'all';
-  bool _isLoading = true;
-  String? _error;
-
-  int get _total => _items.length;
-  int get _unread => _items.where((n) => !n.isRead).length;
-  int get _urgent => _items.where((n) => n.priority == 'urgent').length;
-
-  List<plannerNotification> get _filtered {
-    if (_filter == 'all') return _items;
-    if (_filter == 'urgent') {
-      return _items.where((n) => n.priority == 'urgent').toList();
-    }
-    return _items.where((n) => n.type == _filter).toList();
-  }
+  int _totalToday = 0;
+  int _unread = 0;
+  int _urgent = 0;
+  bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadNotifications();
+    _loadAll();
+  }
+
+  Future<void> _loadAll() async {
+    setState(() => _loading = true);
+    await Future.wait([_loadNotifications(), _loadStats()]);
+    setState(() => _loading = false);
   }
 
   Future<void> _loadNotifications() async {
-    setState(() {
-      _isLoading = true;
-      _error = null;
-    });
-    try {
-      final response = await ApiService.getPlannerNotifications();
-      if (!mounted) return;
+    final res = await ApiService.getAssistantNotifications();
+    if (res['success'] == true) {
+      final raw =
+          res['notifications'] ??
+          res['data']?['notifications'] ??
+          res['data'] ??
+          [];
+      final list = (raw as List)
+          .map((e) => plannerNotification.fromJson(e))
+          .toList();
+      setState(() => _items = list);
+    }
+  }
 
-      if (response['success'] == true) {
-        final raw = response['notifications'] as List<dynamic>? ?? [];
-        final List<plannerNotification> parsed = [];
-        for (final item in raw) {
-          try {
-            parsed.add(
-              plannerNotification.fromJson(item as Map<String, dynamic>),
-            );
-          } catch (_) {}
-        }
-        setState(() {
-          _items = parsed;
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _error = response['message'] ?? 'Failed to load notifications';
-          _isLoading = false;
-        });
-      }
-    } catch (_) {
-      if (!mounted) return;
+  Future<void> _loadStats() async {
+    final res = await ApiService.getAssistantNotificationStats();
+    if (res['success'] == true || res['unread'] != null) {
       setState(() {
-        _error = 'Something went wrong. Please try again.';
-        _isLoading = false;
+        _totalToday = res['total_today'] ?? 0;
+        _unread = res['unread'] ?? 0;
+        _urgent = res['urgent'] ?? 0;
       });
     }
   }
 
-  Future<void> _dismissNotification(plannerNotification n) async {
-    setState(() => _items.removeWhere((item) => item.id == n.id));
-    try {
-      final result = await ApiService.archivePlannerNotification(n.id);
-      if (result['success'] != true && mounted) {
-        // ← add this check
-        setState(() => _items.insert(0, n));
-        _showSnackBar('Could not archive notification.');
+  List<plannerNotification> get _filtered {
+    if (_filter == 'all') return _items;
+    if (_filter == 'urgent')
+      return _items.where((n) => n.priority == 'urgent').toList();
+    return _items.where((n) => n.type == _filter).toList();
+  }
+
+  Future<void> _markRead(plannerNotification n) async {
+    if (n.isRead) return;
+    await ApiService.markAssistantNotificationRead(n.id);
+    setState(() {
+      final idx = _items.indexWhere((e) => e.id == n.id);
+      if (idx != -1) {
+        final updated = plannerNotification(
+          id: n.id,
+          userId: n.userId,
+          type: n.type,
+          priority: n.priority,
+          title: n.title,
+          message: n.message,
+          icon: n.icon,
+          actionUrl: n.actionUrl,
+          isRead: true,
+          readAt: DateTime.now(),
+          createdAt: n.createdAt,
+        );
+        _items[idx] = updated;
+        if (_unread > 0) _unread--;
       }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _items.insert(0, n));
-        _showSnackBar('Could not archive notification.');
-      }
-    }
+    });
+  }
+
+  Future<void> _archive(plannerNotification n) async {
+    await ApiService.archiveAssistantNotification(n.id);
+    setState(() {
+      _items.removeWhere((e) => e.id == n.id);
+      if (!n.isRead && _unread > 0) _unread--;
+      if (_totalToday > 0) _totalToday--;
+    });
   }
 
   Future<void> _markAllRead() async {
-    // Optimistic update
+    await ApiService.markAllAssistantNotificationsRead();
     setState(() {
       _items = _items
           .map(
@@ -108,45 +113,22 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
               icon: n.icon,
               actionUrl: n.actionUrl,
               isRead: true,
-              readAt: n.readAt ?? DateTime.now(),
+              readAt: DateTime.now(),
               createdAt: n.createdAt,
             ),
           )
           .toList();
+      _unread = 0;
     });
-
-    try {
-      await ApiService.markAllPlannerNotificationsRead();
-    } catch (_) {
-      if (mounted) _showSnackBar('Could not mark all as read.');
-      await _loadNotifications(); // Refresh to real state
-    }
   }
 
   Future<void> _clearAll() async {
-    final backup = List<plannerNotification>.from(_items);
-
-    // Optimistic clear
-    setState(() => _items.clear());
-
-    try {
-      await ApiService.deleteAllPlannerNotifications();
-    } catch (_) {
-      if (mounted) {
-        setState(() => _items = backup);
-        _showSnackBar('Could not clear notifications.');
-      }
-    }
-  }
-
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: AppColors.burgundy,
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    await ApiService.archiveAllAssistantNotifications();
+    setState(() {
+      _items.clear();
+      _unread = 0;
+      _totalToday = 0;
+    });
   }
 
   @override
@@ -190,7 +172,7 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
           alignment: Alignment.centerLeft,
           child: GestureDetector(
             onTap: () {
-              Navigator.pop(context, _unread);
+              Navigator.pop(context);
             },
             child: const Icon(Icons.close, color: AppColors.darkpink, size: 29),
           ),
@@ -230,7 +212,7 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              '$_total',
+              '$_totalToday',
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
@@ -318,24 +300,6 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
           const SizedBox(width: 10),
 
           Filtertab(
-            label: 'Requests',
-            ontap: () => setState(() => _filter = 'request'),
-            icon: Icons.request_page_rounded,
-            isSelected: _filter == 'request',
-          ),
-
-          const SizedBox(width: 10),
-
-          Filtertab(
-            label: 'Messages',
-            ontap: () => setState(() => _filter = 'message'),
-            icon: Icons.chat_bubble_outline_rounded,
-            isSelected: _filter == 'message',
-          ),
-
-          const SizedBox(width: 10),
-
-          Filtertab(
             label: 'Tasks',
             ontap: () => setState(() => _filter = 'task'),
             icon: Icons.task_alt_rounded,
@@ -355,6 +319,7 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
     );
   }
 
+  //messages list
   Widget _buildList() {
     final list = _filtered;
     if (list.isEmpty) {
@@ -364,6 +329,7 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
             const SizedBox(height: 40),
             Icon(
               Icons.notifications_off_rounded,
+              // ignore: deprecated_member_use
               color: AppColors.green.withOpacity(0.5),
               size: 60,
             ),
@@ -398,82 +364,9 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
               size: 30,
             ),
           ),
-          onDismissed: (_) => _dismissNotification(n),
+          onDismissed: (_) => _archive(n),
           child: GestureDetector(
-            onTap: () async {
-              if (!n.isRead) {
-                await ApiService.markPlannerNotificationRead(n.id);
-                setState(() {
-                  final index = _items.indexWhere((item) => item.id == n.id);
-                  if (index != -1) {
-                    _items[index] = plannerNotification(
-                      id: n.id,
-                      userId: n.userId,
-                      type: n.type,
-                      priority: n.priority,
-                      title: n.title,
-                      message: n.message,
-                      icon: n.icon,
-                      actionUrl: n.actionUrl,
-                      isRead: true,
-                      readAt: DateTime.now(),
-                      createdAt: n.createdAt,
-                    );
-                  }
-                });
-              }
-
-              if (n.title == 'New Order Placed' && n.actionUrl != null) {
-                final uri = Uri.tryParse(n.actionUrl!);
-                final segments = uri?.pathSegments ?? [];
-                final eventIndex = segments.indexOf('events');
-                final vendorIndex = segments.indexOf('vendors');
-                if (eventIndex != -1 && vendorIndex != -1 && mounted) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => VendorDetailsScreen(
-                        eventId: segments[eventIndex + 1],
-                        vendorId: segments[vendorIndex + 1],
-                      ),
-                    ),
-                  );
-                }
-              } else if (n.title.startsWith('New Message from') &&
-                  n.actionUrl != null) {
-                final uri = Uri.tryParse(n.actionUrl!);
-                final segments = uri?.pathSegments ?? [];
-                final eventIndex = segments.indexOf('events');
-                if (eventIndex != -1 &&
-                    eventIndex + 1 < segments.length &&
-                    mounted) {
-                  final eventId = int.tryParse(segments[eventIndex + 1]);
-                  if (eventId != null) {
-                    final clientName = n.title
-                        .replaceFirst('New Message from', '')
-                        .trim();
-                    final eventName = n.message
-                        .replaceFirst('Regarding your event:', '')
-                        .trim();
-
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => ChatScreen(
-                          eventId: eventId,
-                          eventName: eventName.isNotEmpty ? eventName : 'Chat',
-                          plannerName: clientName.isNotEmpty
-                              ? clientName
-                              : 'Client',
-                          isPlanner: true,
-                          onRead: null,
-                        ),
-                      ),
-                    );
-                  }
-                }
-              }
-            },
+            onTap: () => _markRead(n),
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -489,15 +382,13 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: n.isRead
+                          // ignore: deprecated_member_use
                           ? Colors.pink.withOpacity(0.01)
+                          // ignore: deprecated_member_use
                           : Colors.pink.withOpacity(0.1),
                     ),
                     child: Icon(
-                      n.type == 'request'
-                          ? Icons.request_page_rounded
-                          : n.type == 'message'
-                          ? Icons.chat_bubble_outline_rounded
-                          : n.type == 'task'
+                      n.type == 'task'
                           ? Icons.task_alt_rounded
                           : n.type == 'order'
                           ? Icons.shopping_cart_rounded
@@ -609,7 +500,7 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
               side: BorderSide(color: AppColors.darkpink),
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadiusGeometry.circular(12),
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
           ),

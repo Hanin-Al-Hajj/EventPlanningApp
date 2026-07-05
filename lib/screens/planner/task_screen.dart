@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
-import 'package:event_planner/models/Task.dart';
+import 'package:event_planner/models/task.dart';
 import 'package:event_planner/services/api_service.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -135,6 +135,7 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
 
       // Parse event details (index 1)
       final eventResult = results[1];
+      // ignore: unnecessary_type_check
       if (eventResult is Map && eventResult['success'] == true) {
         final event = eventResult['data'] as Map<String, dynamic>? ?? {};
         setState(() {
@@ -312,8 +313,9 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                                   );
                                 },
                               );
-                              if (picked != null)
+                              if (picked != null) {
                                 setDialogState(() => dueDate = picked);
+                              }
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(
@@ -324,6 +326,7 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
+                                  // ignore: deprecated_member_use
                                   color: AppColors.burgundy.withOpacity(0.3),
                                 ),
                               ),
@@ -407,6 +410,7 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: BorderSide(
+                            // ignore: deprecated_member_use
                             color: AppColors.burgundy.withOpacity(0.3),
                           ),
                         ),
@@ -452,6 +456,7 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
+                              // ignore: deprecated_member_use
                               color: AppColors.burgundy.withOpacity(0.3),
                             ),
                           ),
@@ -481,8 +486,10 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                                         () => vendorIds.remove(id),
                                       ),
                                       backgroundColor: AppColors.coral
+                                          // ignore: deprecated_member_use
                                           .withOpacity(0.1),
                                       side: BorderSide(
+                                        // ignore: deprecated_member_use
                                         color: AppColors.coral.withOpacity(0.3),
                                       ),
                                     );
@@ -502,37 +509,42 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                                   constraints: const BoxConstraints(
                                     maxHeight: 150,
                                   ),
-                                  child: ListView(
-                                    shrinkWrap: true,
-                                    children: vendors.map((v) {
-                                      final id = v['id'].toString();
-                                      final isSelected = vendorIds.contains(
-                                        int.tryParse(id) ?? 0,
-                                      );
-                                      return CheckboxListTile(
-                                        dense: true,
-                                        contentPadding: EdgeInsets.zero,
-                                        title: Text(
-                                          v['name'] ?? '',
-                                          style: const TextStyle(fontSize: 13),
-                                        ),
-                                        value: isSelected,
-                                        activeColor: AppColors.darkpink,
-                                        onChanged: (checked) {
-                                          setDialogState(() {
-                                            if (checked == true) {
-                                              vendorIds.add(
-                                                int.tryParse(id) ?? 0,
-                                              );
-                                            } else {
-                                              vendorIds.remove(
-                                                int.tryParse(id) ?? 0,
-                                              );
-                                            }
-                                          });
-                                        },
-                                      );
-                                    }).toList(),
+                                  child: SingleChildScrollView(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+
+                                      children: vendors.map((v) {
+                                        final id = v['id'].toString();
+                                        final isSelected = vendorIds.contains(
+                                          int.tryParse(id) ?? 0,
+                                        );
+                                        return CheckboxListTile(
+                                          dense: true,
+                                          contentPadding: EdgeInsets.zero,
+                                          title: Text(
+                                            v['name'] ?? '',
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                            ),
+                                          ),
+                                          value: isSelected,
+                                          activeColor: AppColors.darkpink,
+                                          onChanged: (checked) {
+                                            setDialogState(() {
+                                              if (checked == true) {
+                                                vendorIds.add(
+                                                  int.tryParse(id) ?? 0,
+                                                );
+                                              } else {
+                                                vendorIds.remove(
+                                                  int.tryParse(id) ?? 0,
+                                                );
+                                              }
+                                            });
+                                          },
+                                        );
+                                      }).toList(),
+                                    ),
                                   ),
                                 ),
                             ],
@@ -559,7 +571,7 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                 try {
                   if (isEditing) {
                     await ApiService.updateTask(
-                      taskId: task!.id,
+                      taskId: task.id,
                       title: titleController.text,
                       description: descriptionController.text.isNotEmpty
                           ? descriptionController.text
@@ -626,6 +638,7 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
+          // ignore: deprecated_member_use
           borderSide: BorderSide(color: AppColors.burgundy.withOpacity(0.3)),
         ),
       ),
@@ -760,10 +773,12 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                   ),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
+                    // ignore: deprecated_member_use
                     color: Colors.white.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
+                        // ignore: deprecated_member_use
                         color: Colors.black.withOpacity(0.05),
                         blurRadius: 4,
                       ),

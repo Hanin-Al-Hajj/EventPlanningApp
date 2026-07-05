@@ -1,8 +1,8 @@
 import 'package:event_planner/models/Guest.dart';
 import 'package:event_planner/services/api_service.dart';
-import 'package:event_planner/widgets/AddGuestDialog.dart';
+import 'package:event_planner/widgets/add_guest_dialog.dart';
 import 'package:flutter/material.dart';
-import 'package:event_planner/widgets/GuestCard.dart';
+import 'package:event_planner/widgets/guest_card.dart';
 import 'package:event_planner/widgets/statistics_cards.dart';
 import 'package:event_planner/db/event_storage.dart';
 import 'package:event_planner/constants/app_colors.dart';

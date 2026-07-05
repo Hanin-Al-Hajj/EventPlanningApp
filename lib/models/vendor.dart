@@ -10,6 +10,7 @@ class Vendor {
   final String? description;
   final List<String> locations;
   final String? instagram;
+  final int orderCount;
   bool isFavorite;
 
   Vendor({
@@ -25,6 +26,7 @@ class Vendor {
     required this.locations,
     this.isFavorite = false,
     this.instagram,
+    required this.orderCount,
   });
 
   factory Vendor.fromJson(Map<String, dynamic> json) {
@@ -46,6 +48,7 @@ class Vendor {
           ? (json['locations'] as String).split('|')
           : [],
       instagram: json['instagram'],
+      orderCount: json['order_count'] ?? 0,
     );
   }
 
@@ -83,6 +86,7 @@ class Vendor {
           ? (map['location'] as String).split('|')
           : [],
       instagram: map['instagram'],
+      orderCount: map['orderCount'],
     );
   }
 }

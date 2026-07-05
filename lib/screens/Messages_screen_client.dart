@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:event_planner/screens/profile_screen.dart';
-import 'package:event_planner/screens/system_screen.dart';
+import 'package:event_planner/screens/client/client_setting.dart';
 import 'package:event_planner/services/api_service.dart';
 import 'package:event_planner/screens/chat_screen.dart';
 
@@ -172,7 +172,7 @@ class _MessagesScreenClientState extends State<MessagesScreenClient> {
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => const SystemScreen(),
+                            builder: (_) => const ClientSetting(),
                           ),
                         );
                       } else if (value == 'logout') {

@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart';
 
@@ -908,6 +907,33 @@ class ApiService {
     return _decodeResponse(response);
   }
 
+  // archive event
+  static Future<Map<String, dynamic>> archivePlannerEvent(int eventId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/planner/events/$eventId/archive'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  //unarchive event
+  static Future<Map<String, dynamic>> unarchivePlannerEvent(int eventId) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/planner/events/$eventId/unarchive'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  //get archived events
+  static Future<Map<String, dynamic>> getArchivedPlannerEvents() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/planner/events/archived'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
   //Assistant
   //
   //
@@ -1005,5 +1031,103 @@ class ApiService {
       headers: authHeaders,
     );
     return _decodeResponse(response);
+  }
+
+  // GET assistant notifications
+  static Future<Map<String, dynamic>> getAssistantNotifications({
+    int page = 1,
+    int perPage = 20,
+  }) async {
+    final response = await http.get(
+      Uri.parse(
+        '$baseUrl/assistant/notifications?page=$page&per_page=$perPage',
+      ),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // GET assistant notification stats
+  static Future<Map<String, dynamic>> getAssistantNotificationStats() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/assistant/notifications/stats'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // MARK single notification as read
+  static Future<Map<String, dynamic>> markAssistantNotificationRead(
+    int id,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/assistant/notifications/$id/read'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // MARK ALL as read
+  static Future<Map<String, dynamic>>
+  markAllAssistantNotificationsRead() async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/assistant/notifications/read-all'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // ARCHIVE notification
+  static Future<Map<String, dynamic>> archiveAssistantNotification(
+    int id,
+  ) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/assistant/notifications/$id/archive'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // ARCHIVE ALL notifications
+  static Future<Map<String, dynamic>> archiveAllAssistantNotifications() async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/assistant/notifications/archive-all'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  //shared setting for all roles
+
+  // GET current settings
+  static Future<Map<String, dynamic>> getSettings() async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/settings'),
+      headers: authHeaders,
+    );
+    return _decodeResponse(response);
+  }
+
+  // TOGGLE / UPDATE in-app alerts
+  static Future<Map<String, dynamic>> updateNotificationSettings({
+    required bool inAppAlerts,
+  }) async {
+    final response = await http.patch(
+      Uri.parse('$baseUrl/settings/notifications'),
+      headers: authHeaders,
+      body: jsonEncode({'in_app_alerts': inAppAlerts}),
+    );
+    return _decodeResponse(response);
+  }
+
+  // DELETE account
+  static Future<Map<String, dynamic>> deleteAccount() async {
+    final response = await http.delete(
+      Uri.parse('$baseUrl/settings/account'),
+      headers: authHeaders,
+    );
+    final data = _decodeResponse(response);
+    if (data['success'] == true) clearToken();
+    return data;
   }
 }

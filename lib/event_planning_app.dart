@@ -3,7 +3,7 @@ import 'package:event_planner/screens/login_screen.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
-import 'package:event_planner/screens/planner_tabs_screen.dart';
+
 
 class EventPlanningApp extends StatefulWidget {
   const EventPlanningApp({super.key});

@@ -168,8 +168,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       required: true,
                       keyboardType: TextInputType.emailAddress,
                       validator: (v) {
-                        if (v == null || v.trim().isEmpty)
+                        if (v == null || v.trim().isEmpty) {
                           return 'Email is required';
+                        }
                         if (!v.contains('@')) return 'Enter a valid email';
                         return null;
                       },
@@ -220,8 +221,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onToggle: () =>
                           setState(() => _obscureNew = !_obscureNew),
                       validator: (v) {
-                        if (v == null || v.isEmpty)
+                        if (v == null || v.isEmpty) {
                           return 'New password is required';
+                        }
                         if (v.length < 8) return 'Minimum 8 characters';
                         return null;
                       },
@@ -234,8 +236,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onToggle: () =>
                           setState(() => _obscureConfirm = !_obscureConfirm),
                       validator: (v) {
-                        if (v == null || v.isEmpty)
+                        if (v == null || v.isEmpty) {
                           return 'Please confirm your password';
+                        }
                         if (v != _newPasswordController.text) {
                           return 'Passwords do not match';
                         }

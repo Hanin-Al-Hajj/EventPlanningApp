@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
-import 'package:event_planner/models/VendorOrder.dart';
+import 'package:event_planner/models/vendor_order.dart';
 import 'package:event_planner/services/api_service.dart';
 import 'package:event_planner/screens/assistant/place_order_screen.dart';
 import 'package:event_planner/screens/assistant/filtered_vendor_screen.dart';

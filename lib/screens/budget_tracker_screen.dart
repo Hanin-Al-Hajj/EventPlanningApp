@@ -199,8 +199,9 @@ class _BudgetTrackerScreenState extends State<BudgetTrackerScreen> {
               await _loadExpenses();
 
               await updateEventProgress(widget.event.id);
-              if (widget.onBudgetChanged != null)
+              if (widget.onBudgetChanged != null) {
                 await widget.onBudgetChanged!();
+              }
             },
           ),
         ),

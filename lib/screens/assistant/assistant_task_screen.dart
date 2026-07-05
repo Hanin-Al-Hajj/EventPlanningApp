@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:event_planner/services/api_service.dart';
-import 'package:event_planner/models/Task.dart';
+import 'package:event_planner/models/task.dart';
 import 'package:event_planner/screens/assistant/filtered_vendor_screen.dart';
+import 'package:event_planner/screens/assistant/notification_screen.dart';
+import 'package:event_planner/screens/assistant/assistant_setting.dart';
 
 class AssistantTaskScreen extends StatefulWidget {
   const AssistantTaskScreen({super.key});
@@ -20,6 +22,8 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
   int _urgentTasks = 0;
   int _inProgressTasks = 0;
   int _completedTasks = 0;
+  int _unreadNotifications = 0;
+
   final TextEditingController _searchController = TextEditingController();
 
   void _filterTasks(String query) {
@@ -41,6 +45,7 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
   void initState() {
     super.initState();
     _loadTasks();
+    _loadUnreadCount();
     _searchController.addListener(() => _filterTasks(_searchController.text));
   }
 
@@ -48,6 +53,16 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadUnreadCount() async {
+    try {
+      final res = await ApiService.getAssistantNotificationStats();
+      if (!mounted) return;
+      setState(() {
+        _unreadNotifications = res['unread'] ?? 0;
+      });
+    } catch (_) {}
   }
 
   Future<void> _loadTasks() async {
@@ -201,6 +216,7 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
         border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
+            // ignore: deprecated_member_use
             color: Colors.black.withOpacity(0.05),
             blurRadius: 4,
             offset: const Offset(0, 2),
@@ -229,9 +245,11 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
+                  // ignore: deprecated_member_use
                   color: _getStatusColor(task.status).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
+                    // ignore: deprecated_member_use
                     color: _getStatusColor(task.status).withOpacity(0.3),
                   ),
                 ),
@@ -270,6 +288,7 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
+                  // ignore: deprecated_member_use
                   color: priorityColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -336,8 +355,10 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
                   vertical: 8,
                 ),
                 decoration: BoxDecoration(
+                  // ignore: deprecated_member_use
                   color: AppColors.coral.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
+                  // ignore: deprecated_member_use
                   border: Border.all(color: AppColors.coral.withOpacity(0.5)),
                 ),
                 child: Row(
@@ -606,7 +627,16 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
                           _popupItem('logout', Icons.logout, 'Logout'),
                         ],
                         onSelected: (value) {
-                          if (value == 'logout') _handleLogout();
+                          if (value == 'logout') {
+                            _handleLogout();
+                          } else if (value == 'settings') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => AssistantSetting(),
+                              ),
+                            );
+                          }
                         },
                         child: Container(
                           width: 40,
@@ -650,19 +680,50 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      InkWell(
-                        onTap: () {},
-                        borderRadius: BorderRadius.circular(22),
-                        child: const SizedBox(
-                          width: 40,
-                          height: 40,
-                          child: Center(
-                            child: FaIcon(
+                      IconButton(
+                        onPressed: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const NotificationScreen(),
+                            ),
+                          );
+                          _loadUnreadCount();
+                        },
+                        icon: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            const FaIcon(
                               FontAwesomeIcons.bell,
                               size: 20,
                               color: AppColors.darkpink,
                             ),
-                          ),
+                            if (_unreadNotifications > 0)
+                              Positioned(
+                                top: -4,
+                                right: -4,
+                                child: Container(
+                                  width: _unreadNotifications > 9 ? 18 : 14,
+                                  height: 14,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.darkpink,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      _unreadNotifications > 9
+                                          ? '9+'
+                                          : '$_unreadNotifications',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 8,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ],
@@ -749,6 +810,7 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
                               Icon(
                                 Icons.task_alt,
                                 size: 64,
+                                // ignore: deprecated_member_use
                                 color: AppColors.green.withOpacity(0.6),
                               ),
                               const SizedBox(height: 16),
@@ -756,6 +818,7 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
                                 'No tasks assigned yet',
                                 style: TextStyle(
                                   fontSize: 16,
+                                  // ignore: deprecated_member_use
                                   color: AppColors.green.withOpacity(0.8),
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -765,6 +828,7 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
                                 'Tasks from your planner will appear here',
                                 style: TextStyle(
                                   fontSize: 13,
+                                  // ignore: deprecated_member_use
                                   color: AppColors.green.withOpacity(0.6),
                                 ),
                               ),
@@ -792,10 +856,13 @@ class _BgPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()..style = PaintingStyle.fill;
+    // ignore: deprecated_member_use
     p.color = AppColors.coral.withOpacity(0.10);
     canvas.drawCircle(Offset(size.width * 0.92, size.height * 0.08), 130, p);
+    // ignore: deprecated_member_use
     p.color = AppColors.darkpink.withOpacity(0.07);
     canvas.drawCircle(Offset(size.width * -0.12, size.height * 0.48), 170, p);
+    // ignore: deprecated_member_use
     p.color = const Color.fromARGB(255, 176, 27, 44).withOpacity(0.06);
     canvas.drawCircle(Offset(size.width * 1.08, size.height * 0.72), 190, p);
   }

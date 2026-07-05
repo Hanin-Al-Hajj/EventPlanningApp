@@ -533,7 +533,7 @@ class _LineChartPainter extends CustomPainter {
       color: AppColors.burgundy.withOpacity(0.4),
       fontSize: 10,
     );
-    for (int i = 0; i < data.length; i++)
+    for (int i = 0; i < data.length; i++) {
       _drawText(
         canvas,
         data[i]['month'] ?? '',
@@ -543,6 +543,7 @@ class _LineChartPainter extends CustomPainter {
         ),
         xStyle,
       );
+    }
   }
 
   void _drawText(Canvas c, String t, Offset o, TextStyle s) {

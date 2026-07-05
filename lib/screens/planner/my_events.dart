@@ -300,6 +300,19 @@ class _MyEventsState extends State<MyEvents> {
     );
   }
 
+  Future<void> _archiveEvent(Event event) async {
+    final parsedId = int.tryParse(event.id);
+    if (parsedId == null) return;
+
+    setState(() {
+      _events.removeWhere((e) => e.id == event.id);
+      _filteredEvents.removeWhere((e) => e.id == event.id);
+      _cachedEvents = null;
+    });
+
+    await ApiService.archivePlannerEvent(parsedId);
+  }
+
   Color _statusColor(MyEventStatus status) {
     switch (status) {
       case MyEventStatus.confirmed:
@@ -553,8 +566,30 @@ class _MyEventsState extends State<MyEvents> {
                           child: ListView.builder(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             itemCount: _filteredEvents.length,
-                            itemBuilder: (context, index) =>
-                                _buildEventCard(_filteredEvents[index]),
+                            itemBuilder: (context, index) {
+                              final event = _filteredEvents[index];
+                              return Dismissible(
+                                key: ValueKey(event.id),
+                                onDismissed: (_) => _archiveEvent(event),
+                                background: Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                  ),
+                                  alignment: Alignment.centerRight,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.burgundy,
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: const Icon(
+                                    Icons.archive_outlined,
+                                    color: AppColors.coral,
+                                  ),
+                                ),
+
+                                child: _buildEventCard(event),
+                              );
+                            },
                           ),
                         ),
                 ),
@@ -643,6 +678,7 @@ class _MyEventsState extends State<MyEvents> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
+                      // ignore: deprecated_member_use
                       color: statusColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: statusColor.withOpacity(0.3)),
