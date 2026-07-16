@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
-import 'package:event_planner/services/api_service.dart';
+import 'package:event_planner/models/order.dart';
+import 'package:event_planner/repositories/order_repository.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class PlaceOrderScreen extends StatefulWidget {
@@ -23,32 +25,49 @@ class _PlaceOrderScreenState extends State<PlaceOrderScreen> {
   final _priceController = TextEditingController();
   final _notesController = TextEditingController();
   bool _isSubmitting = false;
-  Map<String, dynamic>? _existingOrder;
+  Order? _existingOrder;
 
   @override
   void initState() {
     super.initState();
-    _loadExistingOrder();
+    OrderRepository.orders.addListener(_onOrdersChanged);
+
+    if (OrderRepository.hasOrder(widget.taskId, widget.vendorId)) {
+      _existingOrder = OrderRepository.getOrder(widget.taskId, widget.vendorId);
+      _fillForm();
+    }
+    unawaited(OrderRepository.loadAllOrders());
   }
 
-  Future<void> _loadExistingOrder() async {
-    try {
-      final result = await ApiService.getMyOrders();
-      if (result['success'] == true) {
-        final orders = result['data'] as List? ?? [];
-        for (var order in orders) {
-          if (order['task_id'] == widget.taskId &&
-              order['vendor_id'] == widget.vendorId) {
-            setState(() {
-              _existingOrder = Map<String, dynamic>.from(order);
-              _priceController.text = order['price']?.toString() ?? '';
-              _notesController.text = order['notes'] ?? '';
-            });
-            break;
-          }
-        }
+  @override
+  void dispose() {
+    OrderRepository.orders.removeListener(_onOrdersChanged);
+    _priceController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  void _onOrdersChanged() {
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final order = OrderRepository.getOrder(widget.taskId, widget.vendorId);
+      if (order != null && order != _existingOrder) {
+        setState(() {
+          _existingOrder = order;
+          _fillForm();
+        });
       }
-    } catch (_) {}
+    });
+  }
+
+  void _fillForm() {
+    if (_existingOrder != null) {
+      _priceController.text = _existingOrder!.price.toString();
+      _notesController.text = _existingOrder!.notes ?? '';
+    }
   }
 
   Future<void> _submitOrder() async {
@@ -64,7 +83,7 @@ class _PlaceOrderScreenState extends State<PlaceOrderScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      final result = await ApiService.submitOrder(
+      final result = await OrderRepository.submitOrder(
         taskId: widget.taskId,
         vendorId: widget.vendorId,
         price: double.parse(_priceController.text),
@@ -99,13 +118,6 @@ class _PlaceOrderScreenState extends State<PlaceOrderScreen> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
-  }
-
-  @override
-  void dispose() {
-    _priceController.dispose();
-    _notesController.dispose();
-    super.dispose();
   }
 
   @override
@@ -165,9 +177,11 @@ class _PlaceOrderScreenState extends State<PlaceOrderScreen> {
                             child: Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
+                                // ignore: deprecated_member_use
                                 color: AppColors.coral.withOpacity(0.08),
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
+                                  // ignore: deprecated_member_use
                                   color: AppColors.coral.withOpacity(0.3),
                                 ),
                               ),
@@ -246,6 +260,7 @@ class _PlaceOrderScreenState extends State<PlaceOrderScreen> {
                           decoration: InputDecoration(
                             hintText: '0.00',
                             hintStyle: TextStyle(
+                              // ignore: deprecated_member_use
                               color: AppColors.green.withOpacity(0.4),
                             ),
                             filled: true,
@@ -283,6 +298,7 @@ class _PlaceOrderScreenState extends State<PlaceOrderScreen> {
                           decoration: InputDecoration(
                             hintText: 'place your order here',
                             hintStyle: TextStyle(
+                              // ignore: deprecated_member_use
                               color: AppColors.green.withOpacity(0.4),
                               fontSize: 15,
                             ),
@@ -346,10 +362,13 @@ class _BgPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()..style = PaintingStyle.fill;
+    // ignore: deprecated_member_use
     p.color = AppColors.coral.withOpacity(0.10);
     canvas.drawCircle(Offset(size.width * 0.92, size.height * 0.08), 130, p);
+    // ignore: deprecated_member_use
     p.color = AppColors.darkpink.withOpacity(0.07);
     canvas.drawCircle(Offset(size.width * -0.12, size.height * 0.48), 170, p);
+    // ignore: deprecated_member_use
     p.color = const Color.fromARGB(255, 176, 27, 44).withOpacity(0.06);
     canvas.drawCircle(Offset(size.width * 1.08, size.height * 0.72), 190, p);
   }

@@ -8,6 +8,7 @@ import 'package:event_planner/screens/planner/task_screen.dart';
 
 class Plannertabsscreen extends StatefulWidget {
   final Event event;
+
   const Plannertabsscreen({super.key, required this.event});
 
   @override
@@ -16,38 +17,46 @@ class Plannertabsscreen extends StatefulWidget {
 
 class _PlannertabsscreenState extends State<Plannertabsscreen> {
   int _selectedIndex = 0;
+  final Set<int> _openedTabs = {0};
+
+  int get _eventId => int.tryParse(widget.event.id) ?? 0;
 
   void _selectPage(int index) {
-    setState(() => _selectedIndex = index);
+    setState(() {
+      _selectedIndex = index;
+      _openedTabs.add(index);
+    });
+  }
+
+  Widget _buildPage(int index) {
+    if (!_openedTabs.contains(index)) {
+      return const SizedBox.shrink();
+    }
+
+    switch (index) {
+      case 0:
+        return PlannerTaskScreen(
+          eventId: _eventId,
+          eventName: widget.event.title,
+        );
+      case 1:
+        return VendorsScreen(eventId: widget.event.id);
+      case 2:
+        return BudgetTrackerScreen(
+          event: widget.event,
+          onBudgetChanged: () async {},
+        );
+      default:
+        return const SizedBox.shrink();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final pages = [
-      PlannerTaskScreen(
-        eventId: int.parse(widget.event.id),
-        eventName: widget.event.title,
-      ),
-      VendorsScreen(eventId: widget.event.id),
-      BudgetTrackerScreen(event: widget.event, onBudgetChanged: () async {}),
-    ];
-
     return Scaffold(
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 250),
-        transitionBuilder: (child, animation) {
-          return FadeTransition(
-            opacity: animation,
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 0.97, end: 1).animate(animation),
-              child: child,
-            ),
-          );
-        },
-        child: KeyedSubtree(
-          key: ValueKey(_selectedIndex),
-          child: pages[_selectedIndex],
-        ),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: List.generate(3, _buildPage),
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const [

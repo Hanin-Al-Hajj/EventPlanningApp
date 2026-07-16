@@ -1,11 +1,14 @@
+import 'dart:async';
+
 import 'package:event_planner/models/vendor.dart';
+import 'package:event_planner/repositories/vendor_repository.dart';
 import 'package:event_planner/screens/vendor_details_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:event_planner/screens/chosen_vendor_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:event_planner/services/api_service.dart';
 
 class VendorsScreen extends StatefulWidget {
   final String eventId;
@@ -21,6 +24,7 @@ class _VendorsScreenState extends State<VendorsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedCategory = 'All';
   bool _isLoading = true;
+  String? _errorMessage;
   final Set<String> _togglingVendorIds = {};
 
   final List<String> _categories = [
@@ -35,83 +39,174 @@ class _VendorsScreenState extends State<VendorsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadVendors();
+    VendorRepository.changes.addListener(_onVendorCacheChanged);
+
+    if (VendorRepository.hasCache(widget.eventId)) {
+      _applyVendors(VendorRepository.cachedFor(widget.eventId).vendors);
+      _isLoading = false;
+      unawaited(VendorRepository.refreshInBackground(widget.eventId));
+    } else {
+      unawaited(_loadVendors());
+    }
+  }
+
+  @override
+  void didUpdateWidget(VendorsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.eventId == widget.eventId) return;
+
+    if (VendorRepository.hasCache(widget.eventId)) {
+      setState(() {
+        _applyVendors(VendorRepository.cachedFor(widget.eventId).vendors);
+        _isLoading = false;
+        _errorMessage = null;
+      });
+      unawaited(VendorRepository.refreshInBackground(widget.eventId));
+    } else {
+      setState(() {
+        _allVendors = [];
+        _filteredVendors = [];
+        _isLoading = true;
+        _errorMessage = null;
+      });
+      unawaited(_loadVendors());
+    }
   }
 
   @override
   void dispose() {
+    VendorRepository.changes.removeListener(_onVendorCacheChanged);
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadVendors() async {
-    setState(() => _isLoading = true);
+  void _onVendorCacheChanged() {
+    if (!mounted || !VendorRepository.hasCache(widget.eventId)) return;
+
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _applyRepositoryCache();
+      });
+      return;
+    }
+
+    _applyRepositoryCache();
+  }
+
+  void _applyRepositoryCache() {
+    if (!mounted || !VendorRepository.hasCache(widget.eventId)) return;
+
+    setState(() {
+      _applyVendors(VendorRepository.cachedFor(widget.eventId).vendors);
+      _isLoading = false;
+      _errorMessage = null;
+    });
+  }
+
+  Future<void> _loadVendors({bool forceRefresh = false}) async {
+    final hadCache = VendorRepository.hasCache(widget.eventId);
+
+    if (!hadCache && mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
     try {
-      final data = await ApiService.getVendors(widget.eventId);
-      final vendors = (data['vendors'] as List? ?? [])
-          .map((v) => Vendor.fromJson(v))
-          .toList();
-
-      Set<String> favIds = {};
-      try {
-        final favData = await ApiService.getFavoriteVendors(widget.eventId);
-        favIds = (favData['vendors'] as List? ?? [])
-            .map((v) => v['id'].toString())
-            .toSet();
-      } catch (e) {
-        debugPrint('Favorites failed (non-fatal): $e');
-      }
-
-      for (final vendor in vendors) {
-        vendor.isFavorite = favIds.contains(vendor.id.toString());
-      }
+      final cache = await VendorRepository.load(
+        widget.eventId,
+        forceRefresh: forceRefresh,
+      );
+      if (!mounted) return;
 
       setState(() {
-        _allVendors = vendors;
-        _filteredVendors = vendors;
+        _applyVendors(cache.vendors);
         _isLoading = false;
+        _errorMessage = null;
       });
     } catch (e) {
       debugPrint('Error loading vendors: $e');
-      setState(() => _isLoading = false);
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _errorMessage = hadCache ? null : 'Could not load vendors';
+      });
     }
+  }
+
+  void _applyVendors(List<Vendor> vendors) {
+    _allVendors = List<Vendor>.from(vendors);
+    _filteredVendors = _matchingVendors();
+  }
+
+  List<Vendor> _matchingVendors() {
+    final query = _searchController.text.trim().toLowerCase();
+
+    return _allVendors.where((vendor) {
+      final matchesCategory =
+          _selectedCategory == 'All' ||
+          vendor.category.toLowerCase() == _selectedCategory.toLowerCase();
+      final matchesSearch =
+          query.isEmpty || vendor.name.toLowerCase().contains(query);
+
+      return matchesCategory && matchesSearch;
+    }).toList();
   }
 
   void _filterVendors() {
     setState(() {
-      _filteredVendors = _allVendors.where((v) {
-        final matchesCategory =
-            _selectedCategory == 'All' ||
-            v.category.toLowerCase() == _selectedCategory.toLowerCase();
-        final matchesSearch = v.name.toLowerCase().contains(
-          _searchController.text.toLowerCase(),
-        );
-        return matchesCategory && matchesSearch;
-      }).toList();
+      _filteredVendors = _matchingVendors();
     });
   }
 
   Future<void> _toggleFavorite(Vendor vendor) async {
-    if (_togglingVendorIds.contains(vendor.id)) return;
-    _togglingVendorIds.add(vendor.id);
-    setState(() => vendor.isFavorite = !vendor.isFavorite);
+    final vendorId = vendor.id.toString();
+    if (_togglingVendorIds.contains(vendorId)) return;
+
+    final previousValue = vendor.isFavorite;
+    final optimisticValue = !previousValue;
+
+    setState(() {
+      _togglingVendorIds.add(vendorId);
+      vendor.isFavorite = optimisticValue;
+    });
+    VendorRepository.setFavorite(
+      widget.eventId,
+      vendorId,
+      optimisticValue,
+      notify: false,
+    );
+
     try {
-      final result = await ApiService.toggleFavoriteVendor(
+      final confirmedValue = await VendorRepository.toggleFavorite(
         widget.eventId,
-        vendor.id,
+        vendorId,
+        fallback: optimisticValue,
       );
-      setState(() => vendor.isFavorite = result['is_favorite'] == true);
+      if (!mounted) return;
+
+      setState(() {
+        vendor.isFavorite = confirmedValue;
+      });
     } catch (e) {
-      setState(() => vendor.isFavorite = !vendor.isFavorite);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to update favourite. Try again.'),
-          ),
-        );
-      }
+      VendorRepository.setFavorite(widget.eventId, vendorId, previousValue);
+      if (!mounted) return;
+
+      setState(() {
+        vendor.isFavorite = previousValue;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to update favourite. Try again.')),
+      );
     } finally {
-      _togglingVendorIds.remove(vendor.id);
+      if (mounted) {
+        setState(() => _togglingVendorIds.remove(vendorId));
+      } else {
+        _togglingVendorIds.remove(vendorId);
+      }
     }
   }
 
@@ -132,6 +227,8 @@ class _VendorsScreenState extends State<VendorsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final showInitialLoader = _isLoading && _allVendors.isEmpty;
+
     return Scaffold(
       backgroundColor: AppColors.cream,
       appBar: AppBar(
@@ -194,7 +291,8 @@ class _VendorsScreenState extends State<VendorsScreen> {
                           ChosenVendorScreen(eventId: widget.eventId),
                     ),
                   );
-                  _loadVendors();
+                  if (!mounted) return;
+                  unawaited(_loadVendors(forceRefresh: true));
                 },
                 borderRadius: BorderRadius.circular(22),
                 child: const SizedBox(
@@ -213,7 +311,7 @@ class _VendorsScreenState extends State<VendorsScreen> {
           ),
         ),
       ),
-      body: _isLoading
+      body: showInitialLoader
           ? const Center(
               child: CircularProgressIndicator(color: Color(0xFF586041)),
             )
@@ -236,8 +334,10 @@ class _VendorsScreenState extends State<VendorsScreen> {
                         ),
                         child: GestureDetector(
                           onTap: () {
-                            setState(() => _selectedCategory = category);
-                            _filterVendors();
+                            setState(() {
+                              _selectedCategory = category;
+                              _filteredVendors = _matchingVendors();
+                            });
                           },
                           child: Container(
                             padding: const EdgeInsets.symmetric(
@@ -266,30 +366,11 @@ class _VendorsScreenState extends State<VendorsScreen> {
                   ),
                 ),
                 Expanded(
-                  child: _filteredVendors.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(
-                                Icons.search_off,
-                                size: 64,
-                                color: AppColors.coral,
-                              ),
-                              const SizedBox(height: 16),
-                              const Text(
-                                'No vendors found',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: AppColors.coral,
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : RefreshIndicator(
-                          onRefresh: _loadVendors,
-                          child: ListView.builder(
+                  child: RefreshIndicator(
+                    onRefresh: () => _loadVendors(forceRefresh: true),
+                    child: _filteredVendors.isEmpty
+                        ? _buildEmptyList()
+                        : ListView.builder(
                             padding: const EdgeInsets.all(16),
                             itemCount: _filteredVendors.length,
                             itemBuilder: (context, index) {
@@ -302,14 +383,36 @@ class _VendorsScreenState extends State<VendorsScreen> {
                               );
                             },
                           ),
-                        ),
+                  ),
                 ),
               ],
             ),
     );
   }
 
+  Widget _buildEmptyList() {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.22),
+        Icon(
+          _errorMessage == null ? Icons.search_off : Icons.wifi_off_rounded,
+          size: 64,
+          color: AppColors.coral,
+        ),
+        const SizedBox(height: 16),
+        Text(
+          _errorMessage ?? 'No vendors found',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 16, color: AppColors.coral),
+        ),
+      ],
+    );
+  }
+
   Widget _buildVendorCard(Vendor vendor, {Key? key}) {
+    final isToggling = _togglingVendorIds.contains(vendor.id.toString());
+
     return Card(
       key: key,
       margin: const EdgeInsets.only(bottom: 16),
@@ -408,11 +511,16 @@ class _VendorsScreenState extends State<VendorsScreen> {
             Row(
               children: [
                 GestureDetector(
-                  onTap: () => _toggleFavorite(vendor),
-                  child: Icon(
-                    vendor.isFavorite ? Icons.favorite : Icons.favorite_border,
-                    color: AppColors.darkpink,
-                    size: 28,
+                  onTap: isToggling ? null : () => _toggleFavorite(vendor),
+                  child: Opacity(
+                    opacity: isToggling ? 0.45 : 1,
+                    child: Icon(
+                      vendor.isFavorite
+                          ? Icons.favorite
+                          : Icons.favorite_border,
+                      color: AppColors.darkpink,
+                      size: 28,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),

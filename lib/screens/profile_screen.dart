@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
+import 'package:event_planner/models/user_profile.dart';
+import 'package:event_planner/repositories/profile_repository.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -10,73 +14,152 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  // Personal Info Controllers
-  final _nameController = TextEditingController(text: 'Jane Doe');
-  final _emailController = TextEditingController(text: 'jane.doe@email.com');
-  final _phoneController = TextEditingController(text: '+1 (555) 123-4567');
+  final _infoFormKey = GlobalKey<FormState>();
+  final _passwordFormKey = GlobalKey<FormState>();
 
-  // Password Controllers
+  final _nameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
+  UserProfile? _profile;
+
+  bool _isLoading = true;
+  bool _isSavingInfo = false;
+  bool _isUpdatingPassword = false;
 
   bool _obscureCurrent = true;
   bool _obscureNew = true;
   bool _obscureConfirm = true;
 
-  final _infoFormKey = GlobalKey<FormState>();
-  final _passwordFormKey = GlobalKey<FormState>();
+  @override
+  void initState() {
+    super.initState();
+    ProfileRepository.profile.addListener(_onProfileChanged);
 
-  String get _userInitials {
-    final name = _nameController.text.trim();
-    if (name.isEmpty) return '??';
-    final parts = name.split(' ');
-    if (parts.length >= 2) {
-      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    final cachedProfile = ProfileRepository.cachedProfile;
+    if (cachedProfile != null) {
+      _applyProfile(cachedProfile);
+      _isLoading = false;
+      unawaited(ProfileRepository.refreshInBackground());
+    } else {
+      unawaited(_loadProfile());
     }
-    return name.substring(0, name.length >= 2 ? 2 : 1).toUpperCase();
+  }
+
+  void _onProfileChanged() {
+    if (!mounted) return;
+
+    final cachedProfile = ProfileRepository.cachedProfile;
+    if (cachedProfile == null) return;
+
+    setState(() {
+      _applyProfile(cachedProfile);
+      _isLoading = false;
+    });
+  }
+
+  void _applyProfile(UserProfile profile) {
+    _profile = profile;
+    _nameController.text = profile.name;
+    _emailController.text = profile.email;
+    _phoneController.text = profile.phone;
+  }
+
+  Future<void> _loadProfile({bool forceRefresh = true}) async {
+    final hasCache = ProfileRepository.hasCache;
+
+    if (!hasCache) {
+      setState(() => _isLoading = true);
+    }
+
+    try {
+      final profile = await ProfileRepository.loadProfile(
+        forceRefresh: forceRefresh,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _applyProfile(profile);
+        _isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+      _showSnackBar('Failed to load profile: $e', isError: true);
+    }
+  }
+
+  Future<void> _savePersonalInfo() async {
+    if (_infoFormKey.currentState?.validate() != true) return;
+
+    setState(() => _isSavingInfo = true);
+
+    try {
+      final updatedProfile = await ProfileRepository.updateProfile(
+        name: _nameController.text.trim(),
+        email: _emailController.text.trim(),
+        phone: _phoneController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _applyProfile(updatedProfile);
+      });
+
+      _showSnackBar('Profile updated successfully');
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar('Error updating profile: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _isSavingInfo = false);
+    }
+  }
+
+  Future<void> _updatePassword() async {
+    if (_passwordFormKey.currentState?.validate() != true) return;
+
+    setState(() => _isUpdatingPassword = true);
+
+    try {
+      await ProfileRepository.updatePassword(
+        currentPassword: _currentPasswordController.text,
+        newPassword: _newPasswordController.text,
+      );
+
+      if (!mounted) return;
+
+      _currentPasswordController.clear();
+      _newPasswordController.clear();
+      _confirmPasswordController.clear();
+
+      _showSnackBar('Password updated successfully');
+    } catch (e) {
+      if (!mounted) return;
+      _showSnackBar('Error updating password: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _isUpdatingPassword = false);
+    }
   }
 
   void _showSnackBar(String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
-          children: [
-            Icon(
-              isError ? Icons.error_outline : Icons.check_circle_outline,
-              color: Colors.white,
-              size: 20,
-            ),
-            const SizedBox(width: 8),
-            Text(message),
-          ],
-        ),
-        backgroundColor: isError ? Colors.red.shade700 : AppColors.burgundy,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        margin: const EdgeInsets.all(16),
+        content: Text(message),
+        backgroundColor: isError ? Colors.red.shade700 : AppColors.darkpink,
       ),
     );
   }
 
-  void _savePersonalInfo() {
-    if (_infoFormKey.currentState!.validate()) {
-      setState(() {});
-      _showSnackBar('Personal information updated successfully!');
-    }
-  }
-
-  void _updatePassword() {
-    if (_passwordFormKey.currentState!.validate()) {
-      _currentPasswordController.clear();
-      _newPasswordController.clear();
-      _confirmPasswordController.clear();
-      _showSnackBar('Password updated successfully!');
-    }
-  }
-
   @override
   void dispose() {
+    ProfileRepository.profile.removeListener(_onProfileChanged);
     _nameController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
@@ -86,8 +169,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
     super.dispose();
   }
 
+  String _apiMessage(Map<String, dynamic> result, String fallback) {
+    if (result['message'] != null) {
+      return result['message'].toString();
+    }
+
+    final errors = result['errors'];
+    if (errors is Map && errors.isNotEmpty) {
+      final firstError = errors.values.first;
+
+      if (firstError is List && firstError.isNotEmpty) {
+        return firstError.first.toString();
+      }
+
+      return firstError.toString();
+    }
+
+    return fallback;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final profile = _profile;
+
     return Scaffold(
       backgroundColor: AppColors.cream,
       appBar: AppBar(
@@ -122,8 +226,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppColors.burgundy,
-                    fontWeight: FontWeight.w800,
                     fontSize: 20,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
@@ -132,515 +236,325 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _ProfileCard(
-              initials: _userInitials,
-              name: _nameController.text,
-              memberSince: 'May 2023',
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.darkpink),
+            )
+          : ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                _profileCard(profile),
+                const SizedBox(height: 20),
+                _personalInfoSection(),
+                const SizedBox(height: 20),
+                _passwordSection(),
+                const SizedBox(height: 24),
+              ],
             ),
-
-            const SizedBox(height: 20),
-
-            _FormSection(
-              icon: Icons.person_outline,
-              title: 'Personal Information',
-              child: Form(
-                key: _infoFormKey,
-                child: Column(
-                  children: [
-                    _ProfileTextField(
-                      label: 'Full Name',
-                      controller: _nameController,
-                      required: true,
-                      keyboardType: TextInputType.name,
-                      validator: (v) => (v == null || v.trim().isEmpty)
-                          ? 'Name is required'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _ProfileTextField(
-                      label: 'Email Address',
-                      controller: _emailController,
-                      required: true,
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (v) {
-                        if (v == null || v.trim().isEmpty) {
-                          return 'Email is required';
-                        }
-                        if (!v.contains('@')) return 'Enter a valid email';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _ProfileTextField(
-                      label: 'Phone Number',
-                      controller: _phoneController,
-                      hint: '+1 (555) 123-4567',
-                      keyboardType: TextInputType.phone,
-                    ),
-                    const SizedBox(height: 24),
-                    _ActionButton(
-                      icon: Icons.save_outlined,
-                      label: 'Save Changes',
-                      onPressed: _savePersonalInfo,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            _FormSection(
-              icon: Icons.lock_outline,
-              title: 'Change Password',
-              child: Form(
-                key: _passwordFormKey,
-                child: Column(
-                  children: [
-                    _PasswordField(
-                      label: 'Current Password',
-                      controller: _currentPasswordController,
-                      obscure: _obscureCurrent,
-                      onToggle: () =>
-                          setState(() => _obscureCurrent = !_obscureCurrent),
-                      validator: (v) => (v == null || v.isEmpty)
-                          ? 'Current password is required'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-                    _PasswordField(
-                      label: 'New Password',
-                      controller: _newPasswordController,
-                      obscure: _obscureNew,
-                      hint: 'Minimum 8 characters',
-                      onToggle: () =>
-                          setState(() => _obscureNew = !_obscureNew),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) {
-                          return 'New password is required';
-                        }
-                        if (v.length < 8) return 'Minimum 8 characters';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    _PasswordField(
-                      label: 'Confirm New Password',
-                      controller: _confirmPasswordController,
-                      obscure: _obscureConfirm,
-                      onToggle: () =>
-                          setState(() => _obscureConfirm = !_obscureConfirm),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) {
-                          return 'Please confirm your password';
-                        }
-                        if (v != _newPasswordController.text) {
-                          return 'Passwords do not match';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 24),
-                    _ActionButton(
-                      icon: Icons.key_outlined,
-                      label: 'Update Password',
-                      onPressed: _updatePassword,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
     );
   }
-}
 
-class _ProfileCard extends StatelessWidget {
-  final String initials;
-  final String name;
-  final String memberSince;
-
-  const _ProfileCard({
-    required this.initials,
-    required this.name,
-    required this.memberSince,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _profileCard(UserProfile? profile) {
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.darkpink.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: _cardDecoration(),
       child: Row(
         children: [
-          // Avatar
-          Container(
-            width: 72,
-            height: 72,
-            decoration: BoxDecoration(
-              color: AppColors.burgundy,
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                initials,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1,
-                ),
+          CircleAvatar(
+            radius: 38,
+            backgroundColor: AppColors.darkpink,
+            child: Text(
+              profile?.initials ?? '?',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ),
           const SizedBox(width: 16),
-          // Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  name,
+                  profile?.name ?? '',
                   style: const TextStyle(
+                    color: AppColors.burgundy,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A1A2E),
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
+                    horizontal: 12,
+                    vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.darkpink.withOpacity(0.1),
+                    color: AppColors.darkpink,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.person_outline,
-                        size: 13,
-                        color: AppColors.darkpink,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Client',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.burgundy,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Member since $memberSince',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FormSection extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final Widget child;
-
-  const _FormSection({
-    required this.icon,
-    required this.title,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.darkpink.withOpacity(0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Section Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: Colors.grey.shade100, width: 1.5),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(icon, color: AppColors.darkpink, size: 20),
-                const SizedBox(width: 10),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A1A2E),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Form Content
-          Padding(padding: const EdgeInsets.all(20), child: child),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileTextField extends StatelessWidget {
-  final String label;
-  final TextEditingController controller;
-  final bool required;
-  final String? hint;
-  final TextInputType keyboardType;
-  final String? Function(String?)? validator;
-
-  const _ProfileTextField({
-    required this.label,
-    required this.controller,
-    this.required = false,
-    this.hint,
-    this.keyboardType = TextInputType.text,
-    this.validator,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            text: label,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF444466),
-            ),
-            children: required
-                ? [
-                    TextSpan(
-                      text: ' *',
-                      style: TextStyle(color: AppColors.burgundy),
+                  child: Text(
+                    profile?.roleLabel ?? 'Client',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
                     ),
-                  ]
-                : [],
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          keyboardType: keyboardType,
-          validator: validator,
-          style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A2E)),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  profile?.memberSinceLabel ?? 'Member since recently',
+                  style: TextStyle(color: Colors.grey.shade600),
+                ),
+              ],
             ),
-            filled: true,
-            fillColor: const Color(0xFFFAF8F6),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: AppColors.burgundy, width: 1.5),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
-            ),
-            errorStyle: const TextStyle(fontSize: 12),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _PasswordField extends StatelessWidget {
-  final String label;
-  final TextEditingController controller;
-  final bool obscure;
-  final VoidCallback onToggle;
-  final String? hint;
-  final String? Function(String?)? validator;
-
-  const _PasswordField({
-    required this.label,
-    required this.controller,
-    required this.obscure,
-    required this.onToggle,
-    this.hint,
-    this.validator,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        RichText(
-          text: TextSpan(
-            text: label,
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF444466),
-            ),
-            children: [
-              TextSpan(
-                text: ' *',
-                style: TextStyle(color: AppColors.burgundy),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          obscureText: obscure,
-          validator: validator,
-          style: const TextStyle(fontSize: 15, color: Color(0xFF1A1A2E)),
-          decoration: InputDecoration(
-            hintText: hint,
-            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 14,
-            ),
-            filled: true,
-            fillColor: const Color(0xFFFAF8F6),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: Colors.grey.shade200),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: AppColors.burgundy, width: 1.5),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
-            ),
-            errorStyle: const TextStyle(fontSize: 12),
-            suffixIcon: IconButton(
-              icon: Icon(
-                obscure
-                    ? Icons.visibility_off_outlined
-                    : Icons.visibility_outlined,
-                color: Colors.grey.shade500,
-                size: 20,
-              ),
-              onPressed: onToggle,
-            ),
-          ),
-        ),
-        if (hint != null) ...[
-          const SizedBox(height: 5),
-          Text(
-            hint!,
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _personalInfoSection() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: _cardDecoration(),
+      child: Form(
+        key: _infoFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionTitle(Icons.person_outline, 'Personal Information'),
+            _textField(
+              label: 'Full Name',
+              controller: _nameController,
+              validator: (value) => value == null || value.trim().isEmpty
+                  ? 'Name is required'
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            _textField(
+              label: 'Email Address',
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty)
+                  return 'Email is required';
+                if (!value.contains('@')) return 'Enter a valid email';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            _textField(
+              label: 'Phone Number',
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+            ),
+            const SizedBox(height: 24),
+            _button(
+              label: 'Save Changes',
+              icon: Icons.save_outlined,
+              isLoading: _isSavingInfo,
+              onPressed: _isSavingInfo ? null : _savePersonalInfo,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _passwordSection() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: _cardDecoration(),
+      child: Form(
+        key: _passwordFormKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionTitle(Icons.lock_outline, 'Change Password'),
+            _passwordField(
+              label: 'Current Password',
+              controller: _currentPasswordController,
+              obscure: _obscureCurrent,
+              onToggle: () =>
+                  setState(() => _obscureCurrent = !_obscureCurrent),
+            ),
+            const SizedBox(height: 16),
+            _passwordField(
+              label: 'New Password',
+              controller: _newPasswordController,
+              obscure: _obscureNew,
+              onToggle: () => setState(() => _obscureNew = !_obscureNew),
+              validator: (value) {
+                if (value == null || value.isEmpty)
+                  return 'New password is required';
+                if (value.length < 8) return 'Minimum 8 characters';
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            _passwordField(
+              label: 'Confirm New Password',
+              controller: _confirmPasswordController,
+              obscure: _obscureConfirm,
+              onToggle: () =>
+                  setState(() => _obscureConfirm = !_obscureConfirm),
+              validator: (value) {
+                if (value == null || value.isEmpty)
+                  return 'Please confirm password';
+                if (value != _newPasswordController.text)
+                  return 'Passwords do not match';
+                return null;
+              },
+            ),
+            const SizedBox(height: 24),
+            _button(
+              label: 'Update Password',
+              icon: Icons.key_outlined,
+              isLoading: _isUpdatingPassword,
+              onPressed: _isUpdatingPassword ? null : _updatePassword,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  BoxDecoration _cardDecoration() {
+    return BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: Colors.grey.shade200),
+    );
+  }
+
+  Widget _sectionTitle(IconData icon, String title) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Icon(icon, color: AppColors.darkpink),
+            const SizedBox(width: 10),
+            Text(
+              title,
+              style: const TextStyle(
+                color: AppColors.burgundy,
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Divider(color: Colors.grey.shade200),
+        const SizedBox(height: 14),
       ],
     );
   }
-}
 
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onPressed;
+  Widget _textField({
+    required String label,
+    required TextEditingController controller,
+    TextInputType keyboardType = TextInputType.text,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      keyboardType: keyboardType,
+      validator: validator,
+      style: const TextStyle(color: AppColors.darkpink),
+      decoration: _inputDecoration(label),
+    );
+  }
 
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.onPressed,
-  });
+  Widget _passwordField({
+    required String label,
+    required TextEditingController controller,
+    required bool obscure,
+    required VoidCallback onToggle,
+    String? Function(String?)? validator,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscure,
+      validator:
+          validator ??
+          (value) =>
+              value == null || value.isEmpty ? '$label is required' : null,
+      style: const TextStyle(color: AppColors.darkpink),
+      decoration: _inputDecoration(label).copyWith(
+        suffixIcon: IconButton(
+          onPressed: onToggle,
+          icon: Icon(
+            obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+            color: Colors.grey.shade600,
+          ),
+        ),
+      ),
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
+  InputDecoration _inputDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: AppColors.burgundy),
+      filled: true,
+      fillColor: AppColors.cream.withOpacity(0.55),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: AppColors.darkpink, width: 1.4),
+      ),
+    );
+  }
+
+  Widget _button({
+    required String label,
+    required IconData icon,
+    required bool isLoading,
+    required VoidCallback? onPressed,
+  }) {
     return SizedBox(
       width: double.infinity,
-      child: ElevatedButton.icon(
+      height: 50,
+      child: ElevatedButton(
         onPressed: onPressed,
-        icon: Icon(icon, size: 18),
-        label: Text(
-          label,
-          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-        ),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.darkpink,
           foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 14),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(14),
           ),
-          elevation: 0,
         ),
+        child: isLoading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(icon, size: 19),
+                  const SizedBox(width: 8),
+                  Text(
+                    label,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
       ),
     );
   }

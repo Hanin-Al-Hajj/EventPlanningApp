@@ -1,7 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:event_planner/models/vendor.dart';
-import 'package:event_planner/services/api_service.dart';
+import 'package:event_planner/repositories/filtered_vendor_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:event_planner/screens/assistant/place_order_screen.dart';
@@ -18,8 +19,6 @@ class FilteredVendorScreen extends StatefulWidget {
 
 class _FilteredVendorScreenState extends State<FilteredVendorScreen> {
   List<Vendor> _vendors = [];
-  String _taskTitle = '';
-  String _eventId = ''; // ← store event id from task
   bool _isLoading = true;
   String? _errorMessage;
   Map<int, bool> _orderStatus = {};
@@ -27,72 +26,115 @@ class _FilteredVendorScreenState extends State<FilteredVendorScreen> {
   @override
   void initState() {
     super.initState();
-    _loadTaskVendors();
-    _loadOrders();
-  }
+    FilteredVendorRepository.taskVendors.addListener(_onVendorsChanged);
+    FilteredVendorRepository.orderStatuses.addListener(_onOrderStatusesChanged);
 
-  Future<void> _loadOrders() async {
-    try {
-      final result = await ApiService.getMyOrders();
-      if (result['success'] == true) {
-        final orders = result['data'] as List? ?? [];
-        setState(() {
-          for (var order in orders) {
-            if (order['task_id'] == widget.taskId) {
-              _orderStatus[order['vendor_id']] = true;
-            }
-          }
-        });
-      }
-    } catch (_) {}
-  }
-
-  Future<void> _loadTaskVendors() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-    try {
-      final result = await ApiService.getTaskVendors(widget.taskId);
-
-      if (!mounted) return;
-
-      if (result['success'] == true) {
-        final data = result['data'];
-        final vendorsList = data['vendors'] as List? ?? [];
-        final task = data['task'] as Map<String, dynamic>? ?? {};
-
-        setState(() {
-          _vendors = vendorsList
-              .map((v) => Vendor.fromJson(Map<String, dynamic>.from(v)))
-              .toList();
-          _taskTitle = task['title'] ?? '';
-          _eventId = task['event_id']?.toString() ?? ''; // ← grab event_id
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _errorMessage = result['message'] ?? 'Failed to load vendors';
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _errorMessage = 'Connection error. Please try again.';
-        _isLoading = false;
-      });
+    if (FilteredVendorRepository.hasCache(widget.taskId)) {
+      _vendors = FilteredVendorRepository.getCachedVendors(widget.taskId);
+      _orderStatus = FilteredVendorRepository.getCachedOrderStatus(
+        widget.taskId,
+      );
+      _isLoading = false;
+      unawaited(
+        FilteredVendorRepository.loadTaskVendors(
+          widget.taskId,
+          forceRefresh: true,
+        ),
+      );
+      unawaited(FilteredVendorRepository.loadOrderStatuses(widget.taskId));
+    } else {
+      unawaited(_loadData());
     }
   }
 
-  Future<void> _launchURL(String url) async {
-    final Uri uri = Uri.parse(url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Could not open link')));
-      }
+  @override
+  void dispose() {
+    FilteredVendorRepository.taskVendors.removeListener(_onVendorsChanged);
+    FilteredVendorRepository.orderStatuses.removeListener(
+      _onOrderStatusesChanged,
+    );
+    super.dispose();
+  }
+
+  void _onVendorsChanged() {
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      setState(() {
+        _vendors = FilteredVendorRepository.getCachedVendors(widget.taskId);
+        _isLoading = false;
+        _errorMessage = null;
+      });
+    });
+  }
+
+  void _onOrderStatusesChanged() {
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      setState(() {
+        _orderStatus = FilteredVendorRepository.getCachedOrderStatus(
+          widget.taskId,
+        );
+      });
+    });
+  }
+
+  Future<void> _loadData({bool forceRefresh = false}) async {
+    if (!forceRefresh && FilteredVendorRepository.hasCache(widget.taskId)) {
+      setState(() {
+        _vendors = FilteredVendorRepository.getCachedVendors(widget.taskId);
+        _orderStatus = FilteredVendorRepository.getCachedOrderStatus(
+          widget.taskId,
+        );
+        _isLoading = false;
+        _errorMessage = null;
+      });
+      unawaited(
+        FilteredVendorRepository.loadTaskVendors(
+          widget.taskId,
+          forceRefresh: true,
+        ),
+      );
+      unawaited(FilteredVendorRepository.loadOrderStatuses(widget.taskId));
+      return;
+    }
+
+    if (_vendors.isEmpty) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      await FilteredVendorRepository.loadTaskVendors(
+        widget.taskId,
+        forceRefresh: forceRefresh,
+      );
+      await FilteredVendorRepository.loadOrderStatuses(widget.taskId);
+
+      if (!mounted) return;
+
+      setState(() {
+        _vendors = FilteredVendorRepository.getCachedVendors(widget.taskId);
+        _orderStatus = FilteredVendorRepository.getCachedOrderStatus(
+          widget.taskId,
+        );
+        _isLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = _vendors.isEmpty
+            ? 'Something went wrong. Please try again.'
+            : null;
+        _isLoading = false;
+      });
     }
   }
 
@@ -162,7 +204,7 @@ class _FilteredVendorScreenState extends State<FilteredVendorScreen> {
                   ),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: _loadTaskVendors,
+                    onPressed: () => _loadData(forceRefresh: true),
                     child: const Text('Retry'),
                   ),
                 ],
@@ -193,7 +235,7 @@ class _FilteredVendorScreenState extends State<FilteredVendorScreen> {
               ),
             )
           : RefreshIndicator(
-              onRefresh: _loadTaskVendors,
+              onRefresh: () => _loadData(forceRefresh: true),
               child: ListView.builder(
                 padding: const EdgeInsets.all(16),
                 itemCount: _vendors.length,
@@ -300,7 +342,11 @@ class _FilteredVendorScreenState extends State<FilteredVendorScreen> {
                             vendorName: vendor.name,
                           ),
                         ),
-                      ).then((_) => _loadOrders());
+                      ).then(
+                        (_) => FilteredVendorRepository.loadOrderStatuses(
+                          widget.taskId,
+                        ),
+                      );
                     },
                   ),
                 ),

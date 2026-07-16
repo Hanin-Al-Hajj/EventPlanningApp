@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/models/plannerEvent.dart';
+import 'package:event_planner/repositories/planner_events_repository.dart';
+import 'package:event_planner/repositories/planner_task_repository.dart';
 import 'package:event_planner/screens/planner_tabs_screen.dart';
-import 'package:event_planner/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:event_planner/screens/planner/monthly_calender.dart';
@@ -19,11 +22,9 @@ class _MyEventsState extends State<MyEvents> {
 
   List<Event> _events = [];
   List<Event> _filteredEvents = [];
-  List<Event>? _cachedEvents;
 
   MyEventFilter _selectedFilter = MyEventFilter.all;
   MyEventStats _stats = const MyEventStats.empty();
-  MyEventStats _cachedStats = const MyEventStats.empty();
 
   bool _isLoading = true;
   String? _errorMessage;
@@ -32,97 +33,139 @@ class _MyEventsState extends State<MyEvents> {
   @override
   void initState() {
     super.initState();
-    _loadEvents();
+    PlannerEventsRepository.cache.addListener(_onEventsChanged);
     _searchController.addListener(_filterEvents);
+
+    if (PlannerEventsRepository.hasCache) {
+      _events = PlannerEventsRepository.cachedEvents;
+      _stats = PlannerEventsRepository.cachedStats;
+      _filteredEvents = _applyFilters(_events);
+      _isLoading = false;
+      _prefetchTaskCaches();
+      unawaited(PlannerEventsRepository.refreshInBackground());
+    } else {
+      unawaited(_loadEvents());
+    }
   }
 
   @override
   void dispose() {
+    PlannerEventsRepository.cache.removeListener(_onEventsChanged);
+    _searchController.removeListener(_filterEvents);
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadEvents() async {
-    if (_cachedEvents != null) {
+  void _onEventsChanged() {
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
       setState(() {
-        _events = _cachedEvents!;
-        _filteredEvents = List.from(_events);
-        _stats = _cachedStats;
+        _events = PlannerEventsRepository.cachedEvents;
+        _stats = PlannerEventsRepository.cachedStats;
+        _filteredEvents = _applyFilters(_events);
         _isLoading = false;
+        _errorMessage = null;
       });
+
+      _prefetchTaskCaches();
+    });
+  }
+
+  Future<void> _loadEvents({bool forceRefresh = false}) async {
+    if (!forceRefresh && PlannerEventsRepository.hasCache) {
+      if (mounted) {
+        setState(() {
+          _events = PlannerEventsRepository.cachedEvents;
+          _stats = PlannerEventsRepository.cachedStats;
+          _filteredEvents = _applyFilters(_events);
+          _isLoading = false;
+          _errorMessage = null;
+        });
+      }
+      _prefetchTaskCaches();
+      unawaited(PlannerEventsRepository.refreshInBackground());
       return;
     }
 
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    if (mounted && _events.isEmpty) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
-      final result = await ApiService.getPlannerEvents();
+      await PlannerEventsRepository.loadEvents(forceRefresh: forceRefresh);
       if (!mounted) return;
 
-      if (result['success'] == true) {
-        final data = result['data'];
-        if (data is! Map) {
-          setState(() {
-            _errorMessage = 'Invalid events data';
-            _isLoading = false;
-          });
-          return;
-        }
-
-        final response = MyEventsResponse.fromJson(
-          Map<String, dynamic>.from(data),
-        );
-
-        _cachedEvents = response.events;
-        _cachedStats = response.stats;
-
-        setState(() {
-          _events = response.events;
-          _stats = response.stats;
-          _isLoading = false;
-        });
-        _filterEvents();
-      } else {
-        setState(() {
-          _errorMessage = result['message'] ?? 'Failed to load events';
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _events = PlannerEventsRepository.cachedEvents;
+        _stats = PlannerEventsRepository.cachedStats;
+        _filteredEvents = _applyFilters(_events);
+        _errorMessage = null;
+        _isLoading = false;
+      });
+      _prefetchTaskCaches();
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = 'Connection error';
+        _errorMessage = _events.isEmpty ? 'Connection error' : null;
         _isLoading = false;
       });
     }
   }
 
   Future<void> _refreshEvents() async {
-    _clearCache();
-    await _loadEvents();
+    await _loadEvents(forceRefresh: true);
   }
 
-  void _clearCache() {
-    _cachedEvents = null;
-    _cachedStats = const MyEventStats.empty();
+  List<Event> _applyFilters(List<Event> source) {
+    final query = _searchController.text.toLowerCase();
+
+    return source.where((event) {
+      final matchesSearch =
+          query.isEmpty ||
+          event.title.toLowerCase().contains(query) ||
+          (event.clientName?.toLowerCase().contains(query) ?? false);
+      final matchesFilter = _selectedFilter.matches(event);
+      return matchesSearch && matchesFilter;
+    }).toList();
   }
 
   void _filterEvents() {
-    final query = _searchController.text.toLowerCase();
+    if (!mounted) return;
 
     setState(() {
-      _filteredEvents = _events.where((event) {
-        final matchesSearch =
-            query.isEmpty ||
-            event.title.toLowerCase().contains(query) ||
-            (event.clientName?.toLowerCase().contains(query) ?? false);
-        final matchesFilter = _selectedFilter.matches(event);
-        return matchesSearch && matchesFilter;
-      }).toList();
+      _filteredEvents = _applyFilters(_events);
     });
+  }
+
+  void _prefetchTaskCaches({int limit = 5}) {
+    final eventIds = _events
+        .map((event) => int.tryParse(event.id))
+        .whereType<int>()
+        .where((eventId) => !PlannerTaskRepository.hasCache(eventId))
+        .take(limit);
+
+    for (final eventId in eventIds) {
+      unawaited(PlannerTaskRepository.loadTasks(eventId: eventId));
+    }
+  }
+
+  void _openEvent(Event event) {
+    final eventId = int.tryParse(event.id);
+
+    if (eventId != null && !PlannerTaskRepository.hasCache(eventId)) {
+      unawaited(PlannerTaskRepository.loadTasks(eventId: eventId));
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => Plannertabsscreen(event: event)),
+    );
   }
 
   Future<void> _updateStatus(int eventId, MyEventStatus newStatus) async {
@@ -130,7 +173,13 @@ class _MyEventsState extends State<MyEvents> {
     if (index == -1) return;
 
     final oldEvent = _events[index];
-    final oldStats = _stats;
+    final previousEvents = List<Event>.from(_events);
+    final previousStats = _stats;
+
+    PlannerEventsRepository.updateStatusLocally(
+      eventId: oldEvent.id,
+      status: newStatus,
+    );
 
     setState(() {
       _events = List<Event>.from(_events);
@@ -139,19 +188,19 @@ class _MyEventsState extends State<MyEvents> {
         oldStatus: oldEvent.status,
         newStatus: newStatus,
       );
-      _cachedEvents = null;
+      _filteredEvents = _applyFilters(_events);
     });
-    _filterEvents();
 
     try {
-      final result = await ApiService.updateEventStatus(
-        eventId,
-        newStatus.apiValue,
+      final result = await PlannerEventsRepository.updateStatus(
+        eventId: eventId,
+        status: newStatus,
       );
       if (!mounted) return;
 
       if (result['success'] == true) {
         _statusChanged = true;
+        unawaited(PlannerEventsRepository.refreshInBackground());
 
         final isCancelled = newStatus == MyEventStatus.cancelled;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -161,26 +210,24 @@ class _MyEventsState extends State<MyEvents> {
           ),
         );
       } else {
-        _rollbackStatusUpdate(index, oldEvent, oldStats);
+        _rollbackStatusUpdate(previousEvents, previousStats);
         await _refreshEvents();
       }
     } catch (e) {
       if (!mounted) return;
-      _rollbackStatusUpdate(index, oldEvent, oldStats);
+      _rollbackStatusUpdate(previousEvents, previousStats);
       await _refreshEvents();
     }
   }
 
-  void _rollbackStatusUpdate(int index, Event oldEvent, MyEventStats oldStats) {
-    if (index < 0 || index >= _events.length) return;
+  void _rollbackStatusUpdate(List<Event> oldEvents, MyEventStats oldStats) {
+    PlannerEventsRepository.setCache(events: oldEvents, stats: oldStats);
 
     setState(() {
-      _events = List<Event>.from(_events);
-      _events[index] = oldEvent;
+      _events = List<Event>.from(oldEvents);
       _stats = oldStats;
-      _cachedEvents = null;
+      _filteredEvents = _applyFilters(_events);
     });
-    _filterEvents();
   }
 
   void _showStatusPicker(Event event) {
@@ -304,13 +351,31 @@ class _MyEventsState extends State<MyEvents> {
     final parsedId = int.tryParse(event.id);
     if (parsedId == null) return;
 
+    final previousEvents = List<Event>.from(_events);
+    final previousStats = _stats;
+
+    PlannerEventsRepository.removeEventLocally(event.id);
+
     setState(() {
       _events.removeWhere((e) => e.id == event.id);
       _filteredEvents.removeWhere((e) => e.id == event.id);
-      _cachedEvents = null;
     });
 
-    await ApiService.archivePlannerEvent(parsedId);
+    try {
+      final result = await PlannerEventsRepository.archiveEvent(parsedId);
+      if (!mounted) return;
+
+      if (result is Map && result['success'] == false) {
+        _rollbackStatusUpdate(previousEvents, previousStats);
+        return;
+      }
+
+      _statusChanged = true;
+      unawaited(PlannerEventsRepository.refreshInBackground());
+    } catch (e) {
+      if (!mounted) return;
+      _rollbackStatusUpdate(previousEvents, previousStats);
+    }
   }
 
   Color _statusColor(MyEventStatus status) {
@@ -533,7 +598,8 @@ class _MyEventsState extends State<MyEvents> {
                               ),
                               const SizedBox(height: 12),
                               ElevatedButton(
-                                onPressed: _loadEvents,
+                                onPressed: () =>
+                                    _loadEvents(forceRefresh: true),
                                 child: const Text('Retry'),
                               ),
                             ],
@@ -630,17 +696,58 @@ class _MyEventsState extends State<MyEvents> {
     );
   }
 
+  bool _isOverdue(Event event) {
+    final now = DateTime.now();
+
+    final today = DateTime(now.year, now.month, now.day);
+    final eventDate = DateTime(
+      event.date.year,
+      event.date.month,
+      event.date.day,
+    );
+
+    final status = MyEventStatus.fromString(event.status);
+
+    return eventDate.isBefore(today) &&
+        status != MyEventStatus.completed &&
+        status != MyEventStatus.cancelled;
+  }
+
+  Widget _overdueChip() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(14)),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.warning_amber_rounded,
+            size: 12,
+            color: AppColors.darkpink,
+          ),
+          SizedBox(width: 4),
+          Text(
+            'Overdue',
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: AppColors.darkpink,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEventCard(Event event) {
     final status = MyEventStatus.fromString(event.status);
     final statusColor = _statusColor(status);
+    final isOverdue = _isOverdue(event);
     final formattedDate =
         '${event.date.day}/${event.date.month}/${event.date.year}';
 
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => Plannertabsscreen(event: event)),
-      ),
+      onTap: () => _openEvent(event),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
@@ -678,7 +785,6 @@ class _MyEventsState extends State<MyEvents> {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      // ignore: deprecated_member_use
                       color: statusColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: statusColor.withOpacity(0.3)),
@@ -722,6 +828,7 @@ class _MyEventsState extends State<MyEvents> {
                 _infoRow(Icons.people_outline, '${event.guests} guests'),
                 const SizedBox(width: 16),
                 _infoRow(Icons.attach_money, '\$${event.budget}'),
+                if (isOverdue) ...[const Spacer(), _overdueChip()],
               ],
             ),
           ],

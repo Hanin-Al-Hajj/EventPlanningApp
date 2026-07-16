@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:event_planner/constants/app_colors.dart';
+import 'package:event_planner/models/message_chat.dart';
+import 'package:event_planner/repositories/message_repository.dart';
 import 'package:event_planner/screens/profile_screen.dart';
 import 'package:event_planner/screens/client/client_setting.dart';
 import 'package:event_planner/services/api_service.dart';
@@ -14,44 +17,76 @@ class MessagesScreenClient extends StatefulWidget {
 }
 
 class _MessagesScreenClientState extends State<MessagesScreenClient> {
-  List<Map<String, dynamic>> _chats = [];
-  bool _isLoading = true;
+  List<MessageChat> _chats = [];
+  bool _isLoading = false;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _loadChats();
+
+    MessageRepository.chats.addListener(_onChatsChanged);
+    _chats = MessageRepository.cachedChats;
+
+    if (MessageRepository.hasCache) {
+      unawaited(MessageRepository.refreshInBackground());
+    } else {
+      unawaited(_loadChats());
+    }
   }
 
-  Future<void> _loadChats() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
+  @override
+  void dispose() {
+    MessageRepository.chats.removeListener(_onChatsChanged);
+    super.dispose();
+  }
+
+  void _onChatsChanged() {
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      setState(() {
+        _chats = MessageRepository.cachedChats;
+        _errorMessage = null;
+      });
     });
+  }
+
+  Future<void> _loadChats({bool showLoader = true}) async {
+    if (!mounted) return;
+
+    final hasCache = MessageRepository.hasCache;
+
+    if (showLoader && !hasCache) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    } else if (_errorMessage != null) {
+      setState(() {
+        _errorMessage = null;
+      });
+    }
 
     try {
-      final result = await ApiService.getMessagesEvents();
-
+      await MessageRepository.loadChats(forceRefresh: true);
       if (!mounted) return;
 
-      if (result['success'] == true) {
-        final List<dynamic> data = result['data'] ?? [];
-        setState(() {
-          _chats = data.map((e) => Map<String, dynamic>.from(e)).toList();
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _errorMessage = result['message'] ?? 'Failed to load chats';
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
-      if (!mounted) return;
       setState(() {
-        _errorMessage = 'Connection error';
+        _chats = MessageRepository.cachedChats;
         _isLoading = false;
+        _errorMessage = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        if (!MessageRepository.hasCache && _chats.isEmpty) {
+          _errorMessage = 'Connection error';
+        }
       });
     }
   }
@@ -92,6 +127,11 @@ class _MessagesScreenClientState extends State<MessagesScreenClient> {
         ],
       ),
     );
+
+    if (confirm == true && mounted) {
+      await ApiService.logout();
+      Navigator.pushReplacementNamed(context, '/login');
+    }
   }
 
   @override
@@ -101,12 +141,10 @@ class _MessagesScreenClientState extends State<MessagesScreenClient> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
               child: Row(
                 children: [
-                  // Profile menu
                   PopupMenuButton<String>(
                     offset: const Offset(0, 45),
                     color: Colors.white,
@@ -193,8 +231,6 @@ class _MessagesScreenClientState extends State<MessagesScreenClient> {
                       ),
                     ),
                   ),
-
-                  // Title
                   const Expanded(
                     child: Text(
                       'Messages',
@@ -206,13 +242,10 @@ class _MessagesScreenClientState extends State<MessagesScreenClient> {
                       ),
                     ),
                   ),
-
                   const SizedBox(width: 48),
                 ],
               ),
             ),
-
-            // Subtitle
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22),
               child: Text(
@@ -224,10 +257,7 @@ class _MessagesScreenClientState extends State<MessagesScreenClient> {
                 ),
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // Chat list
             Expanded(
               child: _isLoading
                   ? const Center(
@@ -236,28 +266,7 @@ class _MessagesScreenClientState extends State<MessagesScreenClient> {
                       ),
                     )
                   : _errorMessage != null
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            size: 48,
-                            color: Colors.grey.shade400,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _errorMessage!,
-                            style: TextStyle(color: Colors.grey.shade600),
-                          ),
-                          const SizedBox(height: 12),
-                          TextButton(
-                            onPressed: _loadChats,
-                            child: const Text('Retry'),
-                          ),
-                        ],
-                      ),
-                    )
+                  ? _buildErrorState()
                   : _chats.isEmpty
                   ? _buildEmptyState()
                   : _buildChatList(),
@@ -268,223 +277,229 @@ class _MessagesScreenClientState extends State<MessagesScreenClient> {
     );
   }
 
-  // Empty state when no planners
-  Widget _buildEmptyState() {
+  Widget _buildErrorState() {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: AppColors.green.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.chat_bubble_outline,
-                size: 40,
-                color: AppColors.green.withOpacity(0.6),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'No messages yet',
-              style: TextStyle(
-                fontSize: 18,
-                color: AppColors.green.withOpacity(0.8),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Create an event and choose a planner to start chatting',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.green.withOpacity(0.6),
-                height: 1.4,
-              ),
-            ),
-          ],
-        ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
+          const SizedBox(height: 12),
+          Text(_errorMessage!, style: TextStyle(color: Colors.grey.shade600)),
+          const SizedBox(height: 12),
+          TextButton(onPressed: () => _loadChats(), child: const Text('Retry')),
+        ],
       ),
     );
   }
 
-  // WhatsApp-style chat list
-  Widget _buildChatList() {
-    return ListView.separated(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: _chats.length,
-      separatorBuilder: (context, index) =>
-          Divider(color: Colors.grey.shade200, height: 1, indent: 72),
-      itemBuilder: (context, index) {
-        final chat = _chats[index];
-        final plannerName = chat['planner']?['name'] ?? 'Planner';
-        final eventName = chat['name'] ?? 'Event';
-        final lastMessage =
-            chat['last_message']?['message'] ?? 'Start conversation...';
-        final lastTime = chat['last_message']?['created_at'] ?? '';
-        final unreadCount = int.tryParse('${chat['unread_count'] ?? 0}') ?? 0;
-        final eventId = chat['id']?.toString() ?? '';
-
-        return InkWell(
-          onTap: () async {
-            final parsedEventId = int.tryParse(eventId);
-            if (parsedEventId == null) return;
-
-            setState(() {
-              _chats[index]['unread_count'] = 0;
-            });
-
-            ApiService.markClientEventMessagesAsRead(parsedEventId).catchError((
-              e,
-            ) {
-              debugPrint('Mark client messages as read error: $e');
-            });
-
-            await Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ChatScreen(
-                  eventId: parsedEventId,
-                  eventName: eventName,
-                  plannerName: plannerName,
-                  isPlanner: false,
-                  onRead: () {
-                    if (!mounted || index >= _chats.length) return;
-
-                    setState(() {
-                      _chats[index]['unread_count'] = 0;
-                    });
-                  },
-                ),
-              ),
-            );
-
-            if (mounted) {
-              _loadChats();
-            }
-          },
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            child: Row(
+  Widget _buildEmptyState() {
+    return RefreshIndicator(
+      onRefresh: () => _loadChats(showLoader: false),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.18),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Avatar with event initial
-                CircleAvatar(
-                  radius: 26,
-                  backgroundColor: AppColors.darkpink.withOpacity(0.12),
-                  child: Text(
-                    eventName.isNotEmpty ? eventName[0].toUpperCase() : 'E',
-                    style: const TextStyle(
-                      color: AppColors.darkpink,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: AppColors.green.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.chat_bubble_outline,
+                    size: 40,
+                    color: AppColors.green.withOpacity(0.6),
                   ),
                 ),
-
-                const SizedBox(width: 14),
-
-                // Event name, planner name + last message
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Event name (main title)
-                      Text(
-                        eventName,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.burgundy,
-                        ),
-                      ),
-                      const SizedBox(height: 3),
-
-                      // Planner name with person icon + last message
-                      Row(
-                        children: [
-                          Icon(Icons.person, size: 14, color: AppColors.coral),
-                          const SizedBox(width: 4),
-                          Text(
-                            plannerName,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: AppColors.darkpink.withOpacity(0.8),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '•',
-                            style: TextStyle(
-                              color: AppColors.green.withOpacity(0.6),
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Flexible(
-                            child: Text(
-                              lastMessage,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppColors.green.withOpacity(0.6),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                const SizedBox(height: 20),
+                Text(
+                  'No messages yet',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: AppColors.green.withOpacity(0.8),
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-
-                const SizedBox(width: 8),
-
-                // Time + unread badge
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    if (lastTime.isNotEmpty)
-                      Text(
-                        lastTime,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.green.withOpacity(0.7),
-                        ),
-                      ),
-                    const SizedBox(height: 4),
-                    if (unreadCount > 0)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 7,
-                          vertical: 3,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.darkpink,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          unreadCount.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                  ],
+                const SizedBox(height: 8),
+                Text(
+                  'Create an event and choose a planner to start chatting',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.green.withOpacity(0.6),
+                    height: 1.4,
+                  ),
                 ),
               ],
             ),
           ),
-        );
-      },
+        ],
+      ),
     );
+  }
+
+  Widget _buildChatList() {
+    return RefreshIndicator(
+      onRefresh: () => _loadChats(showLoader: false),
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _chats.length,
+        separatorBuilder: (context, index) =>
+            Divider(color: Colors.grey.shade200, height: 1, indent: 72),
+        itemBuilder: (context, index) {
+          final chat = _chats[index];
+
+          return InkWell(
+            onTap: () => _openChat(chat),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 26,
+                    backgroundColor: AppColors.darkpink.withOpacity(0.12),
+                    child: Text(
+                      chat.eventName.isNotEmpty
+                          ? chat.eventName[0].toUpperCase()
+                          : 'E',
+                      style: const TextStyle(
+                        color: AppColors.darkpink,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          chat.eventName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.burgundy,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.person,
+                              size: 14,
+                              color: AppColors.coral,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              chat.plannerName,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppColors.darkpink.withOpacity(0.8),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '-',
+                              style: TextStyle(
+                                color: AppColors.green.withOpacity(0.6),
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Text(
+                                chat.lastMessageText,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.green.withOpacity(0.6),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      if (chat.lastMessageTime.isNotEmpty)
+                        Text(
+                          chat.lastMessageTime,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.green.withOpacity(0.7),
+                          ),
+                        ),
+                      const SizedBox(height: 4),
+                      if (chat.unreadCount > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.darkpink,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            chat.unreadCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _openChat(MessageChat chat) async {
+    if (chat.id == 0) return;
+
+    MessageRepository.markRead(chat.id);
+
+    ApiService.markClientEventMessagesAsRead(chat.id).catchError((e) {
+      debugPrint('Mark client messages as read error: $e');
+    });
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          eventId: chat.id,
+          eventName: chat.eventName,
+          plannerName: chat.plannerName,
+          isPlanner: false,
+          onRead: () => MessageRepository.markRead(chat.id),
+        ),
+      ),
+    );
+
+    if (mounted) {
+      unawaited(MessageRepository.refreshInBackground());
+    }
   }
 }

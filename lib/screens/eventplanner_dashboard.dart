@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:event_planner/models/planner_dashboard.dart';
+import 'package:event_planner/repositories/planner_dashboard_repository.dart';
 import 'package:event_planner/screens/planner/Messages_screen_planner.dart';
 import 'package:event_planner/screens/planner/analytics.dart';
 import 'package:event_planner/screens/planner/my_events.dart';
@@ -10,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:event_planner/screens/planner/archive.dart';
 import 'package:event_planner/screens/planner/planner_setting.dart';
+import 'package:event_planner/screens/planner/planner_profile_screen.dart';
 
 class EventPlannerDashboard extends StatefulWidget {
   const EventPlannerDashboard({super.key});
@@ -26,15 +30,9 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
     initialPage: _initialWeekPage,
   );
 
-  final Map<String, List<PlannerCalendarDay>> _cachedCalendarDays = {};
-  final Map<String, List<PlannerDashboardEvent>> _cachedDayEvents = {};
-  final Map<String, Future<void>> _dashboardLoads = {};
-  Future<void>? _requestsLoad;
-
   DateTime _selectedDate = DateTime.now();
   bool _isLoadingDashboard = false;
   bool _isLoadingRequests = false;
-  bool _hasLoadedRequests = false;
   String? _activeDashboardKey;
 
   List<PlannerCalendarDay> _calendarDays = [];
@@ -45,9 +43,68 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
   void initState() {
     super.initState();
     _activeDashboardKey = _dateKey(_startOfWeek(_selectedDate));
-    _loadDashboard(date: _activeDashboardKey);
-    _loadRequests();
+
+    PlannerDashboardRepository.dashboardChanges.addListener(
+      _onDashboardChanged,
+    );
+    PlannerDashboardRepository.requests.addListener(_onRequestsChanged);
+
+    final activeDashboard = PlannerDashboardRepository.cachedDashboard(
+      _activeDashboardKey!,
+    );
+    if (activeDashboard != null) {
+      _calendarDays = activeDashboard.calendarDays;
+      _dayEvents = activeDashboard.dayEvents;
+      unawaited(
+        PlannerDashboardRepository.refreshDashboardInBackground(
+          _activeDashboardKey!,
+        ),
+      );
+    } else {
+      unawaited(_loadDashboard(date: _activeDashboardKey));
+    }
+
+    _clientRequests = PlannerDashboardRepository.cachedRequests;
+    if (PlannerDashboardRepository.hasRequestsCache) {
+      unawaited(PlannerDashboardRepository.refreshRequestsInBackground());
+    } else {
+      unawaited(_loadRequests());
+    }
+
     _loadUnreadCount();
+  }
+
+  void _onDashboardChanged() {
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      final cacheKey = _activeDashboardKey;
+      if (cacheKey == null) return;
+
+      final dashboard = PlannerDashboardRepository.cachedDashboard(cacheKey);
+      if (dashboard == null) return;
+
+      setState(() {
+        _calendarDays = dashboard.calendarDays;
+        _dayEvents = dashboard.dayEvents;
+        _isLoadingDashboard = false;
+      });
+    });
+  }
+
+  void _onRequestsChanged() {
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      setState(() {
+        _clientRequests = PlannerDashboardRepository.cachedRequests;
+        _isLoadingRequests = false;
+      });
+    });
   }
 
   Future<void> _loadUnreadCount() async {
@@ -80,13 +137,20 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
     final cacheKey = date ?? _dateKey(_startOfWeek(_selectedDate));
     _activeDashboardKey = cacheKey;
 
-    if (!forceRefresh && _showCachedDashboard(cacheKey)) {
-      return;
-    }
-
-    final pendingLoad = _dashboardLoads[cacheKey];
-    if (!forceRefresh && pendingLoad != null) {
-      await pendingLoad;
+    final cachedDashboard = PlannerDashboardRepository.cachedDashboard(
+      cacheKey,
+    );
+    if (cachedDashboard != null && !forceRefresh) {
+      if (mounted) {
+        setState(() {
+          _calendarDays = cachedDashboard.calendarDays;
+          _dayEvents = cachedDashboard.dayEvents;
+          _isLoadingDashboard = false;
+        });
+      }
+      unawaited(
+        PlannerDashboardRepository.refreshDashboardInBackground(cacheKey),
+      );
       return;
     }
 
@@ -95,66 +159,38 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
       setState(() => _isLoadingDashboard = true);
     }
 
-    final load = () async {
-      try {
-        final result = await ApiService.getPlannerDashboard(date: cacheKey);
-        if (!mounted) return;
+    try {
+      await PlannerDashboardRepository.loadDashboard(
+        weekKey: cacheKey,
+        forceRefresh: forceRefresh,
+      );
+      if (!mounted || _activeDashboardKey != cacheKey) return;
 
-        if (result['success'] == true) {
-          final data = result['data'];
-          if (data is! Map) return;
+      final dashboard = PlannerDashboardRepository.cachedDashboard(cacheKey);
+      if (dashboard == null) return;
 
-          final dashboard = PlannerDashboard.fromJson(
-            Map<String, dynamic>.from(data),
-          );
-
-          _cachedCalendarDays[cacheKey] = dashboard.calendarDays;
-          _cachedDayEvents[cacheKey] = dashboard.dayEvents;
-
-          if (_activeDashboardKey != cacheKey) return;
-
-          setState(() {
-            _calendarDays = dashboard.calendarDays;
-            _dayEvents = dashboard.dayEvents;
-          });
-        }
-      } catch (e) {
-        debugPrint('Dashboard load error: $e');
-      } finally {
-        if (mounted && _activeDashboardKey == cacheKey) {
-          setState(() => _isLoadingDashboard = false);
-        }
-      }
-    }();
-
-    _dashboardLoads[cacheKey] = load;
-    await load;
-    if (_dashboardLoads[cacheKey] == load) {
-      _dashboardLoads.remove(cacheKey);
-    }
-  }
-
-  bool _showCachedDashboard(String cacheKey) {
-    final cachedCalendarDays = _cachedCalendarDays[cacheKey];
-    if (cachedCalendarDays == null) return false;
-
-    if (mounted) {
       setState(() {
-        _calendarDays = cachedCalendarDays;
-        _dayEvents = _cachedDayEvents[cacheKey] ?? [];
-        _isLoadingDashboard = false;
+        _calendarDays = dashboard.calendarDays;
+        _dayEvents = dashboard.dayEvents;
       });
+    } catch (e) {
+      debugPrint('Dashboard load error: $e');
+    } finally {
+      if (mounted && _activeDashboardKey == cacheKey) {
+        setState(() => _isLoadingDashboard = false);
+      }
     }
-
-    return true;
   }
 
   Future<void> _loadRequests({bool forceRefresh = false}) async {
-    if (!forceRefresh && _hasLoadedRequests) return;
-
-    final pendingLoad = _requestsLoad;
-    if (!forceRefresh && pendingLoad != null) {
-      await pendingLoad;
+    if (!forceRefresh && PlannerDashboardRepository.hasRequestsCache) {
+      if (mounted) {
+        setState(() {
+          _clientRequests = PlannerDashboardRepository.cachedRequests;
+          _isLoadingRequests = false;
+        });
+      }
+      unawaited(PlannerDashboardRepository.refreshRequestsInBackground());
       return;
     }
 
@@ -162,42 +198,32 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
       setState(() => _isLoadingRequests = true);
     }
 
-    final load = () async {
-      try {
-        final result = await ApiService.getPlannerRequests();
-        if (!mounted) return;
+    try {
+      await PlannerDashboardRepository.loadRequests(forceRefresh: forceRefresh);
+      if (!mounted) return;
 
-        if (result['success'] == true) {
-          final data = result['data'];
-          if (data is! Map) return;
-
-          final response = PlannerRequestsResponse.fromJson(
-            Map<String, dynamic>.from(data),
-          );
-
-          setState(() {
-            _clientRequests = response.requests;
-            _hasLoadedRequests = true;
-          });
-        }
-      } catch (e) {
-        debugPrint('Requests load error: $e');
-      } finally {
-        if (mounted) {
-          setState(() => _isLoadingRequests = false);
-        }
+      setState(() {
+        _clientRequests = PlannerDashboardRepository.cachedRequests;
+      });
+    } catch (e) {
+      debugPrint('Requests load error: $e');
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingRequests = false);
       }
-    }();
-
-    _requestsLoad = load;
-    await load;
-    if (_requestsLoad == load) {
-      _requestsLoad = null;
     }
   }
 
   Future<void> _acceptRequest(PlannerClientRequest request) async {
+    final cacheKey =
+        _activeDashboardKey ?? _dateKey(_startOfWeek(_selectedDate));
     final acceptedEvent = request.toDashboardEvent();
+
+    PlannerDashboardRepository.removeRequest(request.id);
+    PlannerDashboardRepository.upsertEvent(
+      weekKey: cacheKey,
+      event: acceptedEvent,
+    );
 
     setState(() {
       _clientRequests.removeWhere((item) => item.id == request.id);
@@ -215,14 +241,13 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
     );
 
     try {
-      final result = await ApiService.acceptPlannerRequest(
-        request.id.toString(),
-      );
+      final result = await PlannerDashboardRepository.acceptRequest(request);
       if (!mounted) return;
 
       if (result['success'] == true) {
         _clearDashboardCacheFor(request.date);
-        _loadDashboard(forceRefresh: true);
+        unawaited(_loadDashboard(forceRefresh: true));
+        unawaited(PlannerDashboardRepository.refreshRequestsInBackground());
       } else {
         _rollbackAcceptedRequest(request, acceptedEvent);
       }
@@ -235,26 +260,40 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
   }
 
   Future<void> _declineRequest(PlannerClientRequest request) async {
+    PlannerDashboardRepository.removeRequest(request.id);
+    setState(() {
+      _clientRequests.removeWhere((item) => item.id == request.id);
+    });
+
     try {
-      final result = await ApiService.declinePlannerRequest(
-        request.id.toString(),
-      );
+      final result = await PlannerDashboardRepository.declineRequest(request);
       if (!mounted) return;
 
       if (result['success'] == true) {
-        setState(() {
-          _clientRequests.removeWhere((item) => item.id == request.id);
-        });
-
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Request declined'),
             backgroundColor: AppColors.darkpink,
           ),
         );
+      } else {
+        PlannerDashboardRepository.restoreRequest(request);
+        setState(() {
+          if (!_clientRequests.any((item) => item.id == request.id)) {
+            _clientRequests.insert(0, request);
+          }
+        });
       }
     } catch (e) {
       debugPrint('Decline error: $e');
+      if (!mounted) return;
+
+      PlannerDashboardRepository.restoreRequest(request);
+      setState(() {
+        if (!_clientRequests.any((item) => item.id == request.id)) {
+          _clientRequests.insert(0, request);
+        }
+      });
     }
   }
 
@@ -262,6 +301,15 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
     PlannerClientRequest request,
     PlannerDashboardEvent acceptedEvent,
   ) {
+    final cacheKey =
+        _activeDashboardKey ?? _dateKey(_startOfWeek(_selectedDate));
+
+    PlannerDashboardRepository.restoreRequest(request);
+    PlannerDashboardRepository.removeEvent(
+      weekKey: cacheKey,
+      eventId: acceptedEvent.id,
+    );
+
     setState(() {
       if (!_clientRequests.any((item) => item.id == request.id)) {
         _clientRequests.add(request);
@@ -280,9 +328,7 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
   }
 
   void _clearDashboardCacheFor(DateTime date) {
-    final cacheKey = _dateKey(_startOfWeek(date));
-    _cachedCalendarDays.remove(cacheKey);
-    _cachedDayEvents.remove(cacheKey);
+    PlannerDashboardRepository.clearDashboardCacheFor(date);
   }
 
   bool _isSameDay(DateTime a, DateTime b) {
@@ -394,6 +440,10 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
 
   @override
   void dispose() {
+    PlannerDashboardRepository.dashboardChanges.removeListener(
+      _onDashboardChanged,
+    );
+    PlannerDashboardRepository.requests.removeListener(_onRequestsChanged);
     _weekController.dispose();
     super.dispose();
   }
@@ -406,8 +456,7 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
 
     if (!mounted || shouldRefresh != true) return;
 
-    _cachedCalendarDays.clear();
-    _cachedDayEvents.clear();
+    PlannerDashboardRepository.clearDashboardCache();
 
     await _loadDashboard(
       date: _dateKey(_startOfWeek(_selectedDate)),
@@ -466,9 +515,15 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                               _popupItem('logout', Icons.logout, 'Logout'),
                             ],
                             onSelected: (value) {
-                              if (value == 'logout') {
-                                _handleLogout();
-                              } else if (value == "settings") {
+                              if (value == 'profile') {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const PlannerProfileScreen(),
+                                  ),
+                                );
+                              } else if (value == 'settings') {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
@@ -476,6 +531,8 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
                                         const PlannerSetting(),
                                   ),
                                 );
+                              } else if (value == 'logout') {
+                                _handleLogout();
                               }
                             },
                             child: Container(

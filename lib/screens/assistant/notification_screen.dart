@@ -3,6 +3,7 @@ import 'package:event_planner/constants/app_colors.dart';
 import 'package:event_planner/models/planner_notification.dart';
 import 'package:event_planner/widgets/planner/filter_tab.dart';
 import 'package:event_planner/services/api_service.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class NotificationScreen extends StatefulWidget {
   const NotificationScreen({super.key});
@@ -174,7 +175,11 @@ class _NotificationScreenState extends State<NotificationScreen> {
             onTap: () {
               Navigator.pop(context);
             },
-            child: const Icon(Icons.close, color: AppColors.darkpink, size: 29),
+            child: const Icon(
+              FontAwesomeIcons.xmark,
+              color: AppColors.darkpink,
+              size: 22,
+            ),
           ),
         ),
         Text(

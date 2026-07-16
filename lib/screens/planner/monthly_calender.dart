@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:event_planner/constants/app_colors.dart';
-import 'package:event_planner/services/api_service.dart';
+import 'package:event_planner/models/monthly_calendar.dart';
+import 'package:event_planner/repositories/monthly_calendar_repository.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class MonthlyCalendar extends StatefulWidget {
@@ -18,35 +22,56 @@ class _MonthlyCalendarState extends State<MonthlyCalendar> {
     initialPage: _initialMonthPage,
   );
 
-  final Map<String, List<Map<String, dynamic>>> _cachedMonths = {};
-
   DateTime _visibleMonth = DateTime(DateTime.now().year, DateTime.now().month);
   DateTime? _selectedDate;
 
   bool _isLoading = false;
-  List<Map<String, dynamic>> _calendarDays = [];
+  List<MonthlyCalendarDay> _calendarDays = [];
 
   @override
   void initState() {
     super.initState();
-    _calendarDays = _emptyMonthDays(_visibleMonth);
-    _loadMonth(_visibleMonth);
+    MonthlyCalendarRepository.changes.addListener(_onCalendarChanged);
+
+    _calendarDays = MonthlyCalendarRepository.daysForMonth(_visibleMonth);
+
+    if (MonthlyCalendarRepository.hasMonth(_visibleMonth)) {
+      unawaited(
+        MonthlyCalendarRepository.refreshMonthInBackground(_visibleMonth),
+      );
+    } else {
+      unawaited(_loadMonth(_visibleMonth));
+    }
   }
 
   @override
   void dispose() {
+    MonthlyCalendarRepository.changes.removeListener(_onCalendarChanged);
     _monthController.dispose();
     super.dispose();
   }
 
-  String _monthKey(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}';
+  void _onCalendarChanged() {
+    if (!mounted || !MonthlyCalendarRepository.hasMonth(_visibleMonth)) return;
+
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _applyCurrentMonthCache();
+      });
+      return;
+    }
+
+    _applyCurrentMonthCache();
   }
 
-  String _dateKey(DateTime date) {
-    return '${date.year}-'
-        '${date.month.toString().padLeft(2, '0')}-'
-        '${date.day.toString().padLeft(2, '0')}';
+  void _applyCurrentMonthCache() {
+    if (!mounted || !MonthlyCalendarRepository.hasMonth(_visibleMonth)) return;
+
+    setState(() {
+      _calendarDays = MonthlyCalendarRepository.daysForMonth(_visibleMonth);
+      _isLoading = false;
+    });
   }
 
   DateTime _monthForPage(int page) {
@@ -55,76 +80,34 @@ class _MonthlyCalendarState extends State<MonthlyCalendar> {
     return DateTime(now.year, now.month + diff);
   }
 
-  bool _isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
-  }
-
-  List<Map<String, dynamic>> _emptyMonthDays(DateTime month) {
-    final start = DateTime(month.year, month.month, 1);
-    final end = DateTime(month.year, month.month + 1, 0);
-
-    final calendarStart = start.subtract(Duration(days: start.weekday - 1));
-    final calendarEnd = end.add(Duration(days: 7 - end.weekday));
-
-    final days = <Map<String, dynamic>>[];
-    var day = calendarStart;
-
-    while (!day.isAfter(calendarEnd)) {
-      days.add({
-        'date': _dateKey(day),
-        'is_today': _isSameDay(day, DateTime.now()),
-        'is_current_month': day.month == month.month,
-        'dots': <dynamic>[],
-        'visible_dots': <dynamic>[],
-      });
-
-      day = day.add(const Duration(days: 1));
-    }
-
-    return days;
-  }
-
   Future<void> _loadMonth(DateTime month, {bool forceRefresh = false}) async {
-    final key = _monthKey(month);
-
-    if (!forceRefresh && _cachedMonths.containsKey(key)) {
-      setState(() {
-        _visibleMonth = month;
-        _calendarDays = _cachedMonths[key]!;
-      });
-      return;
-    }
+    final visibleKey = monthlyCalendarMonthKey(month);
+    final hadCache = MonthlyCalendarRepository.hasMonth(month);
 
     setState(() {
       _visibleMonth = month;
-      _isLoading = true;
-      _calendarDays = _emptyMonthDays(month);
+      _isLoading = forceRefresh || !hadCache;
+      _calendarDays = MonthlyCalendarRepository.daysForMonth(month);
     });
 
     try {
-      final result = await ApiService.getPlannerMonthlyCalendar(month: key);
+      final days = await MonthlyCalendarRepository.loadMonth(
+        month,
+        forceRefresh: forceRefresh,
+      );
       if (!mounted) return;
+      if (monthlyCalendarMonthKey(_visibleMonth) != visibleKey) return;
 
-      if (result['success'] == true) {
-        final data = result['data'];
-        final rawDays = data['calendar_days'] as List<dynamic>? ?? [];
-
-        final days = rawDays
-            .map((item) => Map<String, dynamic>.from(item as Map))
-            .toList();
-
-        _cachedMonths[key] = days;
-
-        setState(() {
-          _calendarDays = days;
-        });
-      }
+      setState(() {
+        _calendarDays = days;
+        _isLoading = false;
+      });
     } catch (e) {
       debugPrint('Monthly calendar error: $e');
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (!mounted) return;
+      if (monthlyCalendarMonthKey(_visibleMonth) != visibleKey) return;
+
+      setState(() => _isLoading = false);
     }
   }
 
@@ -304,21 +287,14 @@ class _MonthlyCalendarState extends State<MonthlyCalendar> {
     );
   }
 
-  Widget _buildDayCell(Map<String, dynamic> day) {
-    final date = DateTime.parse(day['date'].toString());
-    final isCurrentMonth = day['is_current_month'] == true;
-    final isToday = day['is_today'] == true;
+  Widget _buildDayCell(MonthlyCalendarDay day) {
+    final date = day.date;
     final isSelected =
-        _selectedDate != null && _isSameDay(date, _selectedDate!);
-
-    final dots =
-        (day['visible_dots'] as List<dynamic>?) ??
-        (day['dots'] as List<dynamic>?) ??
-        [];
+        _selectedDate != null && monthlyCalendarIsSameDay(date, _selectedDate!);
 
     return Expanded(
       child: GestureDetector(
-        onTap: () => _handleDayTap(day, date),
+        onTap: () => _handleDayTap(day),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(0, 10, 0, 4),
           child: Column(
@@ -330,7 +306,7 @@ class _MonthlyCalendarState extends State<MonthlyCalendar> {
                 decoration: BoxDecoration(
                   color: isSelected ? AppColors.darkpink : Colors.transparent,
                   shape: BoxShape.circle,
-                  border: isToday && !isSelected
+                  border: day.isToday && !isSelected
                       ? Border.all(color: AppColors.darkpink, width: 1.5)
                       : null,
                 ),
@@ -341,14 +317,14 @@ class _MonthlyCalendarState extends State<MonthlyCalendar> {
                     fontWeight: FontWeight.w800,
                     color: isSelected
                         ? Colors.white
-                        : isCurrentMonth
+                        : day.isCurrentMonth
                         ? AppColors.burgundy
                         : AppColors.burgundy.withOpacity(0.25),
                   ),
                 ),
               ),
               const SizedBox(height: 6),
-              _buildDots(dots, day['more_count']),
+              _buildDots(day.displayDots, day.moreCount),
             ],
           ),
         ),
@@ -356,36 +332,16 @@ class _MonthlyCalendarState extends State<MonthlyCalendar> {
     );
   }
 
-  void _handleDayTap(Map<String, dynamic> day, DateTime date) {
-    setState(() => _selectedDate = date);
+  void _handleDayTap(MonthlyCalendarDay day) {
+    setState(() => _selectedDate = day.date);
 
-    final eventsCount = day['events_count'] is int
-        ? day['events_count']
-        : int.tryParse('${day['events_count']}') ?? 0;
+    if (!day.hasEvents) return;
 
-    final dots =
-        (day['dots'] as List<dynamic>?) ??
-        (day['visible_dots'] as List<dynamic>?) ??
-        [];
-
-    if (eventsCount <= 0 && dots.isEmpty) return;
-
-    _showDayEventsSheet(date);
+    _showDayEventsSheet(day.date);
   }
 
-  Future<List<Map<String, dynamic>>> _loadDayEvents(DateTime date) async {
-    final result = await ApiService.getPlannerDayEvents(_dateKey(date));
-
-    if (result['success'] != true) return [];
-
-    final data = result['data'];
-    if (data is! Map) return [];
-
-    final rawEvents = data['events'] as List<dynamic>? ?? [];
-
-    return rawEvents
-        .map((item) => Map<String, dynamic>.from(item as Map))
-        .toList();
+  Future<List<MonthlyCalendarEvent>> _loadDayEvents(DateTime date) {
+    return MonthlyCalendarRepository.loadDayEvents(date);
   }
 
   void _showDayEventsSheet(DateTime date) {
@@ -398,17 +354,23 @@ class _MonthlyCalendarState extends State<MonthlyCalendar> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) {
+        final hasCache = MonthlyCalendarRepository.hasDayEvents(date);
+
         return SizedBox(
           width: double.infinity,
           child: SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-              child: FutureBuilder<List<Map<String, dynamic>>>(
+              child: FutureBuilder<List<MonthlyCalendarEvent>>(
                 future: _loadDayEvents(date),
+                initialData: hasCache
+                    ? MonthlyCalendarRepository.cachedDayEvents(date)
+                    : null,
                 builder: (context, snapshot) {
                   final isLoading =
-                      snapshot.connectionState == ConnectionState.waiting;
-                  final events = snapshot.data ?? [];
+                      snapshot.connectionState == ConnectionState.waiting &&
+                      !hasCache;
+                  final events = snapshot.data ?? const [];
 
                   return Column(
                     mainAxisSize: MainAxisSize.min,
@@ -463,9 +425,8 @@ class _MonthlyCalendarState extends State<MonthlyCalendar> {
     );
   }
 
-  Widget _buildEventTile(Map<String, dynamic> event) {
-    final status = event['status']?.toString();
-    final statusColor = _statusColor(status);
+  Widget _buildEventTile(MonthlyCalendarEvent event) {
+    final statusColor = _statusColor(event.status);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -491,7 +452,7 @@ class _MonthlyCalendarState extends State<MonthlyCalendar> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  event['title']?.toString() ?? 'Event',
+                  event.title,
                   style: const TextStyle(
                     color: AppColors.burgundy,
                     fontSize: 14,
@@ -500,7 +461,7 @@ class _MonthlyCalendarState extends State<MonthlyCalendar> {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  event['client_name']?.toString() ?? 'No Client',
+                  event.clientName,
                   style: TextStyle(
                     color: AppColors.green.withOpacity(0.7),
                     fontSize: 12,
@@ -517,7 +478,7 @@ class _MonthlyCalendarState extends State<MonthlyCalendar> {
               borderRadius: BorderRadius.circular(14),
             ),
             child: Text(
-              _statusLabel(status),
+              _statusLabel(event.status),
               style: TextStyle(
                 color: statusColor,
                 fontSize: 10,
@@ -589,11 +550,7 @@ class _MonthlyCalendarState extends State<MonthlyCalendar> {
     return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
-  Widget _buildDots(List<dynamic> dots, dynamic moreCountValue) {
-    final moreCount = moreCountValue is int
-        ? moreCountValue
-        : int.tryParse('$moreCountValue') ?? 0;
-
+  Widget _buildDots(List<MonthlyCalendarDot> dots, int moreCount) {
     if (dots.isEmpty && moreCount <= 0) {
       return const SizedBox(height: 12);
     }

@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:event_planner/constants/app_colors.dart';
-import 'package:event_planner/services/api_service.dart';
+import 'package:event_planner/models/message_chat.dart';
+import 'package:event_planner/repositories/planner_message_repository.dart';
 import 'package:event_planner/screens/chat_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -12,44 +16,112 @@ class MessagesScreenPlanner extends StatefulWidget {
 }
 
 class _MessagesScreenPlannerState extends State<MessagesScreenPlanner> {
-  List<Map<String, dynamic>> _chats = [];
-  bool _isLoading = true;
+  List<MessageChat> _chats = [];
+  bool _isLoading = false;
   String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _loadChats();
+
+    PlannerMessageRepository.chats.addListener(_onChatsChanged);
+    _chats = PlannerMessageRepository.cachedChats;
+
+    if (PlannerMessageRepository.hasCache) {
+      unawaited(PlannerMessageRepository.refreshInBackground());
+    } else {
+      unawaited(_loadChats());
+    }
   }
 
-  Future<void> _loadChats() async {
+  @override
+  void dispose() {
+    PlannerMessageRepository.chats.removeListener(_onChatsChanged);
+    super.dispose();
+  }
+
+  void _onChatsChanged() {
+    if (!mounted) return;
+
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _applyRepositoryCache();
+      });
+      return;
+    }
+
+    _applyRepositoryCache();
+  }
+
+  void _applyRepositoryCache() {
+    if (!mounted) return;
+
     setState(() {
-      _isLoading = true;
+      _chats = PlannerMessageRepository.cachedChats;
+      _isLoading = false;
       _errorMessage = null;
     });
-    try {
-      final response = await ApiService.getPlannerMessagesEvents();
+  }
 
-      debugPrint('Messages response: $response');
+  Future<void> _loadChats({bool showLoader = true}) async {
+    if (!mounted) return;
 
-      if (response['success'] == true) {
-        final raw = response['data'] as List<dynamic>? ?? [];
-        setState(() {
-          _chats = raw.map((e) => e as Map<String, dynamic>).toList();
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _errorMessage = response['message'] ?? 'Failed to load messages';
-          _isLoading = false;
-        });
-      }
-    } catch (_) {
+    final hasCache = PlannerMessageRepository.hasCache;
+
+    if (showLoader && !hasCache) {
       setState(() {
-        _errorMessage = 'Something went wrong. Please try again.';
-        _isLoading = false;
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    } else if (_errorMessage != null) {
+      setState(() {
+        _errorMessage = null;
       });
     }
+
+    try {
+      await PlannerMessageRepository.loadChats(forceRefresh: true);
+      if (!mounted) return;
+
+      setState(() {
+        _chats = PlannerMessageRepository.cachedChats;
+        _isLoading = false;
+        _errorMessage = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        if (!PlannerMessageRepository.hasCache && _chats.isEmpty) {
+          _errorMessage = 'Something went wrong. Please try again.';
+        }
+      });
+    }
+  }
+
+  Future<void> _openChat(MessageChat chat) async {
+    PlannerMessageRepository.markRead(chat.id);
+    unawaited(PlannerMessageRepository.markReadOnServer(chat.id));
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          eventId: chat.id,
+          eventName: chat.eventName,
+          plannerName: chat.clientName,
+          isPlanner: true,
+          onRead: () {
+            PlannerMessageRepository.markRead(chat.id);
+          },
+        ),
+      ),
+    );
+
+    if (!mounted) return;
+    unawaited(_loadChats(showLoader: false));
   }
 
   @override
@@ -59,7 +131,6 @@ class _MessagesScreenPlannerState extends State<MessagesScreenPlanner> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header
             Padding(
               padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
               child: Row(
@@ -87,8 +158,6 @@ class _MessagesScreenPlannerState extends State<MessagesScreenPlanner> {
                 ],
               ),
             ),
-
-            // Subtitle
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 22),
               child: Text(
@@ -100,10 +169,7 @@ class _MessagesScreenPlannerState extends State<MessagesScreenPlanner> {
                 ),
               ),
             ),
-
             const SizedBox(height: 16),
-
-            // Chat list
             Expanded(
               child: _isLoading
                   ? const Center(
@@ -112,137 +178,103 @@ class _MessagesScreenPlannerState extends State<MessagesScreenPlanner> {
                       ),
                     )
                   : _errorMessage != null
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.error_outline,
-                            size: 48,
-                            color: Colors.grey.shade400,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _errorMessage!,
-                            style: TextStyle(color: Colors.grey.shade600),
-                          ),
-                          const SizedBox(height: 12),
-                          TextButton(
-                            onPressed: _loadChats,
-                            child: const Text('Retry'),
-                          ),
-                        ],
-                      ),
-                    )
-                  : _chats.isEmpty
-                  ? _buildEmptyState()
-                  : _buildChatList(),
+                  ? _buildErrorState()
+                  : RefreshIndicator(
+                      color: AppColors.darkpink,
+                      onRefresh: () => _loadChats(showLoader: false),
+                      child: _chats.isEmpty
+                          ? _buildEmptyState()
+                          : _buildChatList(),
+                    ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 48, color: Colors.grey.shade400),
+          const SizedBox(height: 12),
+          Text(_errorMessage!, style: TextStyle(color: Colors.grey.shade600)),
+          const SizedBox(height: 12),
+          TextButton(onPressed: () => _loadChats(), child: const Text('Retry')),
+        ],
       ),
     );
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 40),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: AppColors.green.withOpacity(0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.chat_bubble_outline,
-                size: 40,
-                color: AppColors.green.withOpacity(0.6),
-              ),
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.22),
+        Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 40),
+            child: Column(
+              children: [
+                Container(
+                  width: 80,
+                  height: 80,
+                  decoration: BoxDecoration(
+                    color: AppColors.green.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.chat_bubble_outline,
+                    size: 40,
+                    color: AppColors.green.withOpacity(0.6),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'No messages yet',
+                  style: TextStyle(
+                    fontSize: 18,
+                    color: AppColors.green.withOpacity(0.8),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Client messages will appear here once they reach out',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: AppColors.green.withOpacity(0.6),
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
-            Text(
-              'No messages yet',
-              style: TextStyle(
-                fontSize: 18,
-                color: AppColors.green.withOpacity(0.8),
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Client messages will appear here once they reach out',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.green.withOpacity(0.6),
-                height: 1.4,
-              ),
-            ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
   Widget _buildChatList() {
     return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       itemCount: _chats.length,
       separatorBuilder: (_, __) =>
           Divider(color: Colors.grey.shade200, height: 1, indent: 72),
       itemBuilder: (_, index) {
         final chat = _chats[index];
-        final clientName = chat['client']?['name'] ?? 'Client';
-        final eventName = chat['name'] ?? 'Event';
-        final lastMessage =
-            chat['last_message']?['message'] ?? 'Start conversation...';
-        final lastTime = chat['last_message']?['created_at'] ?? '';
-        final unreadCount = int.tryParse('${chat['unread_count'] ?? 0}') ?? 0;
-        final eventId = chat['id']?.toString() ?? '';
+        final clientName = chat.clientName;
+        final eventName = chat.eventName;
+        final lastMessage = chat.lastMessageText;
+        final lastTime = chat.lastMessageTime;
+        final unreadCount = chat.unreadCount;
 
         return InkWell(
-          onTap: () {
-            final parsedEventId = int.tryParse(eventId);
-            if (parsedEventId == null) return;
-
-            setState(() {
-              _chats[index]['unread_count'] = 0;
-            });
-
-            ApiService.markPlannerEventMessagesAsRead(parsedEventId).catchError(
-              (e) {
-                debugPrint('Mark messages as read error: $e');
-              },
-            );
-
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => ChatScreen(
-                  eventId: parsedEventId,
-                  eventName: eventName,
-                  plannerName: clientName,
-                  isPlanner: true,
-                  onRead: () {
-                    if (!mounted || index >= _chats.length) return;
-
-                    setState(() {
-                      _chats[index]['unread_count'] = 0;
-                    });
-                  },
-                ),
-              ),
-            ).then((_) {
-              if (mounted) {
-                _loadChats();
-              }
-            });
-          },
+          onTap: () => _openChat(chat),
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Row(
@@ -259,9 +291,7 @@ class _MessagesScreenPlannerState extends State<MessagesScreenPlanner> {
                     ),
                   ),
                 ),
-
                 const SizedBox(width: 14),
-
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -277,7 +307,11 @@ class _MessagesScreenPlannerState extends State<MessagesScreenPlanner> {
                       const SizedBox(height: 3),
                       Row(
                         children: [
-                          Icon(Icons.person, size: 14, color: AppColors.coral),
+                          const Icon(
+                            Icons.person,
+                            size: 14,
+                            color: AppColors.coral,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             clientName,
@@ -289,7 +323,7 @@ class _MessagesScreenPlannerState extends State<MessagesScreenPlanner> {
                           ),
                           const SizedBox(width: 6),
                           Text(
-                            '•',
+                            '-',
                             style: TextStyle(
                               color: AppColors.green.withOpacity(0.6),
                               fontSize: 13,
@@ -312,9 +346,7 @@ class _MessagesScreenPlannerState extends State<MessagesScreenPlanner> {
                     ],
                   ),
                 ),
-
                 const SizedBox(width: 8),
-
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [

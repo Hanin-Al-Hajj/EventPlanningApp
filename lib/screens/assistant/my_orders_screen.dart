@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:event_planner/models/vendor_order.dart';
+import 'package:event_planner/repositories/vendor_order_repository.dart';
 import 'package:event_planner/services/api_service.dart';
 import 'package:event_planner/screens/assistant/place_order_screen.dart';
 import 'package:event_planner/screens/assistant/filtered_vendor_screen.dart';
+import 'package:event_planner/screens/assistant/assistant_setting.dart';
+import 'package:event_planner/screens/assistant/assistant_profile_screen.dart';
 
 class MyOrdersScreen extends StatefulWidget {
   const MyOrdersScreen({super.key});
@@ -20,45 +24,160 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
   @override
   void initState() {
     super.initState();
-    _loadOrders();
+    VendorOrderRepository.orders.addListener(_onOrdersChanged);
+
+    if (VendorOrderRepository.hasCache) {
+      _orders = VendorOrderRepository.cachedOrders;
+      _isLoading = false;
+      unawaited(VendorOrderRepository.refreshInBackground());
+    } else {
+      unawaited(_loadOrders());
+    }
   }
 
-  Future<void> _loadOrders() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-    try {
-      final result = await ApiService.getMyOrders();
+  @override
+  void dispose() {
+    VendorOrderRepository.orders.removeListener(_onOrdersChanged);
+    super.dispose();
+  }
 
+  void _onOrdersChanged() {
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      if (result['success'] == true) {
-        final raw = result['data'];
-        final ordersList = (raw is List) ? raw : [];
+      setState(() {
+        _orders = VendorOrderRepository.cachedOrders;
+        _isLoading = false;
+        _errorMessage = null;
+      });
+    });
+  }
 
-        setState(() {
-          _orders = ordersList
-              .map(
-                (o) =>
-                    VendorOrder.fromJson(Map<String, dynamic>.from(o as Map)),
-              )
-              .toList();
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _errorMessage = result['message'] ?? 'Failed to load orders';
-          _isLoading = false;
-        });
-      }
-    } catch (e) {
+  Future<void> _loadOrders({bool forceRefresh = false}) async {
+    if (!forceRefresh && VendorOrderRepository.hasCache) {
+      setState(() {
+        _orders = VendorOrderRepository.cachedOrders;
+        _isLoading = false;
+        _errorMessage = null;
+      });
+      unawaited(VendorOrderRepository.refreshInBackground());
+      return;
+    }
+
+    if (_orders.isEmpty) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      await VendorOrderRepository.loadOrders(forceRefresh: forceRefresh);
+      if (!mounted) return;
+
+      setState(() {
+        _orders = VendorOrderRepository.cachedOrders;
+        _isLoading = false;
+        _errorMessage = null;
+      });
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = 'Connection error: ${e.toString()}';
+        _errorMessage = _orders.isEmpty
+            ? 'Something went wrong. Please try again.'
+            : null;
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _handleLogout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Logout',
+          style: TextStyle(color: AppColors.burgundy),
+        ),
+        content: const Text(
+          'Are you sure you want to logout?',
+          style: TextStyle(color: AppColors.burgundy),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.burgundy),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.darkpink,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true && mounted) {
+      await ApiService.logout();
+      Navigator.pushReplacementNamed(context, '/login');
+    }
+  }
+
+  PopupMenuItem<String> _popupItem(String value, IconData icon, String label) {
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, color: AppColors.darkpink),
+          const SizedBox(width: 10),
+          Text(label, style: const TextStyle(color: AppColors.darkpink)),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteOrder(VendorOrder order) async {
+    VendorOrderRepository.remove(order);
+    setState(() => _orders.removeWhere((item) => item.id == order.id));
+
+    try {
+      final result = await VendorOrderRepository.deleteOrder(order.id);
+      if (result is Map && result['success'] != true && mounted) {
+        VendorOrderRepository.restore(order);
+        setState(() => _orders.insert(0, order));
+        _showSnackBar('Could not delete order.', isError: true);
+      } else if (mounted) {
+        _showSnackBar('Order deleted successfully.');
+      }
+    } catch (_) {
+      if (mounted) {
+        VendorOrderRepository.restore(order);
+        setState(() => _orders.insert(0, order));
+        _showSnackBar('Could not delete order.', isError: true);
+      }
+    }
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? AppColors.burgundy : AppColors.green,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   @override
@@ -72,25 +191,89 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(22, 18, 22, 6),
-                  child: Center(
-                    child: Text(
-                      'My Orders',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.burgundy,
+                // Header with profile menu
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: PopupMenuButton<String>(
+                          offset: const Offset(0, 45),
+                          color: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          itemBuilder: (context) => [
+                            _popupItem(
+                              'profile',
+                              Icons.person_outline,
+                              'Profile',
+                            ),
+                            _popupItem(
+                              'settings',
+                              Icons.settings_outlined,
+                              'Settings',
+                            ),
+                            _popupItem('logout', Icons.logout, 'Logout'),
+                          ],
+                          onSelected: (value) {
+                            if (value == 'profile') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const AssistantProfileScreen(),
+                                ),
+                              );
+                            } else if (value == 'settings') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const AssistantSetting(),
+                                ),
+                              );
+                            } else if (value == 'logout') {
+                              _handleLogout();
+                            }
+                          },
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: const BoxDecoration(
+                              color: AppColors.darkpink,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.person,
+                              color: Colors.white,
+                              size: 22,
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                ),
-
-                const Center(
-                  child: Text(
-                    'Track all your vendor orders',
-                    style: TextStyle(fontSize: 13, color: AppColors.darkpink),
+                      Column(
+                        children: [
+                          const Text(
+                            'My Orders',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.burgundy,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Track all your vendor orders',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppColors.darkpink,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -103,12 +286,12 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                             color: AppColors.darkpink,
                           ),
                         )
-                      : _errorMessage != null
+                      : _errorMessage != null && _orders.isEmpty
                       ? _buildError()
                       : _orders.isEmpty
                       ? _buildEmpty()
                       : RefreshIndicator(
-                          onRefresh: _loadOrders,
+                          onRefresh: () => _loadOrders(forceRefresh: true),
                           color: AppColors.darkpink,
                           child: ListView.builder(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -140,7 +323,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
           ),
           const SizedBox(height: 12),
           ElevatedButton.icon(
-            onPressed: _loadOrders,
+            onPressed: () => _loadOrders(forceRefresh: true),
             icon: const Icon(Icons.refresh, size: 16),
             label: const Text('Retry'),
             style: ElevatedButton.styleFrom(
@@ -164,6 +347,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
           Icon(
             Icons.shopping_cart_outlined,
             size: 64,
+            // ignore: deprecated_member_use
             color: AppColors.green.withOpacity(0.4),
           ),
           const SizedBox(height: 16),
@@ -171,6 +355,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
             'No orders placed yet',
             style: TextStyle(
               fontSize: 16,
+              // ignore: deprecated_member_use
               color: AppColors.green.withOpacity(0.8),
               fontWeight: FontWeight.w500,
             ),
@@ -248,7 +433,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
           ),
         );
       },
-      onDismissed: (direction) => _deleteOrder(order.id),
+      onDismissed: (direction) => _deleteOrder(order),
       child: Container(
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.all(18),
@@ -257,6 +442,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
+              // ignore: deprecated_member_use
               color: Colors.black.withOpacity(0.05),
               blurRadius: 8,
               offset: const Offset(0, 2),
@@ -337,6 +523,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
+                  // ignore: deprecated_member_use
                   color: AppColors.cream.withOpacity(0.5),
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -367,7 +554,6 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
             const Divider(height: 1, color: Color(0xFFEEEEEE)),
             const SizedBox(height: 10),
 
-            // Date + Edit button
             // Date + Edit button + View Vendors
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -421,7 +607,7 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
                               vendorName: order.vendorName,
                             ),
                           ),
-                        ).then((_) => _loadOrders());
+                        ).then((_) => _loadOrders(forceRefresh: true));
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -452,32 +638,6 @@ class _MyOrdersScreenState extends State<MyOrdersScreen> {
     );
   }
 
-  Future<void> _deleteOrder(int orderId) async {
-    try {
-      final result = await ApiService.deleteOrder(orderId);
-      if (!mounted) return;
-
-      if (result['success'] == true) {
-        _loadOrders();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Order deleted'),
-            backgroundColor: AppColors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to delete'),
-            backgroundColor: AppColors.burgundy,
-          ),
-        );
-      }
-    }
-  }
-
   String _formatDate(DateTime date) {
     const months = [
       'Jan',
@@ -501,10 +661,13 @@ class _BgPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()..style = PaintingStyle.fill;
+    // ignore: deprecated_member_use
     p.color = AppColors.coral.withOpacity(0.10);
     canvas.drawCircle(Offset(size.width * 0.92, size.height * 0.08), 130, p);
+    // ignore: deprecated_member_use
     p.color = AppColors.darkpink.withOpacity(0.07);
     canvas.drawCircle(Offset(size.width * -0.12, size.height * 0.48), 170, p);
+    // ignore: deprecated_member_use
     p.color = const Color.fromARGB(255, 176, 27, 44).withOpacity(0.06);
     canvas.drawCircle(Offset(size.width * 1.08, size.height * 0.72), 190, p);
   }

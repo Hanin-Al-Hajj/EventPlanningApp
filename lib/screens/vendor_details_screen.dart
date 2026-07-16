@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:event_planner/models/vendor.dart';
+import 'package:event_planner/repositories/vendor_repository.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:event_planner/services/api_service.dart';
 
 class VendorDetailsScreen extends StatefulWidget {
   final String? eventId;
@@ -19,47 +22,126 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> {
   Vendor? vendor;
   List<Map<String, dynamic>> _orders = [];
   bool _isLoading = true;
+  String? _errorMessage;
   String? eventName;
 
   @override
   void initState() {
     super.initState();
-    _loadVendor();
+    VendorRepository.changes.addListener(_onVendorCacheChanged);
+
+    _applyCachedVendor();
+    if (vendor == null) {
+      unawaited(_loadVendor());
+    } else {
+      unawaited(_loadVendor(forceRefresh: true));
+    }
   }
 
-  Future<void> _loadVendor() async {
-    try {
-      Map<String, dynamic> data;
+  @override
+  void dispose() {
+    VendorRepository.changes.removeListener(_onVendorCacheChanged);
+    super.dispose();
+  }
 
-      if (widget.eventId != null) {
-        data = await ApiService.getVendor(widget.eventId!, widget.vendorId);
-        if (data['vendor'] != null) {
-          final vendorMap = Map<String, dynamic>.from(data['vendor'] as Map);
-          setState(() {
-            vendor = Vendor.fromJson(vendorMap);
-            eventName = data['event']?['name'];
-            final rawOrders = vendorMap['orders'];
-            if (rawOrders != null && rawOrders is List) {
-              _orders = rawOrders
-                  .map((o) => Map<String, dynamic>.from(o as Map))
-                  .toList();
-            }
-          });
-        }
-      } else {
-        data = await ApiService.getAssistantVendor(int.parse(widget.vendorId));
-        if (data['data'] != null) {
-          setState(
-            () => vendor = Vendor.fromJson(
-              Map<String, dynamic>.from(data['data'] as Map),
-            ),
-          );
-        }
-      }
+  void _onVendorCacheChanged() {
+    if (!mounted) return;
+
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _applyRepositoryCache();
+      });
+      return;
+    }
+
+    _applyRepositoryCache();
+  }
+
+  void _applyRepositoryCache() {
+    if (!mounted) return;
+
+    if (VendorRepository.hasDetails(widget.eventId, widget.vendorId)) {
+      setState(() {
+        _applyVendorDetails(
+          VendorRepository.cachedDetailsFor(widget.eventId, widget.vendorId),
+        );
+        _isLoading = false;
+        _errorMessage = null;
+      });
+      return;
+    }
+
+    if (widget.eventId == null) return;
+    final cachedVendor = VendorRepository.cachedVendor(
+      widget.eventId!,
+      widget.vendorId,
+    );
+    if (cachedVendor == null) return;
+
+    setState(() {
+      vendor = cachedVendor;
+      _isLoading = false;
+      _errorMessage = null;
+    });
+  }
+
+  void _applyCachedVendor() {
+    if (VendorRepository.hasDetails(widget.eventId, widget.vendorId)) {
+      _applyVendorDetails(
+        VendorRepository.cachedDetailsFor(widget.eventId, widget.vendorId),
+      );
+      _isLoading = false;
+      return;
+    }
+
+    if (widget.eventId == null) return;
+    final cachedVendor = VendorRepository.cachedVendor(
+      widget.eventId!,
+      widget.vendorId,
+    );
+    if (cachedVendor == null) return;
+
+    vendor = cachedVendor;
+    _isLoading = false;
+  }
+
+  void _applyVendorDetails(VendorDetailsCache cache) {
+    vendor = cache.vendor;
+    eventName = cache.eventName;
+    _orders = List<Map<String, dynamic>>.from(cache.orders);
+  }
+
+  Future<void> _loadVendor({bool forceRefresh = false}) async {
+    final hadVisibleVendor = vendor != null;
+    if (!hadVisibleVendor && mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      final details = await VendorRepository.loadDetails(
+        widget.eventId,
+        widget.vendorId,
+        forceRefresh: forceRefresh,
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _applyVendorDetails(details);
+        _isLoading = false;
+        _errorMessage = null;
+      });
     } catch (e) {
       debugPrint('Error loading vendor: $e');
-    } finally {
-      setState(() => _isLoading = false);
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _errorMessage = vendor == null ? 'Vendor not found' : null;
+      });
     }
   }
 
@@ -80,7 +162,7 @@ class _VendorDetailsScreenState extends State<VendorDetailsScreen> {
     if (vendor == null) {
       return Scaffold(
         backgroundColor: AppColors.cream,
-        body: const Center(child: Text('Vendor not found')),
+        body: Center(child: Text(_errorMessage ?? 'Vendor not found')),
       );
     }
 
