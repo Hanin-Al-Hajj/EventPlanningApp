@@ -1,11 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:event_planner/services/api_service.dart';
 import 'package:event_planner/models/task.dart';
+import 'package:event_planner/repositories/assistant_task_repository.dart';
 import 'package:event_planner/screens/assistant/filtered_vendor_screen.dart';
 import 'package:event_planner/screens/assistant/notification_screen.dart';
 import 'package:event_planner/screens/assistant/assistant_setting.dart';
+import 'package:event_planner/screens/assistant/assistant_profile_screen.dart';
 
 class AssistantTaskScreen extends StatefulWidget {
   const AssistantTaskScreen({super.key});
@@ -23,6 +26,7 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
   int _inProgressTasks = 0;
   int _completedTasks = 0;
   int _unreadNotifications = 0;
+  String? _error;
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -44,15 +48,53 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
   @override
   void initState() {
     super.initState();
-    _loadTasks();
-    _loadUnreadCount();
+    AssistantTaskRepository.tasks.addListener(_onTasksChanged);
     _searchController.addListener(() => _filterTasks(_searchController.text));
+
+    if (AssistantTaskRepository.hasCache) {
+      _tasks = AssistantTaskRepository.cachedTasks;
+      _filteredTasks = List.from(_tasks);
+      _updateStats();
+      _isLoading = false;
+      unawaited(AssistantTaskRepository.refreshInBackground());
+    } else {
+      unawaited(_loadTasks());
+    }
+    _loadUnreadCount();
   }
 
   @override
   void dispose() {
+    AssistantTaskRepository.tasks.removeListener(_onTasksChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onTasksChanged() {
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      setState(() {
+        _tasks = AssistantTaskRepository.cachedTasks;
+        _filterTasks(_searchController.text);
+        _updateStats();
+        _isLoading = false;
+        _error = null;
+      });
+    });
+  }
+
+  void _updateStats() {
+    _totalTasks = _tasks.length;
+    _urgentTasks = _tasks
+        .where((t) => t.priority == TaskPriority.urgent)
+        .length;
+    _inProgressTasks = _tasks
+        .where((t) => t.status == TaskStatus.inProgress)
+        .length;
+    _completedTasks = _tasks.where((t) => t.status == TaskStatus.done).length;
   }
 
   Future<void> _loadUnreadCount() async {
@@ -65,36 +107,45 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
     } catch (_) {}
   }
 
-  Future<void> _loadTasks() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadTasks({bool forceRefresh = false}) async {
+    if (!forceRefresh && AssistantTaskRepository.hasCache) {
+      setState(() {
+        _tasks = AssistantTaskRepository.cachedTasks;
+        _filteredTasks = List.from(_tasks);
+        _updateStats();
+        _isLoading = false;
+        _error = null;
+      });
+      unawaited(AssistantTaskRepository.refreshInBackground());
+      return;
+    }
+
+    if (_tasks.isEmpty) {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+    }
+
     try {
-      final result = await ApiService.getAssistantTasks();
+      await AssistantTaskRepository.loadTasks(forceRefresh: forceRefresh);
       if (!mounted) return;
-      if (result['success'] == true) {
-        final data = result['data'];
-        final tasksList =
-            (data['tasks'] as List?)
-                ?.map((t) => Map<String, dynamic>.from(t as Map))
-                .toList() ??
-            [];
-        final stats = data['stats'] as Map<String, dynamic>? ?? {};
-        final List<Task> parsedTasks = tasksList
-            .map((t) => Task.fromJson(t))
-            .toList();
-        setState(() {
-          _tasks = parsedTasks;
-          _filteredTasks = parsedTasks;
-          _totalTasks = stats['total'] ?? 0;
-          _urgentTasks = stats['urgent'] ?? 0;
-          _inProgressTasks = stats['in_progress'] ?? 0;
-          _completedTasks = stats['completed'] ?? 0;
-          _isLoading = false;
-        });
-      } else {
-        setState(() => _isLoading = false);
-      }
-    } catch (e) {
-      setState(() => _isLoading = false);
+
+      setState(() {
+        _tasks = AssistantTaskRepository.cachedTasks;
+        _filteredTasks = List.from(_tasks);
+        _updateStats();
+        _isLoading = false;
+        _error = null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = _tasks.isEmpty
+            ? 'Something went wrong. Please try again.'
+            : null;
+        _isLoading = false;
+      });
     }
   }
 
@@ -323,7 +374,7 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
           const SizedBox(height: 8),
 
           // Planner
-          if (task.plannerName != 'Unknown') ...[
+          if (task.plannerName.isNotEmpty) ...[
             Row(
               children: [
                 Icon(Icons.person, size: 13, color: AppColors.coral),
@@ -456,7 +507,7 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
                   ),
                 if (task.status != TaskStatus.done)
                   GestureDetector(
-                    onTap: () => _markComplete(task.id),
+                    onTap: () => _markComplete(task),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -531,18 +582,46 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
     return '${months[date.month - 1]} ${date.day}';
   }
 
-  Future<void> _markComplete(int taskId) async {
+  Future<void> _markComplete(Task task) async {
+    final backup = List<Task>.from(_tasks);
+
+    AssistantTaskRepository.markCompleted(task);
+    setState(() {
+      _tasks = AssistantTaskRepository.cachedTasks;
+      _filterTasks(_searchController.text);
+      _updateStats();
+    });
+
     try {
-      final result = await ApiService.completeAssistantTask(taskId);
-      if (result['success'] == true) {
-        _loadTasks();
+      final result = await AssistantTaskRepository.completeTask(task.id);
+      if (result is Map && result['success'] == false) {
+        throw Exception('Failed to complete task');
       }
-    } catch (e) {
-      // Handle error
+    } catch (_) {
+      AssistantTaskRepository.setTasks(backup);
+      if (mounted) {
+        setState(() {
+          _tasks = backup;
+          _filterTasks(_searchController.text);
+          _updateStats();
+        });
+        _showSnackBar('Could not mark task as complete.');
+      }
+      unawaited(_loadTasks(forceRefresh: true));
     }
   }
 
-  void _showVendorsBottomSheet(List<dynamic> vendors) {
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.burgundy,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showVendorsBottomSheet(List<Map<String, dynamic>> vendors) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.white,
@@ -627,15 +706,22 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
                           _popupItem('logout', Icons.logout, 'Logout'),
                         ],
                         onSelected: (value) {
-                          if (value == 'logout') {
-                            _handleLogout();
+                          if (value == 'profile') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AssistantProfileScreen(),
+                              ),
+                            );
                           } else if (value == 'settings') {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => AssistantSetting(),
+                                builder: (_) => const AssistantSetting(),
                               ),
                             );
+                          } else if (value == 'logout') {
+                            _handleLogout();
                           }
                         },
                         child: Container(
@@ -729,7 +815,7 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
                     ],
                   ),
                 ),
-                SizedBox(height: 15),
+                const SizedBox(height: 15),
 
                 // Stats Cards
                 Padding(
@@ -794,12 +880,40 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
                 const SizedBox(height: 16),
 
                 // Task List
-                // Task List
                 Expanded(
                   child: _isLoading
                       ? const Center(
                           child: CircularProgressIndicator(
                             color: AppColors.darkpink,
+                          ),
+                        )
+                      : _error != null && _tasks.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                // ignore: deprecated_member_use
+                                color: AppColors.green.withOpacity(0.5),
+                                size: 60,
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                _error!,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  // ignore: deprecated_member_use
+                                  color: AppColors.green.withOpacity(0.8),
+                                  fontSize: 15,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              ElevatedButton(
+                                onPressed: () => _loadTasks(forceRefresh: true),
+                                child: const Text('Retry'),
+                              ),
+                            ],
                           ),
                         )
                       : _filteredTasks.isEmpty
@@ -835,12 +949,15 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
                             ],
                           ),
                         )
-                      : ListView.builder(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: _filteredTasks.length,
-                          itemBuilder: (context, index) {
-                            return _buildTaskCard(_filteredTasks[index]);
-                          },
+                      : RefreshIndicator(
+                          onRefresh: () => _loadTasks(forceRefresh: true),
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemCount: _filteredTasks.length,
+                            itemBuilder: (context, index) {
+                              return _buildTaskCard(_filteredTasks[index]);
+                            },
+                          ),
                         ),
                 ),
               ],

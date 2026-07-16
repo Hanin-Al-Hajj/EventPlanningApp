@@ -189,18 +189,6 @@ class _AddGuestDialogState extends State<AddGuestDialog> {
             ),
 
             // Plus One Name — appears right below the switch
-            if (_plusOneAllowed) ...[
-              const SizedBox(height: 12),
-              TextField(
-                controller: _plusOneNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Plus One Name',
-                  labelStyle: TextStyle(color: AppColors.burgundy),
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-            ],
           ],
         ),
       ),

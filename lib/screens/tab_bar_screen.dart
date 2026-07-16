@@ -1,6 +1,5 @@
 import 'package:event_planner/models/event.dart';
 import 'package:event_planner/screens/Messages_screen_client.dart';
-import 'package:event_planner/screens/summary_detail.dart';
 import 'package:event_planner/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
@@ -54,8 +53,6 @@ class _TabsScreenState extends State<TabsScreen> {
     );
 
     if (_selectedIndex == 1) {
-      activePage = const SummaryDetail();
-    } else if (_selectedIndex == 2) {
       activePage = const MessagesScreenClient();
     }
 
@@ -74,14 +71,10 @@ class _TabsScreenState extends State<TabsScreen> {
         child: KeyedSubtree(key: ValueKey(_selectedIndex), child: activePage),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: [
+        items: const [
           BottomNavigationBarItem(
             icon: FaIcon(FontAwesomeIcons.houseChimneyUser, size: 20),
             label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: FaIcon(FontAwesomeIcons.chartSimple, size: 20),
-            label: 'Report',
           ),
           BottomNavigationBarItem(
             icon: FaIcon(FontAwesomeIcons.solidMessage, size: 20),
@@ -89,7 +82,10 @@ class _TabsScreenState extends State<TabsScreen> {
           ),
         ],
         onTap: _selectPage,
-        currentIndex: _selectedIndex,
+        currentIndex: _selectedIndex.clamp(
+          0,
+          1,
+        ), // Ensure index is within bounds
         type: BottomNavigationBarType.fixed,
         selectedItemColor: AppColors.darkpink,
         unselectedItemColor: AppColors.darkpink.withOpacity(0.75),

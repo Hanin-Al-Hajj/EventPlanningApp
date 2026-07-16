@@ -166,11 +166,11 @@ class ApiService {
 
   // GET current user profile
   static Future<Map<String, dynamic>> getProfile() async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/me'),
-      headers: authHeaders,
-    );
-    return jsonDecode(response.body);
+    final response = await http
+        .get(Uri.parse('$baseUrl/me'), headers: authHeaders)
+        .timeout(const Duration(seconds: 10));
+
+    return _decodeResponse(response);
   }
 
   // UPDATE profile
@@ -179,12 +179,15 @@ class ApiService {
     required String email,
     required String phone,
   }) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/profile'),
-      headers: authHeaders,
-      body: jsonEncode({'name': name, 'email': email, 'phone': phone}),
-    );
-    return jsonDecode(response.body);
+    final response = await http
+        .put(
+          Uri.parse('$baseUrl/profile'),
+          headers: authHeaders,
+          body: jsonEncode({'name': name, 'email': email, 'phone': phone}),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    return _decodeResponse(response);
   }
 
   // UPDATE password
@@ -192,16 +195,19 @@ class ApiService {
     required String currentPassword,
     required String newPassword,
   }) async {
-    final response = await http.put(
-      Uri.parse('$baseUrl/profile/password'),
-      headers: authHeaders,
-      body: jsonEncode({
-        'current_password': currentPassword,
-        'new_password': newPassword,
-        'new_password_confirmation': newPassword,
-      }),
-    );
-    return jsonDecode(response.body);
+    final response = await http
+        .put(
+          Uri.parse('$baseUrl/profile/password'),
+          headers: authHeaders,
+          body: jsonEncode({
+            'current_password': currentPassword,
+            'new_password': newPassword,
+            'new_password_confirmation': newPassword,
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    return _decodeResponse(response);
   }
 
   // GET ALL GUESTS (optional filters)
@@ -658,7 +664,7 @@ class ApiService {
   // GET notification stats (total_today, unread, urgent)
   static Future<Map<String, dynamic>> getPlannerNotificationStats() async {
     final response = await http.get(
-      Uri.parse('$baseUrl/notifications/stats'),
+      Uri.parse('$baseUrl/planner/notifications/stats'),
       headers: authHeaders,
     );
     return _decodeResponse(response);
@@ -669,7 +675,7 @@ class ApiService {
     int id,
   ) async {
     final response = await http.post(
-      Uri.parse('$baseUrl/notifications/$id/read'),
+      Uri.parse('$baseUrl/planner/notifications/$id/read'),
       headers: authHeaders,
     );
     return _decodeResponse(response);
@@ -934,6 +940,56 @@ class ApiService {
     return _decodeResponse(response);
   }
 
+  // GET planner profile
+  static Future<Map<String, dynamic>> getPlannerProfile() async {
+    final response = await http
+        .get(Uri.parse('$baseUrl/planner/me'), headers: authHeaders)
+        .timeout(const Duration(seconds: 10));
+
+    return _decodeResponse(response);
+  }
+
+  // UPDATE planner profile
+  static Future<Map<String, dynamic>> updatePlannerProfile({
+    required String name,
+    required String email,
+    required String phone,
+  }) async {
+    final response = await http
+        .put(
+          Uri.parse('$baseUrl/planner/profile'),
+          headers: authHeaders,
+          body: jsonEncode({
+            'name': name,
+            'email': email,
+            'phone': phone.trim().isEmpty ? null : phone,
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    return _decodeResponse(response);
+  }
+
+  // UPDATE planner password
+  static Future<Map<String, dynamic>> updatePlannerPassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final response = await http
+        .put(
+          Uri.parse('$baseUrl/planner/profile/password'),
+          headers: authHeaders,
+          body: jsonEncode({
+            'current_password': currentPassword,
+            'new_password': newPassword,
+            'new_password_confirmation': newPassword,
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    return _decodeResponse(response);
+  }
+
   //Assistant
   //
   //
@@ -1129,5 +1185,55 @@ class ApiService {
     final data = _decodeResponse(response);
     if (data['success'] == true) clearToken();
     return data;
+  }
+
+  // GET assistant profile
+  static Future<Map<String, dynamic>> getAssistantProfile() async {
+    final response = await http
+        .get(Uri.parse('$baseUrl/assistant/me'), headers: authHeaders)
+        .timeout(const Duration(seconds: 10));
+
+    return _decodeResponse(response);
+  }
+
+  // UPDATE assistant profile
+  static Future<Map<String, dynamic>> updateAssistantProfile({
+    required String name,
+    required String email,
+    required String phone,
+  }) async {
+    final response = await http
+        .put(
+          Uri.parse('$baseUrl/assistant/profile'),
+          headers: authHeaders,
+          body: jsonEncode({
+            'name': name,
+            'email': email,
+            'phone': phone.trim().isEmpty ? null : phone,
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    return _decodeResponse(response);
+  }
+
+  // UPDATE assistant password
+  static Future<Map<String, dynamic>> updateAssistantPassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final response = await http
+        .put(
+          Uri.parse('$baseUrl/assistant/profile/password'),
+          headers: authHeaders,
+          body: jsonEncode({
+            'current_password': currentPassword,
+            'new_password': newPassword,
+            'new_password_confirmation': newPassword,
+          }),
+        )
+        .timeout(const Duration(seconds: 10));
+
+    return _decodeResponse(response);
   }
 }

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:event_planner/constants/app_colors.dart';
+import 'package:event_planner/repositories/client_notification_repository.dart';
 import 'package:event_planner/services/api_service.dart';
 import 'package:event_planner/screens/chat_screen.dart';
 import 'package:event_planner/models/clientNotification.dart';
@@ -24,61 +27,95 @@ class _ClientNotificationScreenState extends State<ClientNotificationScreen> {
   @override
   void initState() {
     super.initState();
-    _loadNotifications();
-    _loadStats();
+
+    ClientNotificationRepository.notifications.addListener(
+      _onNotificationsChanged,
+    );
+    ClientNotificationRepository.stats.addListener(_onStatsChanged);
+
+    _notifications = ClientNotificationRepository.cachedNotifications;
+    _stats = ClientNotificationRepository.cachedStats;
+
+    if (ClientNotificationRepository.hasNotificationsCache) {
+      unawaited(ClientNotificationRepository.refreshInBackground());
+    } else {
+      unawaited(_loadNotifications());
+      unawaited(_loadStats());
+    }
   }
 
-  Future<void> _loadNotifications() async {
+  @override
+  void dispose() {
+    ClientNotificationRepository.notifications.removeListener(
+      _onNotificationsChanged,
+    );
+    ClientNotificationRepository.stats.removeListener(_onStatsChanged);
+    super.dispose();
+  }
+
+  void _onNotificationsChanged() {
     if (!mounted) return;
 
     setState(() {
-      _isLoading = true;
+      _notifications = ClientNotificationRepository.cachedNotifications;
       _errorMessage = null;
     });
+  }
+
+  void _onStatsChanged() {
+    if (!mounted) return;
+
+    setState(() {
+      _stats = ClientNotificationRepository.cachedStats;
+    });
+  }
+
+  Future<void> _loadNotifications({bool showLoader = true}) async {
+    if (!mounted) return;
+
+    final hasCache = ClientNotificationRepository.hasNotificationsCache;
+
+    if (showLoader && !hasCache) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    } else if (_errorMessage != null) {
+      setState(() {
+        _errorMessage = null;
+      });
+    }
 
     try {
-      final result = await ApiService.getNotifications();
+      await ClientNotificationRepository.loadNotifications(forceRefresh: true);
       if (!mounted) return;
 
-      if (result['success'] == true) {
-        final response = ClientNotificationsResponse.fromApiData(
-          result['data'],
-        );
-
-        setState(() {
-          _notifications = response.notifications;
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _errorMessage = result['message'] ?? 'Failed to load notifications';
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _notifications = ClientNotificationRepository.cachedNotifications;
+        _isLoading = false;
+        _errorMessage = null;
+      });
     } catch (_) {
       if (!mounted) return;
+
       setState(() {
-        _errorMessage = 'Connection error. Please try again.';
         _isLoading = false;
+        if (!ClientNotificationRepository.hasNotificationsCache &&
+            _notifications.isEmpty) {
+          _errorMessage = 'Connection error. Please try again.';
+        }
       });
     }
   }
 
   Future<void> _loadStats() async {
     try {
-      final result = await ApiService.getNotificationStats();
+      await ClientNotificationRepository.loadStats(forceRefresh: true);
       if (!mounted) return;
 
-      if (result['success'] == true) {
-        final data = result['data'] ?? result;
-
-        setState(() {
-          _stats = ClientNotificationStats.fromApiData(
-            data,
-            fallbackTotal: _notifications.length,
-          );
-        });
-      }
+      setState(() {
+        _stats = ClientNotificationRepository.cachedStats;
+      });
     } catch (_) {}
   }
 
@@ -141,16 +178,7 @@ class _ClientNotificationScreenState extends State<ClientNotificationScreen> {
 
       if (result['success'] == true) {
         final updatedNotification = notification.copyWith(isRead: true);
-
-        setState(() {
-          _notifications = _notifications.map((item) {
-            return item.id == notification.id ? updatedNotification : item;
-          }).toList();
-
-          _stats = _stats.copyWith(
-            unread: (_stats.unread - 1).clamp(0, _stats.unread),
-          );
-        });
+        ClientNotificationRepository.markOneRead(notification);
 
         return updatedNotification;
       }
@@ -160,13 +188,32 @@ class _ClientNotificationScreenState extends State<ClientNotificationScreen> {
   }
 
   Future<void> _archiveOne(ClientNotification notification) async {
-    try {
-      await ApiService.archiveNotification(notification.id);
-      if (!mounted) return;
+    ClientNotificationRepository.remove(notification);
 
-      await _loadNotifications();
-      await _loadStats();
-    } catch (_) {}
+    try {
+      final result = await ApiService.archiveNotification(notification.id);
+
+      if (result['success'] == false) {
+        ClientNotificationRepository.restore(notification);
+        if (mounted) {
+          _showSnackBar(
+            'Failed to clear notification',
+            backgroundColor: AppColors.burgundy,
+          );
+        }
+        return;
+      }
+
+      unawaited(ClientNotificationRepository.refreshInBackground());
+    } catch (_) {
+      ClientNotificationRepository.restore(notification);
+      if (mounted) {
+        _showSnackBar(
+          'Failed to clear notification',
+          backgroundColor: AppColors.burgundy,
+        );
+      }
+    }
   }
 
   Future<void> _markAllRead() async {
@@ -175,8 +222,8 @@ class _ClientNotificationScreenState extends State<ClientNotificationScreen> {
       if (!mounted) return;
 
       if (result['success'] == true) {
-        await _loadNotifications();
-        await _loadStats();
+        ClientNotificationRepository.markAllRead();
+        unawaited(ClientNotificationRepository.refreshInBackground());
       }
     } catch (_) {
       _showSnackBar('Failed to mark all as read', backgroundColor: Colors.red);
@@ -189,8 +236,8 @@ class _ClientNotificationScreenState extends State<ClientNotificationScreen> {
       if (!mounted) return;
 
       if (result['success'] == true) {
-        await _loadNotifications();
-        await _loadStats();
+        ClientNotificationRepository.clearNotifications();
+        unawaited(ClientNotificationRepository.refreshInBackground());
       }
     } catch (_) {
       _showSnackBar(
@@ -308,7 +355,12 @@ class _ClientNotificationScreenState extends State<ClientNotificationScreen> {
                     : filteredNotifications.isEmpty
                     ? _buildEmptyState()
                     : RefreshIndicator(
-                        onRefresh: _loadNotifications,
+                        onRefresh: () async {
+                          await Future.wait([
+                            _loadNotifications(showLoader: false),
+                            _loadStats(),
+                          ]);
+                        },
                         child: ListView.builder(
                           itemCount: filteredNotifications.length,
                           itemBuilder: (context, index) {
@@ -505,7 +557,7 @@ class _ClientNotificationScreenState extends State<ClientNotificationScreen> {
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: _loadNotifications,
+            onPressed: () => _loadNotifications(),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.darkpink,
               foregroundColor: Colors.white,

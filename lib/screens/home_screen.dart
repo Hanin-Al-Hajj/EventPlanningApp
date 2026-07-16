@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:event_planner/screens/create_event_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
@@ -8,6 +10,7 @@ import 'package:event_planner/screens/profile_screen.dart';
 import 'package:event_planner/screens/client/client_setting.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:event_planner/screens/client_notification_screen.dart';
+import 'package:event_planner/repositories/event_repository.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -37,21 +40,24 @@ class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   int get activeEventsCount {
-    return widget.registeredEvents
+    final now = DateTime.now();
+    return _allEvents
         .where(
-          (event) => event.status == 'confirmed' || event.status == 'pending',
+          (event) =>
+              (event.status == 'confirmed' ||
+                  event.status == 'pending' ||
+                  event.status == 'in_progress') &&
+              event.date.isAfter(now),
         )
         .length;
   }
 
   int get daysUntilNextEvent {
-    if (widget.registeredEvents.isEmpty) return 0;
+    if (_allEvents.isEmpty) return 0;
 
     final now = DateTime.now();
     final upcomingEvents =
-        widget.registeredEvents
-            .where((event) => event.date.isAfter(now))
-            .toList()
+        _allEvents.where((event) => event.date.isAfter(now)).toList()
           ..sort((a, b) => a.date.compareTo(b.date));
 
     if (upcomingEvents.isEmpty) return 0;
@@ -85,7 +91,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return _allEvents.where((event) {
       return event.title.toLowerCase().contains(lowerQuery) ||
           event.location.toLowerCase().contains(lowerQuery) ||
-          event.status.toLowerCase().contains(lowerQuery);
+          event.status.toLowerCase().contains(lowerQuery) ||
+          (event.plannerName?.toLowerCase().contains(lowerQuery) ?? false);
     }).toList();
   }
 
@@ -128,38 +135,24 @@ class _HomeScreenState extends State<HomeScreen> {
 
     if (confirm == true && mounted) {
       ApiService.logout();
+      EventRepository.clear();
       Navigator.pushReplacementNamed(context, '/login');
     }
   }
 
-  Future<void> _refreshEvents() async {
+  Future<void> _refreshEvents({bool showLoader = true}) async {
     if (_isLoadingEvents) return;
 
-    setState(() {
+    if (showLoader && _allEvents.isEmpty) {
+      setState(() {
+        _isLoadingEvents = true;
+      });
+    } else {
       _isLoadingEvents = true;
-    });
+    }
 
     try {
-      final result = await ApiService.getEvents();
-      final List rawEvents = result['data'] ?? [];
-
-      final List<Event> events = rawEvents
-          .map((e) => Event.fromJson(Map<String, dynamic>.from(e)))
-          .toList();
-
-      final currentEvents = List<Event>.from(widget.registeredEvents);
-      for (var event in currentEvents) {
-        widget.onDeleteEvent(event);
-      }
-
-      for (var event in events) {
-        widget.onAddEvent(event);
-      }
-
-      setState(() {
-        _allEvents = List.from(events);
-        _filteredEvents = _applySearch(_searchController.text);
-      });
+      await EventRepository.loadEvents(forceRefresh: true);
     } catch (e) {
       print('Error refreshing events: $e');
       if (mounted) {
@@ -176,6 +169,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _onEventsChanged() {
+    if (!mounted) return;
+
+    setState(() {
+      _allEvents = EventRepository.cachedEvents;
+      _filteredEvents = _applySearch(_searchController.text);
+    });
+  }
+
   Future<void> _navigateToCreateEvent() async {
     final newEvent = await Navigator.push<Event>(
       context,
@@ -183,12 +185,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (newEvent != null) {
-      await _refreshEvents();
+      EventRepository.upsert(newEvent);
+      widget.onAddEvent(newEvent);
+      unawaited(EventRepository.refreshInBackground());
     }
   }
 
   @override
   void dispose() {
+    EventRepository.events.removeListener(_onEventsChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -202,7 +207,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (updatedEvent != null) {
-      await _refreshEvents();
+      EventRepository.upsert(updatedEvent);
+      widget.onUpdateEvent(updatedEvent);
+      unawaited(EventRepository.refreshInBackground());
     }
   }
 
@@ -249,11 +256,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (result['success'] == true) {
         widget.onDeleteEvent(event);
-
-        setState(() {
-          _allEvents.removeWhere((e) => e.id == event.id);
-          _filteredEvents = _applySearch(_searchController.text);
-        });
+        EventRepository.remove(event.id);
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Event deleted successfully')),
@@ -278,12 +281,16 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
 
-    _allEvents = List.from(widget.registeredEvents);
-    _filteredEvents = _allEvents;
+    EventRepository.seed(widget.registeredEvents);
+    _allEvents = EventRepository.cachedEvents;
+    _filteredEvents = _applySearch(_searchController.text);
 
+    EventRepository.events.addListener(_onEventsChanged);
     _searchController.addListener(_filterEvents);
 
-    if (widget.registeredEvents.isEmpty) {
+    if (EventRepository.hasCache) {
+      unawaited(EventRepository.refreshInBackground());
+    } else {
       Future.microtask(() => _refreshEvents());
     }
     _loadUnreadCount();
@@ -293,12 +300,8 @@ class _HomeScreenState extends State<HomeScreen> {
   void didUpdateWidget(HomeScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    // Update local lists when parent updates
-    if (oldWidget.registeredEvents != widget.registeredEvents) {
-      setState(() {
-        _allEvents = List.from(widget.registeredEvents);
-        _filteredEvents = _applySearch(_searchController.text);
-      });
+    if (!EventRepository.hasCache && widget.registeredEvents.isNotEmpty) {
+      EventRepository.seed(widget.registeredEvents);
     }
   }
 
@@ -534,8 +537,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   //main content
                   Expanded(
                     child: RefreshIndicator(
-                      onRefresh: _refreshEvents,
-                      child: _isLoadingEvents && widget.registeredEvents.isEmpty
+                      onRefresh: () => _refreshEvents(showLoader: false),
+                      child: _isLoadingEvents && _allEvents.isEmpty
                           ? const Center(child: CircularProgressIndicator())
                           : SingleChildScrollView(
                               physics: const AlwaysScrollableScrollPhysics(),
@@ -745,26 +748,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                             ),
                                           )
                                         : Column(
-                                            children: _filteredEvents
-                                                .asMap()
-                                                .entries
-                                                .map((entry) {
-                                                  final index = entry.key;
-                                                  final event = entry.value;
+                                            children: _filteredEvents.asMap().entries.map((
+                                              entry,
+                                            ) {
+                                              final index = entry.key;
+                                              final event = entry.value;
 
-                                                  return TweenAnimationBuilder<
-                                                    double
-                                                  >(
-                                                    tween: Tween(
-                                                      begin: 0,
-                                                      end: 1,
-                                                    ),
-                                                    duration: Duration(
-                                                      milliseconds:
-                                                          300 + (index * 80),
-                                                    ),
-                                                    curve: Curves.easeOutCubic,
-                                                    builder: (context, value, child) {
+                                              return TweenAnimationBuilder<
+                                                double
+                                              >(
+                                                tween: Tween(begin: 0, end: 1),
+                                                duration: Duration(
+                                                  milliseconds:
+                                                      300 + (index * 80),
+                                                ),
+                                                curve: Curves.easeOutCubic,
+                                                builder:
+                                                    (context, value, child) {
                                                       return Opacity(
                                                         opacity: value,
                                                         child:
@@ -778,25 +778,26 @@ class _HomeScreenState extends State<HomeScreen> {
                                                             ),
                                                       );
                                                     },
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.only(
-                                                            bottom: 12,
-                                                          ),
-                                                      child: EventCard(
-                                                        event: event,
-                                                        onDelete: () =>
-                                                            _deleteEvent(event),
-                                                        onTap: () =>
-                                                            _editEvent(event),
-                                                        onEventUpdated: (_) async {
-                                                          await _refreshEvents();
-                                                        },
+                                                child: Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        bottom: 12,
                                                       ),
-                                                    ),
-                                                  );
-                                                })
-                                                .toList(),
+                                                  child: EventCard(
+                                                    event: event,
+                                                    onDelete: () =>
+                                                        _deleteEvent(event),
+                                                    onTap: () =>
+                                                        _editEvent(event),
+                                                    onEventUpdated: (_) async {
+                                                      unawaited(
+                                                        EventRepository.refreshInBackground(),
+                                                      );
+                                                    },
+                                                  ),
+                                                ),
+                                              );
+                                            }).toList(),
                                           ),
                                   ],
                                 ),

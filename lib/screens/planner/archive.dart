@@ -1,6 +1,8 @@
+import 'dart:async';
+
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:event_planner/models/event.dart';
-import 'package:event_planner/services/api_service.dart';
+import 'package:event_planner/repositories/archive_repository.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -20,47 +22,65 @@ class _ArchiveScreenState extends State<Archive> {
   @override
   void initState() {
     super.initState();
-    _loadArchivedEvents();
+    ArchiveRepository.events.addListener(_onArchivedEventsChanged);
+
+    if (ArchiveRepository.hasCache) {
+      _events = ArchiveRepository.cachedEvents;
+      _isLoading = false;
+      unawaited(ArchiveRepository.refreshInBackground());
+    } else {
+      unawaited(_loadArchivedEvents());
+    }
   }
 
-  Future<void> _loadArchivedEvents() async {
+  @override
+  void dispose() {
+    ArchiveRepository.events.removeListener(_onArchivedEventsChanged);
+    super.dispose();
+  }
+
+  void _onArchivedEventsChanged() {
+    if (!mounted) return;
+
     setState(() {
-      _isLoading = true;
+      _events = ArchiveRepository.cachedEvents;
+      _isLoading = false;
       _errorMessage = null;
     });
+  }
+
+  Future<void> _loadArchivedEvents({bool forceRefresh = true}) async {
+    final hasCache = ArchiveRepository.hasCache;
+
+    if (!hasCache) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
-      final result = await ApiService.getArchivedPlannerEvents();
+      final events = await ArchiveRepository.loadArchivedEvents(
+        forceRefresh: forceRefresh,
+      );
+
       if (!mounted) return;
 
-      if (result['success'] == true) {
-        final data = result['data'];
-        final eventsJson = data is Map ? data['events'] : null;
-
-        if (eventsJson is! List) {
-          setState(() {
-            _errorMessage = 'Invalid events data';
-            _isLoading = false;
-          });
-          return;
-        }
-
-        setState(() {
-          _events = eventsJson
-              .map((e) => Event.fromJson(Map<String, dynamic>.from(e)))
-              .toList();
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _errorMessage = result['message'] ?? 'Failed to load archived events';
-          _isLoading = false;
-        });
-      }
+      setState(() {
+        _events = events;
+        _isLoading = false;
+        _errorMessage = null;
+      });
     } catch (e) {
       if (!mounted) return;
+
+      if (hasCache) {
+        setState(() => _errorMessage = null);
+        return;
+      }
+
       setState(() {
-        _errorMessage = 'Connection error';
+        _errorMessage = e.toString();
         _isLoading = false;
       });
     }
@@ -73,48 +93,29 @@ class _ArchiveScreenState extends State<Archive> {
     final removedIndex = _events.indexWhere((e) => e.id == event.id);
     final removedEvent = removedIndex != -1 ? _events[removedIndex] : null;
 
-    // Optimistically remove from the archived list
-    setState(() {
-      _events.removeWhere((e) => e.id == event.id);
-    });
+    ArchiveRepository.removeEventLocally(event.id);
 
     try {
-      final result = await ApiService.unarchivePlannerEvent(parsedId);
+      await ArchiveRepository.unarchiveEvent(parsedId);
       if (!mounted) return;
 
-      if (result['success'] == true) {
+      setState(() {
         _unarchivedSomething = true;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('"${event.title}" moved back to My Events'),
-            backgroundColor: AppColors.green,
-          ),
-        );
-      } else {
-        if (removedEvent != null) {
-          setState(() {
-            _events.insert(removedIndex, removedEvent);
-          });
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Failed to unarchive event'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('"${event.title}" moved back to My Events'),
+          backgroundColor: AppColors.green,
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       if (removedEvent != null) {
-        setState(() {
-          _events.insert(removedIndex, removedEvent);
-        });
+        ArchiveRepository.restoreEventLocally(removedEvent, removedIndex);
       }
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Connection error'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
       );
     }
   }
@@ -149,7 +150,8 @@ class _ArchiveScreenState extends State<Archive> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 15),
+                      Spacer(),
+                      const Spacer(),
                       const Text(
                         'Archived events',
                         style: TextStyle(
@@ -158,6 +160,8 @@ class _ArchiveScreenState extends State<Archive> {
                           color: AppColors.burgundy,
                         ),
                       ),
+                      const Spacer(),
+                      const SizedBox(width: 40),
                     ],
                   ),
                 ),
@@ -189,7 +193,8 @@ class _ArchiveScreenState extends State<Archive> {
                               ),
                               const SizedBox(height: 12),
                               ElevatedButton(
-                                onPressed: _loadArchivedEvents,
+                                onPressed: () =>
+                                    _loadArchivedEvents(forceRefresh: true),
                                 child: const Text('Retry'),
                               ),
                             ],
@@ -218,7 +223,8 @@ class _ArchiveScreenState extends State<Archive> {
                           ),
                         )
                       : RefreshIndicator(
-                          onRefresh: _loadArchivedEvents,
+                          onRefresh: () =>
+                              _loadArchivedEvents(forceRefresh: true),
                           child: ListView.builder(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             itemCount: _events.length,

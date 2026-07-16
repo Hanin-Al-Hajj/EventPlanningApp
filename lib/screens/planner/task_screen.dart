@@ -1,7 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:event_planner/models/task.dart';
-import 'package:event_planner/services/api_service.dart';
+import 'package:event_planner/repositories/planner_task_repository.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class PlannerTaskScreen extends StatefulWidget {
@@ -32,130 +34,120 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
 
   List<Map<String, dynamic>> _assistants = [];
   List<Map<String, dynamic>> _vendors = [];
-  bool _isFormDataLoading = false;
 
   @override
   void initState() {
     super.initState();
-    _loadAll();
-  }
+    PlannerTaskRepository.changes.addListener(_onTaskCacheChanged);
 
-  Future<void> _loadAll() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final results = await Future.wait([
-        ApiService.getEventTasks(widget.eventId),
-        ApiService.getPlannerEvent(widget.eventId),
-        ApiService.getAssistants(),
-        ApiService.getVendors(widget.eventId.toString()),
-      ], eagerError: false);
-
-      if (!mounted) return;
-
-      // Tasks (index 0)
-      final taskResult = results[0];
-      if (taskResult is Map && taskResult['success'] == true) {
-        final data = taskResult['data'];
-        final tasksList = data['tasks'] as List? ?? [];
-        final stats = data['stats'] as Map<String, dynamic>? ?? {};
-        _tasks = tasksList
-            .map((t) => Task.fromJson(Map<String, dynamic>.from(t)))
-            .toList();
-        _todoCount = stats['todo'] ?? 0;
-        _inProgressCount = stats['in_progress'] ?? 0;
-        _doneCount = stats['done'] ?? 0;
-      }
-
-      // Event details (index 1)
-      final eventResult = results[1];
-      if (eventResult is Map && eventResult['success'] == true) {
-        final event = eventResult['data'] as Map<String, dynamic>? ?? {};
-        _eventGuests = int.tryParse('${event['guest_estimate'] ?? 0}') ?? 0;
-        _eventBudget =
-            double.tryParse(
-              '${event['budget'] ?? event['budget_overall'] ?? 0}',
-            ) ??
-            0;
-        _eventDescription = event['description'] ?? '';
-        _eventLocation = event['location'] ?? event['location_text'] ?? '';
-      }
-
-      // Assistants (index 2)
-      final assistantsResult = results[2] as Map<String, dynamic>?;
-      if (assistantsResult != null && assistantsResult['success'] == true) {
-        _assistants = List<Map<String, dynamic>>.from(
-          assistantsResult['data'] ?? [],
-        );
-      }
-
-      // Vendors (index 3)
-      final vendorsResult = results[3] as Map<String, dynamic>?;
-      if (vendorsResult != null && vendorsResult['success'] == true) {
-        _vendors = List<Map<String, dynamic>>.from(
-          vendorsResult['vendors'] ?? vendorsResult['data'] ?? [],
-        );
-      }
-    } catch (e) {
-      debugPrint('Load error: $e');
-      if (mounted) _errorMessage = 'Connection error';
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    if (PlannerTaskRepository.hasCache(widget.eventId)) {
+      _applyCache(PlannerTaskRepository.cachedFor(widget.eventId));
+      _isLoading = false;
+    } else {
+      unawaited(_loadTasks(forceRefresh: false));
     }
   }
 
-  Future<void> _loadTasks() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-    try {
-      final results = await Future.wait([
-        ApiService.getEventTasks(widget.eventId),
-        ApiService.getPlannerEvent(widget.eventId),
-      ], eagerError: false);
+  @override
+  void dispose() {
+    PlannerTaskRepository.changes.removeListener(_onTaskCacheChanged);
+    super.dispose();
+  }
 
+  void _onTaskCacheChanged() {
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!PlannerTaskRepository.hasCache(widget.eventId)) return;
+
+      setState(() {
+        _applyCache(PlannerTaskRepository.cachedFor(widget.eventId));
+        _isLoading = false;
+        _errorMessage = null;
+      });
+    });
+  }
+
+  void _applyCache(PlannerTaskCache cache) {
+    _tasks = cache.tasks;
+    _todoCount = cache.todoCount;
+    _inProgressCount = cache.inProgressCount;
+    _doneCount = cache.doneCount;
+    _eventGuests = cache.eventGuests;
+    _eventBudget = cache.eventBudget;
+    _eventDescription = cache.eventDescription;
+    _eventLocation = cache.eventLocation;
+    _assistants = cache.assistants;
+    _vendors = cache.vendors;
+  }
+
+  Future<void> _loadAll({bool forceRefresh = false}) async {
+    if (!forceRefresh && PlannerTaskRepository.hasCache(widget.eventId)) {
+      setState(() {
+        _applyCache(PlannerTaskRepository.cachedFor(widget.eventId));
+        _isLoading = false;
+        _errorMessage = null;
+      });
+      return;
+    }
+
+    if (_tasks.isEmpty) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      await PlannerTaskRepository.loadAll(
+        eventId: widget.eventId,
+        forceRefresh: forceRefresh,
+      );
       if (!mounted) return;
 
-      // Parse tasks (index 0)
-      final taskResult = results[0];
-      if (taskResult is Map && taskResult['success'] == true) {
-        final data = taskResult['data'];
-        final tasksList = data['tasks'] as List? ?? [];
-        final stats = data['stats'] as Map<String, dynamic>? ?? {};
-        setState(() {
-          _tasks = tasksList
-              .map((t) => Task.fromJson(Map<String, dynamic>.from(t)))
-              .toList();
-          _todoCount = stats['todo'] ?? 0;
-          _inProgressCount = stats['in_progress'] ?? 0;
-          _doneCount = stats['done'] ?? 0;
-        });
-      }
+      setState(() {
+        _applyCache(PlannerTaskRepository.cachedFor(widget.eventId));
+        _isLoading = false;
+        _errorMessage = null;
+      });
+    } catch (e) {
+      debugPrint('Load error: $e');
+      if (!mounted) return;
 
-      // Parse event details (index 1)
-      final eventResult = results[1];
-      // ignore: unnecessary_type_check
-      if (eventResult is Map && eventResult['success'] == true) {
-        final event = eventResult['data'] as Map<String, dynamic>? ?? {};
-        setState(() {
-          _eventGuests = int.tryParse('${event['guest_estimate'] ?? 0}') ?? 0;
-          _eventBudget =
-              double.tryParse(
-                '${event['budget'] ?? event['budget_overall'] ?? 0}',
-              ) ??
-              0;
-          _eventDescription = event['description'] ?? '';
-          _eventLocation = event['location'] ?? event['location_text'] ?? '';
-        });
-      }
+      setState(() {
+        _errorMessage = _tasks.isEmpty ? 'Connection error' : null;
+        _isLoading = false;
+      });
+    }
+  }
 
-      setState(() => _isLoading = false);
+  Future<void> _loadTasks({bool forceRefresh = false}) async {
+    if (_tasks.isEmpty) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+
+    try {
+      await PlannerTaskRepository.loadTasks(
+        eventId: widget.eventId,
+        forceRefresh: forceRefresh,
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _applyCache(PlannerTaskRepository.cachedFor(widget.eventId));
+        _isLoading = false;
+        _errorMessage = null;
+      });
     } catch (e) {
       debugPrint('Load tasks error: $e');
       if (!mounted) return;
+
       setState(() {
-        _errorMessage = 'Connection error';
+        _errorMessage = _tasks.isEmpty ? 'Connection error' : null;
         _isLoading = false;
       });
     }
@@ -163,13 +155,55 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
 
   Future<void> _toggleTaskStatus(Task task) async {
     final newStatus = task.status == TaskStatus.done ? 'pending' : 'done';
+
     try {
-      final result = await ApiService.updateTaskStatus(task.id, newStatus);
-      if (result['success'] == true) _loadTasks();
-    } catch (e) {}
+      final result = await PlannerTaskRepository.updateTaskStatus(
+        task.id,
+        newStatus,
+      );
+
+      if (result is! Map || result['success'] == true) {
+        unawaited(_loadTasks(forceRefresh: true));
+      }
+    } catch (e) {
+      debugPrint('Toggle task status error: $e');
+    }
+  }
+
+  Future<bool> _ensureTaskFormData() async {
+    if (PlannerTaskRepository.hasFormDataCache(widget.eventId)) {
+      setState(() {
+        _applyCache(PlannerTaskRepository.cachedFor(widget.eventId));
+      });
+      return true;
+    }
+
+    try {
+      await PlannerTaskRepository.loadFormData(eventId: widget.eventId);
+      if (!mounted) return false;
+
+      setState(() {
+        _applyCache(PlannerTaskRepository.cachedFor(widget.eventId));
+      });
+      return true;
+    } catch (e) {
+      debugPrint('Load task form data error: $e');
+      if (!mounted) return false;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not load assistants and vendors'),
+          backgroundColor: AppColors.burgundy,
+        ),
+      );
+      return false;
+    }
   }
 
   void _showTaskDialog({Task? task}) async {
+    final hasFormData = await _ensureTaskFormData();
+    if (!hasFormData || !mounted) return;
+
     final assistants = _assistants;
     final vendors = _vendors;
 
@@ -570,7 +604,7 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                 if (titleController.text.isEmpty) return;
                 try {
                   if (isEditing) {
-                    await ApiService.updateTask(
+                    await PlannerTaskRepository.updateTask(
                       taskId: task.id,
                       title: titleController.text,
                       description: descriptionController.text.isNotEmpty
@@ -585,7 +619,7 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                       vendorIds: vendorIds.isNotEmpty ? vendorIds : null,
                     );
                   } else {
-                    await ApiService.createTask(
+                    await PlannerTaskRepository.createTask(
                       eventId: widget.eventId,
                       title: titleController.text,
                       description: descriptionController.text.isNotEmpty
@@ -601,7 +635,7 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                     );
                   }
                   Navigator.pop(ctx);
-                  _loadTasks();
+                  unawaited(_loadTasks(forceRefresh: true));
                 } catch (e) {}
               },
               style: ElevatedButton.styleFrom(
@@ -891,7 +925,7 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
                           ),
                         )
                       : RefreshIndicator(
-                          onRefresh: _loadTasks,
+                          onRefresh: () => _loadTasks(forceRefresh: true),
                           child: ListView.builder(
                             padding: const EdgeInsets.symmetric(horizontal: 20),
                             itemCount: _tasks.length,
@@ -1128,11 +1162,19 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
   }
 
   Future<void> _deleteTask(int taskId) async {
+    final backup = PlannerTaskRepository.cachedFor(widget.eventId);
+
+    PlannerTaskRepository.removeTaskLocally(
+      eventId: widget.eventId,
+      taskId: taskId,
+    );
+
     try {
-      final result = await ApiService.deleteTask(taskId);
+      final result = await PlannerTaskRepository.deleteTask(taskId);
       if (!mounted) return;
-      if (result['success'] == true) {
-        _loadTasks();
+
+      if (result is! Map || result['success'] == true) {
+        unawaited(_loadTasks(forceRefresh: true));
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -1141,8 +1183,17 @@ class _PlannerTaskScreenState extends State<PlannerTaskScreen> {
             ),
           );
         }
+      } else {
+        PlannerTaskRepository.setCache(eventId: widget.eventId, cache: backup);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to delete'),
+            backgroundColor: AppColors.burgundy,
+          ),
+        );
       }
     } catch (e) {
+      PlannerTaskRepository.setCache(eventId: widget.eventId, cache: backup);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

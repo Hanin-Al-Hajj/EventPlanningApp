@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:event_planner/models/create_event.dart';
 import 'package:event_planner/models/event.dart';
+import 'package:event_planner/repositories/create_event_repository.dart';
 import 'package:event_planner/services/api_service.dart';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:event_planner/repositories/planner_notification_repository.dart';
 import 'package:intl/intl.dart';
 
 class CreateEventScreen extends StatefulWidget {
@@ -41,6 +45,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   void initState() {
     super.initState();
     _fillFormForEditing();
+    CreateEventRepository.createData.addListener(_onCreateDataChanged);
     _loadCreateData();
   }
 
@@ -57,51 +62,55 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
   }
 
   Future<void> _loadCreateData() async {
+    final cachedData = CreateEventRepository.cachedData;
+    if (cachedData != null) {
+      _applyCreateData(cachedData);
+      unawaited(CreateEventRepository.refreshInBackground());
+      return;
+    }
+
     try {
-      final result = await ApiService.getCreateData();
+      final createData = await CreateEventRepository.loadCreateData();
       if (!mounted) return;
 
-      if (result['success'] == true) {
-        final data = result['data'];
-        if (data is! Map) {
-          _showLoadError('Invalid form data');
-          return;
-        }
-
-        final createData = CreateEventData.fromJson(
-          Map<String, dynamic>.from(data),
-        );
-
-        final matchingType = isEditing
-            ? createData.eventTypeByName(widget.eventToEdit!.eventType)
-            : null;
-        final matchingPlanner = isEditing
-            ? createData.plannerById(widget.eventToEdit!.plannerId)
-            : null;
-
-        setState(() {
-          _eventTypes = createData.eventTypes;
-          _planners = createData.planners;
-
-          if (matchingType != null) {
-            _selectedEventTypeId = matchingType.id;
-            _selectedEventTypeName = matchingType.name;
-          }
-
-          if (matchingPlanner != null) {
-            _selectedPlannerId = matchingPlanner.id;
-            _selectedPlannerName = matchingPlanner.name;
-          }
-
-          _isLoadingData = false;
-        });
-      } else {
-        _showLoadError(result['message'] ?? 'Failed to load form data');
-      }
+      _applyCreateData(createData);
     } catch (e) {
       if (!mounted) return;
       _showLoadError('Failed to load form data: $e');
     }
+  }
+
+  void _onCreateDataChanged() {
+    final createData = CreateEventRepository.cachedData;
+    if (createData == null || !mounted) return;
+
+    _applyCreateData(createData);
+  }
+
+  void _applyCreateData(CreateEventData createData) {
+    final matchingType = isEditing && _selectedEventTypeId == null
+        ? createData.eventTypeByName(widget.eventToEdit!.eventType)
+        : null;
+    final matchingPlanner = isEditing && _selectedPlannerId == null
+        ? createData.plannerById(widget.eventToEdit!.plannerId)
+        : null;
+
+    setState(() {
+      _eventTypes = createData.eventTypes;
+      _planners = createData.planners;
+
+      if (matchingType != null) {
+        _selectedEventTypeId = matchingType.id;
+        _selectedEventTypeName = matchingType.name;
+      }
+
+      if (matchingPlanner != null) {
+        _selectedPlannerId = matchingPlanner.id;
+        _selectedPlannerName = matchingPlanner.name;
+      }
+
+      _isLoadingData = false;
+    });
   }
 
   void _showLoadError(String message) {
@@ -118,6 +127,7 @@ class _CreateEventScreenState extends State<CreateEventScreen> {
 
   @override
   void dispose() {
+    CreateEventRepository.createData.removeListener(_onCreateDataChanged);
     _eventNameController.dispose();
     _guestsController.dispose();
     _budgetController.dispose();

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
+import 'package:event_planner/models/planner_settings.dart';
+import 'package:event_planner/repositories/planner_settings_repository.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import "package:event_planner/services/api_service.dart";
 
 class PlannerSetting extends StatefulWidget {
   const PlannerSetting({super.key});
@@ -11,61 +14,107 @@ class PlannerSetting extends StatefulWidget {
 }
 
 class _PlannerSettingState extends State<PlannerSetting> {
-  bool alert = true;
+  bool alert = false;
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadSettings();
+    PlannerSettingsRepository.settings.addListener(_onSettingsChanged);
+
+    if (PlannerSettingsRepository.hasCache) {
+      _applySettings(PlannerSettingsRepository.cachedSettings);
+      _loading = false;
+      unawaited(PlannerSettingsRepository.refreshInBackground());
+    } else {
+      unawaited(_loadSettings());
+    }
   }
 
-  Future<void> _loadSettings() async {
-    final result = await ApiService.getSettings();
+  @override
+  void dispose() {
+    PlannerSettingsRepository.settings.removeListener(_onSettingsChanged);
+    super.dispose();
+  }
+
+  void _onSettingsChanged() {
     if (!mounted) return;
-    if (result['success'] == true) {
+
+    setState(() {
+      _applySettings(PlannerSettingsRepository.cachedSettings);
+      _loading = false;
+    });
+  }
+
+  void _applySettings(PlannerSettings settings) {
+    alert = settings.inAppAlerts;
+  }
+
+  Future<void> _loadSettings({bool forceRefresh = true}) async {
+    final hasCache = PlannerSettingsRepository.hasCache;
+
+    if (!hasCache) {
+      setState(() => _loading = true);
+    }
+
+    try {
+      final settings = await PlannerSettingsRepository.loadSettings(
+        forceRefresh: forceRefresh,
+      );
+
+      if (!mounted) return;
+
       setState(() {
-        alert = result['data']?['notifications']?['in_app_alerts'] ?? true;
+        _applySettings(settings);
         _loading = false;
       });
-    } else {
+    } catch (e) {
+      if (!mounted) return;
+
       setState(() => _loading = false);
-      _showError(result['message'] ?? 'Failed to load settings');
+      _showError(e.toString());
     }
   }
 
   Future<void> _toggleAlert(bool value) async {
-    // Optimistic UI update
-    setState(() => alert = value);
+    final previousValue = alert;
+    PlannerSettingsRepository.setInAppAlertsLocally(value);
 
-    final result = await ApiService.updateNotificationSettings(
-      inAppAlerts: value,
-    );
-    if (!mounted) return;
+    try {
+      await PlannerSettingsRepository.updateNotificationSettings(
+        inAppAlerts: value,
+      );
+    } catch (e) {
+      PlannerSettingsRepository.setInAppAlertsLocally(previousValue);
 
-    if (result['success'] != true) {
-      // Revert on failure
-      setState(() => alert = !value);
-      _showError(result['message'] ?? 'Failed to update setting');
+      if (!mounted) return;
+      _showError(e.toString());
     }
   }
 
   Future<void> _handleLogout() async {
     Navigator.pop(context); // close bottom sheet
-    await ApiService.logout();
-    if (!mounted) return;
-    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    try {
+      await PlannerSettingsRepository.logout();
+      if (!mounted) return;
+      PlannerSettingsRepository.clear();
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    } catch (e) {
+      if (!mounted) return;
+      _showError(e.toString());
+    }
   }
 
   Future<void> _handleDeleteAccount() async {
     Navigator.pop(context); // close bottom sheet
-    final result = await ApiService.deleteAccount();
-    if (!mounted) return;
-
-    if (result['success'] == true) {
+    try {
+      await PlannerSettingsRepository.deleteAccount();
+      if (!mounted) return;
+      PlannerSettingsRepository.clear();
       Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-    } else {
-      _showError(result['message'] ?? 'Failed to delete account');
+    } catch (e) {
+      if (!mounted) return;
+      _showError(e.toString());
     }
   }
 
@@ -97,7 +146,7 @@ class _PlannerSettingState extends State<PlannerSetting> {
                   height: 40,
                   child: Center(
                     child: FaIcon(
-                      FontAwesomeIcons.arrowLeft,
+                      FontAwesomeIcons.xmark,
                       size: 20,
                       color: AppColors.darkpink,
                     ),
@@ -112,7 +161,7 @@ class _PlannerSettingState extends State<PlannerSetting> {
                   style: TextStyle(
                     color: AppColors.burgundy,
                     fontSize: 22,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
@@ -173,7 +222,11 @@ class _PlannerSettingState extends State<PlannerSetting> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          alert ? 'Enabled' : 'Disabled',
+                          _loading
+                              ? ''
+                              : alert
+                              ? 'Enabled'
+                              : 'Disabled',
                           style: TextStyle(
                             fontSize: 12.5,
                             color: alert ? AppColors.green : Colors.black45,
@@ -182,14 +235,16 @@ class _PlannerSettingState extends State<PlannerSetting> {
                       ],
                     ),
                   ),
-                  Switch(
-                    value: alert,
-                    onChanged: _toggleAlert,
-                    activeColor: Colors.white,
-                    activeTrackColor: AppColors.darkpink,
-                    inactiveThumbColor: Colors.white,
-                    inactiveTrackColor: const Color(0xFFD8D5CE),
-                  ),
+                  _loading
+                      ? const SizedBox(width: 48, height: 28)
+                      : Switch(
+                          value: alert,
+                          onChanged: _toggleAlert,
+                          activeColor: Colors.white,
+                          activeTrackColor: AppColors.darkpink,
+                          inactiveThumbColor: Colors.white,
+                          inactiveTrackColor: const Color(0xFFD8D5CE),
+                        ),
                 ],
               ),
             ),

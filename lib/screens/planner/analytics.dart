@@ -1,6 +1,10 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
 import 'package:event_planner/constants/app_colors.dart';
+import 'package:event_planner/models/analytics_model.dart';
+import 'package:event_planner/repositories/analytics_repository.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class AnalyticsScreen extends StatefulWidget {
@@ -14,9 +18,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   bool _isLoading = true;
   String? _error;
 
-  Map<String, dynamic> _stats = {};
-  List<Map<String, dynamic>> _monthlyData = [];
-  List<Map<String, dynamic>> _eventTypeStats = [];
+  AnalyticsData _analytics = const AnalyticsData.empty();
 
   static const Color _card = Color(0xFFFFFFFF);
   static const Color _badgeBg = Color(0xFFF5E8E8);
@@ -31,28 +33,71 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadAnalytics();
+    AnalyticsRepository.analytics.addListener(_onAnalyticsChanged);
+
+    final cachedAnalytics = AnalyticsRepository.cachedAnalytics;
+    if (cachedAnalytics != null) {
+      _applyAnalytics(cachedAnalytics);
+      _isLoading = false;
+      unawaited(AnalyticsRepository.refreshInBackground());
+    } else {
+      unawaited(_loadAnalytics());
+    }
   }
 
-  Future<void> _loadAnalytics() async {
+  @override
+  void dispose() {
+    AnalyticsRepository.analytics.removeListener(_onAnalyticsChanged);
+    super.dispose();
+  }
+
+  void _onAnalyticsChanged() {
+    if (!mounted) return;
+
+    final cachedAnalytics = AnalyticsRepository.cachedAnalytics;
+    if (cachedAnalytics == null) return;
+
     setState(() {
-      _isLoading = true;
+      _applyAnalytics(cachedAnalytics);
+      _isLoading = false;
       _error = null;
     });
-    try {
-      await Future.delayed(const Duration(milliseconds: 800));
-      final data = _mockData();
+  }
+
+  void _applyAnalytics(AnalyticsData analytics) {
+    _analytics = analytics;
+  }
+
+  Future<void> _loadAnalytics({bool forceRefresh = true}) async {
+    final hasCache = AnalyticsRepository.hasCache;
+
+    if (!hasCache) {
       setState(() {
-        _stats = Map<String, dynamic>.from(data['stats'] ?? {});
-        _monthlyData = List<Map<String, dynamic>>.from(
-          data['monthlyData'] ?? [],
-        );
-        _eventTypeStats = List<Map<String, dynamic>>.from(
-          data['eventTypeStats'] ?? [],
-        );
+        _isLoading = true;
+        _error = null;
+      });
+    }
+
+    try {
+      final analytics = await AnalyticsRepository.loadAnalytics(
+        forceRefresh: forceRefresh,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _applyAnalytics(analytics);
         _isLoading = false;
+        _error = null;
       });
     } catch (e) {
+      if (!mounted) return;
+
+      if (hasCache) {
+        setState(() => _error = null);
+        return;
+      }
+
       setState(() {
         _error = e.toString();
         _isLoading = false;
@@ -60,37 +105,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
   }
 
-  Map<String, dynamic> _mockData() => {
-    'stats': {
-      'total_events': 44,
-      'total_revenue': 72500.0,
-      'task_completion_rate': 87.0,
-      'avg_satisfaction': 8.5,
-    },
-    'monthlyData': [
-      {'month': 'Jul', 'count': 2},
-      {'month': 'Aug', 'count': 3},
-      {'month': 'Sep', 'count': 2},
-      {'month': 'Oct', 'count': 4},
-      {'month': 'Nov', 'count': 3},
-      {'month': 'Dec', 'count': 2},
-      {'month': 'Jan', 'count': 2},
-      {'month': 'Feb', 'count': 5},
-      {'month': 'Mar', 'count': 4},
-      {'month': 'Apr', 'count': 6},
-      {'month': 'May', 'count': 5},
-      {'month': 'Jun', 'count': 8},
-    ],
-    'eventTypeStats': [
-      {'name': 'Weddings', 'count': 18},
-      {'name': 'Corporate', 'count': 12},
-      {'name': 'Celebrations', 'count': 9},
-      {'name': 'Other', 'count': 5},
-    ],
-  };
-
-  String _formatRevenue(dynamic v) {
-    final n = (v ?? 0).toDouble();
+  String _formatRevenue(num value) {
+    final n = value.toDouble();
     if (n >= 1000) return '\$${(n / 1000).toStringAsFixed(1)}k';
     return '\$$n';
   }
@@ -149,7 +165,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           ? _buildError()
           : RefreshIndicator(
               color: AppColors.darkpink,
-              onRefresh: _loadAnalytics,
+              onRefresh: () => _loadAnalytics(forceRefresh: true),
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                 children: [
@@ -177,7 +193,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         const SizedBox(height: 16),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppColors.darkpink),
-          onPressed: _loadAnalytics,
+          onPressed: () => _loadAnalytics(forceRefresh: true),
           child: const Text('Retry', style: TextStyle(color: Colors.white)),
         ),
       ],
@@ -185,29 +201,30 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   );
 
   Widget _buildStatCards() {
+    final stats = _analytics.stats;
     final cards = [
       _StatItem(
         icon: Icons.trending_up_rounded,
         badge: '+12%',
-        value: '${_stats['total_events'] ?? 0}',
+        value: '${stats.totalEvents}',
         label: 'Total Events',
       ),
       _StatItem(
         icon: Icons.attach_money_rounded,
         badge: '+18%',
-        value: _formatRevenue(_stats['total_revenue']),
+        value: _formatRevenue(stats.totalRevenue),
         label: 'Revenue',
       ),
       _StatItem(
         icon: Icons.check_box_outlined,
         badge: '+5%',
-        value: '${(_stats['task_completion_rate'] ?? 0).toStringAsFixed(0)}%',
+        value: '${stats.taskCompletionRate.toStringAsFixed(0)}%',
         label: 'Task Rate',
       ),
       _StatItem(
         icon: Icons.star_border_rounded,
         badge: '+0.3',
-        value: '${_stats['avg_satisfaction'] ?? 0}/10',
+        value: '${stats.avgSatisfaction}/10',
         label: 'Satisfaction',
       ),
     ];
@@ -296,24 +313,25 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         const SizedBox(height: 16),
         SizedBox(
           height: 160,
-          child: _monthlyData.isEmpty
+          child: _analytics.monthlyData.isEmpty
               ? const Center(
                   child: Text(
                     'No data',
                     style: TextStyle(color: AppColors.green),
                   ),
                 )
-              : _LineChart(data: _monthlyData, color: AppColors.darkpink),
+              : _LineChart(
+                  data: _analytics.monthlyData,
+                  color: AppColors.darkpink,
+                ),
         ),
       ],
     ),
   );
 
   Widget _buildDonutCard() {
-    final total = _eventTypeStats.fold<int>(
-      0,
-      (s, e) => s + ((e['count'] ?? 0) as int),
-    );
+    final eventTypeStats = _analytics.eventTypeStats;
+    final total = _analytics.eventTypeTotal;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -339,7 +357,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                 height: 120,
                 child: CustomPaint(
                   painter: _DonutPainter(
-                    data: _eventTypeStats,
+                    data: eventTypeStats,
                     total: total,
                     colors: _donutColors,
                   ),
@@ -371,8 +389,8 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               const SizedBox(width: 24),
               Expanded(
                 child: Column(
-                  children: List.generate(_eventTypeStats.length, (i) {
-                    final e = _eventTypeStats[i];
+                  children: List.generate(eventTypeStats.length, (i) {
+                    final e = eventTypeStats[i];
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 5),
                       child: Row(
@@ -388,7 +406,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              e['name'] ?? '',
+                              e.name,
                               style: const TextStyle(
                                 color: Color(0xFF1A1A1A),
                                 fontSize: 13,
@@ -396,7 +414,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                             ),
                           ),
                           Text(
-                            '${e['count'] ?? 0}',
+                            '${e.count}',
                             style: const TextStyle(
                               color: Color(0xFF1A1A1A),
                               fontWeight: FontWeight.w600,
@@ -429,7 +447,7 @@ class _StatItem {
 }
 
 class _LineChart extends StatelessWidget {
-  final List<Map<String, dynamic>> data;
+  final List<MonthlyAnalyticsPoint> data;
   final Color color;
   const _LineChart({required this.data, required this.color});
   @override
@@ -440,16 +458,17 @@ class _LineChart extends StatelessWidget {
 }
 
 class _LineChartPainter extends CustomPainter {
-  final List<Map<String, dynamic>> data;
+  final List<MonthlyAnalyticsPoint> data;
   final Color color;
   _LineChartPainter({required this.data, required this.color});
+
   @override
   void paint(Canvas canvas, Size size) {
     if (data.isEmpty) return;
     const double leftPad = 28, bottomPad = 24, topPad = 8;
     final double chartW = size.width - leftPad,
         chartH = size.height - bottomPad - topPad;
-    final counts = data.map((e) => (e['count'] ?? 0) as int).toList();
+    final counts = data.map((e) => e.count).toList();
     final maxVal = counts.reduce(math.max).toDouble();
     final range = maxVal == 0 ? 1.0 : maxVal;
     final gridPaint = Paint()
@@ -472,7 +491,7 @@ class _LineChartPainter extends CustomPainter {
     final points = <Offset>[
       for (int i = 0; i < data.length; i++)
         Offset(
-          leftPad + (i / (data.length - 1)) * chartW,
+          _xForIndex(i, leftPad, chartW),
           topPad + chartH - (counts[i] / range) * chartH,
         ),
     ];
@@ -536,14 +555,16 @@ class _LineChartPainter extends CustomPainter {
     for (int i = 0; i < data.length; i++) {
       _drawText(
         canvas,
-        data[i]['month'] ?? '',
-        Offset(
-          leftPad + (i / (data.length - 1)) * chartW - 10,
-          size.height - 16,
-        ),
+        data[i].month,
+        Offset(_xForIndex(i, leftPad, chartW) - 10, size.height - 16),
         xStyle,
       );
     }
+  }
+
+  double _xForIndex(int index, double leftPad, double chartW) {
+    if (data.length == 1) return leftPad + chartW / 2;
+    return leftPad + (index / (data.length - 1)) * chartW;
   }
 
   void _drawText(Canvas c, String t, Offset o, TextStyle s) {
@@ -558,7 +579,7 @@ class _LineChartPainter extends CustomPainter {
 }
 
 class _DonutPainter extends CustomPainter {
-  final List<Map<String, dynamic>> data;
+  final List<EventTypeAnalyticsStat> data;
   final int total;
   final List<Color> colors;
   _DonutPainter({
@@ -568,11 +589,15 @@ class _DonutPainter extends CustomPainter {
   });
   @override
   void paint(Canvas canvas, Size size) {
+    if (total <= 0) return;
+
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2 - 6;
     double startAngle = -math.pi / 2;
     for (int i = 0; i < data.length; i++) {
-      final count = (data[i]['count'] ?? 0) as int;
+      final count = data[i].count;
+      if (count <= 0) continue;
+
       final sweep = total == 0 ? 0.0 : (count / total) * 2 * math.pi;
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),

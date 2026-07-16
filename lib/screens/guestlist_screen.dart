@@ -1,13 +1,15 @@
+import 'dart:async';
+
+import 'package:event_planner/constants/app_colors.dart';
+import 'package:event_planner/db/event_storage.dart';
 import 'package:event_planner/models/Guest.dart';
-import 'package:event_planner/services/api_service.dart';
+import 'package:event_planner/repositories/guest_repository.dart';
+import 'package:event_planner/services/export_service.dart';
 import 'package:event_planner/widgets/add_guest_dialog.dart';
-import 'package:flutter/material.dart';
 import 'package:event_planner/widgets/guest_card.dart';
 import 'package:event_planner/widgets/statistics_cards.dart';
-import 'package:event_planner/db/event_storage.dart';
-import 'package:event_planner/constants/app_colors.dart';
+import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:event_planner/services/export_service.dart';
 
 class GuestListScreen extends StatefulWidget {
   const GuestListScreen({
@@ -16,6 +18,7 @@ class GuestListScreen extends StatefulWidget {
     required this.eventName,
     this.onGuestChanged,
   });
+
   final String eventID;
   final String eventName;
   final Future<void> Function()? onGuestChanged;
@@ -26,6 +29,10 @@ class GuestListScreen extends StatefulWidget {
 
 class _GuestlistScreenState extends State<GuestListScreen> {
   final TextEditingController _searchController = TextEditingController();
+
+  late final int _eventId;
+  late ValueNotifier<List<Guest>> _guestsNotifier;
+
   List<Guest> _allGuests = [];
   List<Guest> _filteredGuests = [];
   bool _isloading = false;
@@ -34,53 +41,88 @@ class _GuestlistScreenState extends State<GuestListScreen> {
   @override
   void initState() {
     super.initState();
-    _loadGuests();
+
+    _eventId = int.tryParse(widget.eventID) ?? 0;
     _searchController.addListener(_filterGuest);
+
+    if (_eventId == 0) {
+      _errorMessage = 'Invalid event';
+      return;
+    }
+
+    _guestsNotifier = GuestRepository.guestsForEvent(_eventId);
+    _guestsNotifier.addListener(_onGuestsChanged);
+
+    _allGuests = GuestRepository.cachedGuests(_eventId);
+    _filteredGuests = _applySearch(_searchController.text);
+
+    if (GuestRepository.hasCache(_eventId)) {
+      unawaited(GuestRepository.refreshInBackground(_eventId));
+    } else {
+      unawaited(_loadGuests());
+    }
   }
 
   @override
   void dispose() {
+    if (_eventId != 0) {
+      _guestsNotifier.removeListener(_onGuestsChanged);
+    }
     _searchController.removeListener(_filterGuest);
     _searchController.dispose();
     super.dispose();
   }
 
-  // Safe snackbar helper
+  void _onGuestsChanged() {
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
+      setState(() {
+        _allGuests = GuestRepository.cachedGuests(_eventId);
+        _filteredGuests = _applySearch(_searchController.text);
+        _errorMessage = null;
+      });
+    });
+  }
+
   void _showSnackBar(String message, {Color? backgroundColor}) {
     if (!mounted) return;
 
     Future.microtask(() {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(
-            SnackBar(
-              content: Text(message),
-              backgroundColor: backgroundColor,
-              duration: const Duration(seconds: 3),
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-      }
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: backgroundColor,
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
     });
+  }
+
+  List<Guest> _applySearch(String queryText) {
+    final query = queryText.toLowerCase().trim();
+    if (query.isEmpty) return List<Guest>.from(_allGuests);
+
+    return _allGuests.where((guest) {
+      return guest.name.toLowerCase().contains(query) ||
+          guest.email.toLowerCase().contains(query) ||
+          guest.phoneNumber.toLowerCase().contains(query);
+    }).toList();
   }
 
   void _filterGuest() {
-    final query = _searchController.text.toLowerCase();
     setState(() {
-      if (query.isEmpty) {
-        _filteredGuests = List.from(_allGuests);
-      } else {
-        _filteredGuests = _allGuests.where((guest) {
-          return guest.name.toLowerCase().contains(query) ||
-              guest.email.toLowerCase().contains(query) ||
-              guest.phoneNumber.toLowerCase().contains(query);
-        }).toList();
-      }
+      _filteredGuests = _applySearch(_searchController.text);
     });
   }
 
-  // EXPORT TO EXCEL
   Future<void> _exportExcel() async {
     if (_allGuests.isEmpty) {
       _showSnackBar('No guests to export', backgroundColor: Colors.orange);
@@ -106,7 +148,6 @@ class _GuestlistScreenState extends State<GuestListScreen> {
     }
   }
 
-  // EXPORT TO PDF
   Future<void> _exportPdf() async {
     if (_allGuests.isEmpty) {
       _showSnackBar('No guests to export', backgroundColor: Colors.orange);
@@ -136,48 +177,46 @@ class _GuestlistScreenState extends State<GuestListScreen> {
     }
   }
 
-  // LOAD GUESTS FROM API
-  Future<void> _loadGuests() async {
-    if (!mounted) return;
+  Future<void> _loadGuests({bool showLoader = true}) async {
+    if (!mounted || _eventId == 0) return;
 
-    setState(() {
-      _isloading = true;
-      _errorMessage = null;
-    });
+    final hasCache = GuestRepository.hasCache(_eventId);
+
+    if (showLoader && !hasCache) {
+      setState(() {
+        _isloading = true;
+        _errorMessage = null;
+      });
+    } else if (_errorMessage != null) {
+      setState(() {
+        _errorMessage = null;
+      });
+    }
 
     try {
-      final result = await ApiService.getEventGuests(int.parse(widget.eventID));
+      await GuestRepository.loadGuests(eventId: _eventId, forceRefresh: true);
 
       if (!mounted) return;
 
-      if (result['success'] == true) {
-        final List<dynamic> guestsJson = result['data'] ?? [];
-        final guests = guestsJson
-            .map((json) => Guest.fromJson(json as Map<String, dynamic>))
-            .toList();
-
-        setState(() {
-          _allGuests = guests;
-          _filteredGuests = guests;
-          _isloading = false;
-        });
-      } else {
-        setState(() {
-          _errorMessage = result['message'] ?? 'Failed to load guests';
-          _isloading = false;
-        });
-      }
-    } catch (e) {
-      print('Error loading guests: $e');
-      if (!mounted) return;
       setState(() {
-        _errorMessage = 'Connection error. Please try again.';
+        _allGuests = GuestRepository.cachedGuests(_eventId);
+        _filteredGuests = _applySearch(_searchController.text);
         _isloading = false;
+        _errorMessage = null;
+      });
+    } catch (e) {
+      debugPrint('Error loading guests: $e');
+      if (!mounted) return;
+
+      setState(() {
+        _isloading = false;
+        if (!hasCache && _allGuests.isEmpty) {
+          _errorMessage = 'Connection error. Please try again.';
+        }
       });
     }
   }
 
-  // Statistics getters
   int get totalCount => _allGuests.length;
   int get acceptedCount =>
       _allGuests.where((g) => g.status == GuestStatus.accepted).length;
@@ -188,42 +227,34 @@ class _GuestlistScreenState extends State<GuestListScreen> {
   int get checkedInCount =>
       _allGuests.where((g) => g.checkInTime != null).length;
 
-  // ADD GUEST - Send invitation immediately
   void _addGuest() {
     showDialog(
       context: context,
       builder: (dialogContext) => AddGuestDialog(
-        // removed guest: null
         onAdd: (guest) async {
           Navigator.pop(dialogContext);
-          setState(() => _isloading = true);
 
           try {
-            final result =
-                await ApiService.addGuest(
-                  eventId: int.parse(widget.eventID),
-                  name: guest.name,
-                  email: guest.email,
-                  phone: guest.phoneNumber,
-                  plusOneAllowed: guest.plusOnes != null && guest.plusOnes! > 0,
-                  plusOneName: guest.plusOneName,
-                  dietaryRestrictions: guest.dietaryRestrictions,
-                  notes: guest.notes,
-                  sendInvitation: true,
-                ).timeout(
-                  const Duration(seconds: 30),
-                  onTimeout: () {
-                    throw Exception('Request timed out. Please try again.');
-                  },
-                );
+            final result = await GuestRepository.addGuest(
+              eventId: _eventId,
+              name: guest.name,
+              email: guest.email,
+              phone: guest.phoneNumber,
+              plusOneAllowed: guest.plusOnes != null && guest.plusOnes! > 0,
+              plusOneName: guest.plusOneName,
+              dietaryRestrictions: guest.dietaryRestrictions,
+              notes: guest.notes,
+              sendInvitation: true,
+            );
 
             if (!mounted) return;
 
             if (result['success'] == true) {
-              await _loadGuests();
-              if (!mounted) return;
               await updateEventProgress(widget.eventID);
-              widget.onGuestChanged?.call();
+              final callback = widget.onGuestChanged;
+              if (callback != null) await callback();
+
+              unawaited(GuestRepository.refreshInBackground(_eventId));
 
               final emailSent = result['email_sent'] ?? false;
               _showSnackBar(
@@ -233,37 +264,38 @@ class _GuestlistScreenState extends State<GuestListScreen> {
                 backgroundColor: emailSent ? Colors.green : Colors.orange,
               );
             } else {
-              setState(() => _isloading = false);
               _showSnackBar(
                 result['message'] ?? 'Failed to add guest',
                 backgroundColor: AppColors.burgundy.withOpacity(0.8),
               );
             }
-          } catch (e) {
+          } catch (_) {
             if (!mounted) return;
-            setState(() => _isloading = false);
+
             _showSnackBar(
               'Connection error. Please try again.',
               backgroundColor: AppColors.burgundy.withOpacity(0.8),
             );
-            _loadGuests();
+            unawaited(GuestRepository.refreshInBackground(_eventId));
           }
         },
       ),
     );
   }
 
-  // ✅ DELETE GUEST
-  void _deleteGuest(Guest guest) async {
+  Future<void> _deleteGuest(Guest guest) async {
     try {
-      final result = await ApiService.deleteGuest(int.parse(guest.id));
+      final result = await GuestRepository.deleteGuest(
+        eventId: _eventId,
+        guest: guest,
+      );
 
       if (!mounted) return;
 
       if (result['success'] == true) {
-        await _loadGuests();
         await updateEventProgress(widget.eventID);
-        widget.onGuestChanged?.call();
+        final callback = widget.onGuestChanged;
+        if (callback != null) await callback();
 
         _showSnackBar(
           '${guest.name} removed',
@@ -275,7 +307,7 @@ class _GuestlistScreenState extends State<GuestListScreen> {
           backgroundColor: AppColors.burgundy.withOpacity(0.8),
         );
       }
-    } catch (e) {
+    } catch (_) {
       _showSnackBar(
         'Failed to delete guest. Please try again.',
         backgroundColor: AppColors.burgundy.withOpacity(0.8),
@@ -283,13 +315,16 @@ class _GuestlistScreenState extends State<GuestListScreen> {
     }
   }
 
-  //  RESEND INVITATION
   Future<void> _resendInvitation(Guest guest) async {
     try {
-      final result = await ApiService.resendInvitation(int.parse(guest.id));
+      final result = await GuestRepository.resendInvitation(
+        eventId: _eventId,
+        guest: guest,
+      );
+
+      if (!mounted) return;
 
       if (result['success'] == true) {
-        await _loadGuests();
         _showSnackBar(
           'Invitation resent to ${guest.name}!',
           backgroundColor: Colors.green,
@@ -300,7 +335,7 @@ class _GuestlistScreenState extends State<GuestListScreen> {
           backgroundColor: AppColors.burgundy.withOpacity(0.8),
         );
       }
-    } catch (e) {
+    } catch (_) {
       _showSnackBar(
         'Connection error. Please try again.',
         backgroundColor: AppColors.burgundy.withOpacity(0.8),
@@ -363,7 +398,7 @@ class _GuestlistScreenState extends State<GuestListScreen> {
               ),
               const SizedBox(width: 10),
               InkWell(
-                onTap: _addGuest,
+                onTap: _eventId == 0 ? null : _addGuest,
                 borderRadius: BorderRadius.circular(22),
                 child: const SizedBox(
                   width: 40,
@@ -381,182 +416,193 @@ class _GuestlistScreenState extends State<GuestListScreen> {
           ),
         ),
       ),
-      body: _isloading
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(color: Color(0xFF586041)),
-                  SizedBox(height: 16),
-                  Text(
-                    'Sending invitation...',
-                    style: TextStyle(color: Colors.grey, fontSize: 14),
-                  ),
-                ],
+      body: _isloading && _allGuests.isEmpty
+          ? _buildLoadingState()
+          : _errorMessage != null && _allGuests.isEmpty
+          ? _buildErrorState()
+          : _buildGuestContent(),
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(color: Color(0xFF586041)),
+          SizedBox(height: 16),
+          Text(
+            'Loading guests...',
+            style: TextStyle(color: Colors.grey, fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline, size: 64, color: Colors.grey.shade400),
+          const SizedBox(height: 16),
+          Text(
+            _errorMessage!,
+            style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () => _loadGuests(),
+            child: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGuestContent() {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              Expanded(
+                child: Statcard(
+                  count: acceptedCount,
+                  label: 'Accepted',
+                  color: Colors.green.shade100,
+                  textColor: AppColors.green,
+                ),
               ),
-            )
-          : _errorMessage != null
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.grey.shade400,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    _errorMessage!,
-                    style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _loadGuests,
-                    child: const Text('Retry'),
-                  ),
-                ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Statcard(
+                  count: declinedCount,
+                  label: 'Declined',
+                  color: Colors.red.shade100,
+                  textColor: AppColors.darkpink,
+                ),
               ),
-            )
-          : Column(
-              children: [
-                // Statistics
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Statcard(
-                          count: acceptedCount,
-                          label: 'Accepted',
-                          color: Colors.green.shade100,
-                          textColor: AppColors.green,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Statcard(
-                          count: declinedCount,
-                          label: 'Declined',
-                          color: Colors.red.shade100,
-                          textColor: AppColors.darkpink,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Statcard(
-                          count: pendingCount,
-                          label: 'Pending',
-                          color: Colors.orange.shade100,
-                          textColor: const Color.fromARGB(255, 226, 104, 67),
-                        ),
-                      ),
-                    ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Statcard(
+                  count: pendingCount,
+                  label: 'Pending',
+                  color: Colors.orange.shade100,
+                  textColor: const Color.fromARGB(255, 226, 104, 67),
+                ),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _exportExcel,
+                  icon: const Icon(Icons.table_chart, size: 18),
+                  label: const Text('Export Excel'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.darkpink,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
-
-                // Export buttons
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _exportExcel,
-
-                          label: const Text('Export Excel'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.darkpink,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _exportPdf,
-
-                          label: const Text('Export PDF'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.darkpink,
-                            side: const BorderSide(color: AppColors.darkpink),
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _exportPdf,
+                  icon: const Icon(Icons.picture_as_pdf, size: 18),
+                  label: const Text('Export PDF'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.darkpink,
+                    side: const BorderSide(color: AppColors.darkpink),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: _filteredGuests.isEmpty
+              ? _buildEmptyState()
+              : RefreshIndicator(
+                  onRefresh: () => _loadGuests(showLoader: false),
+                  child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    itemCount: _filteredGuests.length,
+                    itemBuilder: (context, index) {
+                      final guest = _filteredGuests[index];
+                      return GuestCard(
+                        guest: guest,
+                        onTap: null,
+                        onDelete: () => _deleteGuest(guest),
+                        onResend: !guest.invitationSent
+                            ? () => _resendInvitation(guest)
+                            : null,
+                      );
+                    },
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
 
-                const SizedBox(height: 16),
-
-                // Guest list (no edit on tap)
-                Expanded(
-                  child: _filteredGuests.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.people_outline,
-                                size: 64,
-                                color: AppColors.green.withOpacity(0.6),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                _searchController.text.isEmpty
-                                    ? 'No guests added yet'
-                                    : 'No guests found',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: AppColors.green.withOpacity(0.8),
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              if (_searchController.text.isEmpty) ...[
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Tap the + button to add your first guest',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: AppColors.green.withOpacity(0.6),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        )
-                      : RefreshIndicator(
-                          onRefresh: _loadGuests,
-                          child: ListView.builder(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            itemCount: _filteredGuests.length,
-                            itemBuilder: (context, index) {
-                              final guest = _filteredGuests[index];
-                              return GuestCard(
-                                guest: guest,
-                                onTap: null, // No edit - tap does nothing
-                                onDelete: () => _deleteGuest(guest),
-                                onResend: !guest.invitationSent
-                                    ? () => _resendInvitation(guest)
-                                    : null,
-                              );
-                            },
-                          ),
-                        ),
+  Widget _buildEmptyState() {
+    return RefreshIndicator(
+      onRefresh: () => _loadGuests(showLoader: false),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.of(context).size.height * 0.16),
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.people_outline,
+                size: 64,
+                color: AppColors.green.withOpacity(0.6),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _searchController.text.isEmpty
+                    ? 'No guests added yet'
+                    : 'No guests found',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: AppColors.green.withOpacity(0.8),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              if (_searchController.text.isEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Tap the + button to add your first guest',
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: AppColors.green.withOpacity(0.6),
+                  ),
                 ),
               ],
-            ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
