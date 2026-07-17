@@ -176,47 +176,83 @@ class _MyEventsState extends State<MyEvents> {
     final previousEvents = List<Event>.from(_events);
     final previousStats = _stats;
 
+    // Optimistically update UI
     PlannerEventsRepository.updateStatusLocally(
       eventId: oldEvent.id,
       status: newStatus,
     );
 
-    setState(() {
-      _events = List<Event>.from(_events);
-      _events[index] = oldEvent.copyWithStatus(newStatus);
-      _stats = _stats.applyStatusChange(
-        oldStatus: oldEvent.status,
-        newStatus: newStatus,
-      );
-      _filteredEvents = _applyFilters(_events);
-    });
+    // If cancelling, remove from list immediately (optimistic)
+    if (newStatus == MyEventStatus.cancelled) {
+      setState(() {
+        _events.removeWhere((e) => e.id == eventId.toString());
+        _filteredEvents = _applyFilters(_events);
+      });
+    } else {
+      setState(() {
+        _events = List<Event>.from(_events);
+        _events[index] = oldEvent.copyWithStatus(newStatus);
+        _stats = _stats.applyStatusChange(
+          oldStatus: oldEvent.status,
+          newStatus: newStatus,
+        );
+        _filteredEvents = _applyFilters(_events);
+      });
+    }
 
     try {
       final result = await PlannerEventsRepository.updateStatus(
         eventId: eventId,
         status: newStatus,
       );
+
       if (!mounted) return;
 
       if (result['success'] == true) {
         _statusChanged = true;
-        unawaited(PlannerEventsRepository.refreshInBackground());
 
-        final isCancelled = newStatus == MyEventStatus.cancelled;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Status updated to ${newStatus.label}!'),
-            backgroundColor: isCancelled ? AppColors.darkpink : AppColors.green,
-          ),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                newStatus == MyEventStatus.cancelled
+                    ? 'Event cancelled!'
+                    : 'Status updated to ${newStatus.label}!',
+              ),
+              backgroundColor: newStatus == MyEventStatus.cancelled
+                  ? AppColors.darkpink
+                  : AppColors.green,
+            ),
+          );
+        }
+
+        // Refresh to get updated stats
+        unawaited(PlannerEventsRepository.refreshInBackground());
       } else {
+        // Rollback on failure
         _rollbackStatusUpdate(previousEvents, previousStats);
         await _refreshEvents();
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message'] ?? 'Failed to update status'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (!mounted) return;
       _rollbackStatusUpdate(previousEvents, previousStats);
       await _refreshEvents();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 

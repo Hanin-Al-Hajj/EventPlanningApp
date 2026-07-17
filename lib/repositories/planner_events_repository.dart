@@ -68,12 +68,33 @@ class PlannerEventsRepository {
   static Future<Map<String, dynamic>> updateStatus({
     required int eventId,
     required MyEventStatus status,
-  }) {
-    return ApiService.updateEventStatus(eventId, status.apiValue);
+  }) async {
+    debugPrint(
+      '📤 Calling API to update status for event $eventId to ${status.apiValue}',
+    );
+    try {
+      final result = await ApiService.updateEventStatus(
+        eventId,
+        status.apiValue,
+      );
+      debugPrint('📥 API Response: $result');
+      return result;
+    } catch (e) {
+      debugPrint('❌ API Error: $e');
+      rethrow;
+    }
   }
 
-  static Future<dynamic> archiveEvent(int eventId) {
-    return ApiService.archivePlannerEvent(eventId);
+  static Future<Map<String, dynamic>> archiveEvent(int eventId) async {
+    debugPrint('📤 Calling API to archive event $eventId');
+    try {
+      final result = await ApiService.archivePlannerEvent(eventId);
+      debugPrint('📥 Archive API Response: $result');
+      return result;
+    } catch (e) {
+      debugPrint('❌ Archive API Error: $e');
+      rethrow;
+    }
   }
 
   static void setCache({
