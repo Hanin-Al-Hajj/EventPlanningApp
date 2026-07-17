@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:event_planner/models/event.dart';
-import 'package:event_planner/screens/budget_tracker_screen.dart';
 import 'package:event_planner/screens/vendors_screen.dart';
 import 'package:event_planner/constants/app_colors.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -41,11 +40,6 @@ class _PlannertabsscreenState extends State<Plannertabsscreen> {
         );
       case 1:
         return VendorsScreen(eventId: widget.event.id);
-      case 2:
-        return BudgetTrackerScreen(
-          event: widget.event,
-          onBudgetChanged: () async {},
-        );
       default:
         return const SizedBox.shrink();
     }
@@ -56,7 +50,7 @@ class _PlannertabsscreenState extends State<Plannertabsscreen> {
     return Scaffold(
       body: IndexedStack(
         index: _selectedIndex,
-        children: List.generate(3, _buildPage),
+        children: List.generate(2, _buildPage),
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const [
@@ -67,10 +61,6 @@ class _PlannertabsscreenState extends State<Plannertabsscreen> {
           BottomNavigationBarItem(
             icon: FaIcon(FontAwesomeIcons.shop, size: 20),
             label: 'Vendors',
-          ),
-          BottomNavigationBarItem(
-            icon: FaIcon(FontAwesomeIcons.moneyBillWave, size: 20),
-            label: 'Budget',
           ),
         ],
         onTap: _selectPage,

@@ -322,7 +322,7 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
               ),
             ),
             Text(
-              'Total',
+              'Total Today',
               style: TextStyle(color: AppColors.green, fontSize: 13),
             ),
           ],

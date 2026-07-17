@@ -78,7 +78,7 @@ class ClientNotificationStats {
     }
 
     return ClientNotificationStats(
-      total: _asInt(json['total'], fallback: fallbackTotal),
+      total: _asInt(json['total_today'], fallback: fallbackTotal),
       unread: _asInt(json['unread']),
       urgent: _asInt(json['urgent']),
     );

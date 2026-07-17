@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:path_provider/path_provider.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -109,23 +110,50 @@ class ExportService {
         ),
       );
 
-      // Use unique filename with timestamp to avoid conflicts
+      // Convert PDF to base64 and create data URL
+      final pdfBytes = await pdf.save();
+      final base64Pdf = base64Encode(pdfBytes);
+
+      // This will open directly in Chrome/browser and show the PDF
+      final htmlContent =
+          '''
+        <html>
+          <head>
+            <title>$eventName - Guest List</title>
+          </head>
+          <body style="margin:0;padding:0;">
+            <embed src="data:application/pdf;base64,$base64Pdf" 
+                   type="application/pdf" 
+                   width="100%" 
+                   height="100%" 
+                   style="position:fixed;top:0;left:0;width:100%;height:100%;">
+          </body>
+        </html>
+      ''';
+
+      // Save HTML file temporarily
       final directory = await getTemporaryDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName =
-          'guests_${eventName.replaceAll(RegExp(r'[^\w\s]+'), '_')}_$timestamp.pdf';
+          'guests_${eventName.replaceAll(RegExp(r'[^\w\s]+'), '_')}_$timestamp.html';
       final filePath = '${directory.path}/$fileName';
 
       final file = File(filePath);
-      await file.writeAsBytes(await pdf.save());
+      await file.writeAsString(htmlContent);
 
-      // Open PDF
+      // Open HTML file - this will open in Chrome/browser
       final fileUri = Uri.file(filePath);
       if (await canLaunchUrl(fileUri)) {
         await launchUrl(fileUri, mode: LaunchMode.externalApplication);
       } else {
+        // Fallback: Save as PDF file and share
+        final pdfPath =
+            '${directory.path}/guests_${eventName.replaceAll(RegExp(r'[^\w\s]+'), '_')}_$timestamp.pdf';
+        final pdfFile = File(pdfPath);
+        await pdfFile.writeAsBytes(pdfBytes);
+
         await Share.shareXFiles([
-          XFile(filePath, mimeType: 'application/pdf'),
+          XFile(pdfPath, mimeType: 'application/pdf'),
         ], subject: '$eventName - Guest List PDF');
       }
     } catch (e) {
@@ -139,10 +167,7 @@ class ExportService {
     required String eventName,
   }) async {
     try {
-      // Create CSV content
       StringBuffer csv = StringBuffer();
-
-      // Add BOM for Excel UTF-8 support
       csv.write('\uFEFF');
       csv.writeln('#,Name,Email,Phone,Status,Plus One,Dietary,Invitation Sent');
 
@@ -153,7 +178,6 @@ class ExportService {
         );
       }
 
-      // Use unique filename with timestamp
       final directory = await getTemporaryDirectory();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final fileName =
@@ -163,12 +187,10 @@ class ExportService {
       final file = File(filePath);
       await file.writeAsString(csv.toString());
 
-      // Open CSV file
       final fileUri = Uri.file(filePath);
       if (await canLaunchUrl(fileUri)) {
         await launchUrl(fileUri, mode: LaunchMode.externalApplication);
       } else {
-        // If can't open, share it
         await Share.shareXFiles([
           XFile(filePath, mimeType: 'text/csv'),
         ], subject: '$eventName - Guest List Excel');

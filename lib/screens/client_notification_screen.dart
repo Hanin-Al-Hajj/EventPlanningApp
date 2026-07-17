@@ -315,7 +315,7 @@ class _ClientNotificationScreenState extends State<ClientNotificationScreen> {
                   _buildMiniStat(
                     icon: Icons.notifications,
                     value: _stats.total.toString(),
-                    label: 'Total',
+                    label: 'Total Today',
                     color: Colors.blue,
                   ),
                   _buildMiniStat(
