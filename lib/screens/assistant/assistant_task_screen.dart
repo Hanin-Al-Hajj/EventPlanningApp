@@ -89,7 +89,10 @@ class _AssistantTaskScreenState extends State<AssistantTaskScreen> {
   void _updateStats() {
     _totalTasks = _tasks.length;
     _urgentTasks = _tasks
-        .where((t) => t.priority == TaskPriority.urgent)
+        .where(
+          (t) =>
+              t.priority == TaskPriority.urgent && t.status != TaskStatus.done,
+        )
         .length;
     _inProgressTasks = _tasks
         .where((t) => t.status == TaskStatus.inProgress)

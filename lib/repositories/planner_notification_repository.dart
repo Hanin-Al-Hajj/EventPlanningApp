@@ -18,12 +18,12 @@ class PlannerNotificationRepository {
     // If not forcing refresh and already loaded, skip
     if (!forceRefresh && _loadedOnce) return;
 
-    // 🔴 FIX: If forcing refresh, reset the loaded flag
+    //  FIX: If forcing refresh, reset the loaded flag
     if (forceRefresh) {
       _loadedOnce = false;
     }
 
-    // 🔴 FIX: If there's a running load, wait for it ONLY if not forcing refresh
+    //  FIX: If there's a running load, wait for it ONLY if not forcing refresh
     final runningLoad = _runningLoad;
     if (runningLoad != null) {
       if (!forceRefresh) {

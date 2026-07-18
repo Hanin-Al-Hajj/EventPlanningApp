@@ -137,27 +137,31 @@ class _NotificationScreenState extends State<NotificationScreen> {
     return Scaffold(
       backgroundColor: AppColors.cream,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
-          child: Column(
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 12),
+        child: RefreshIndicator(
+          onRefresh: _loadAll,
+          color: AppColors.darkpink,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+            child: Column(
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 12),
 
-              Text(
-                'Stay on top of everything',
-                style: TextStyle(fontSize: 15, color: AppColors.green),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              _buildSummaryRow(),
-              const SizedBox(height: 20),
-              _buildFilterTabs(),
-              const SizedBox(height: 16),
-              Expanded(child: _buildList()),
-              const SizedBox(height: 16),
-              _buildActionButtons(),
-            ],
+                Text(
+                  'Stay on top of everything',
+                  style: TextStyle(fontSize: 15, color: AppColors.green),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                _buildSummaryRow(),
+                const SizedBox(height: 20),
+                _buildFilterTabs(),
+                const SizedBox(height: 16),
+                Expanded(child: _buildList()),
+                const SizedBox(height: 16),
+                _buildActionButtons(),
+              ],
+            ),
           ),
         ),
       ),

@@ -464,6 +464,14 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
     );
   }
 
+  Future<void> _onPullToRefresh() async {
+    await Future.wait([
+      _loadDashboard(date: _activeDashboardKey, forceRefresh: true),
+      _loadRequests(forceRefresh: true),
+      _loadUnreadCount(),
+    ]);
+  }
+
   @override
   Widget build(BuildContext context) {
     final eventsToday = _eventsOnSelectedDay;
@@ -474,204 +482,210 @@ class _EventPlannerDashboardState extends State<EventPlannerDashboard> {
         children: [
           Positioned.fill(child: CustomPaint(painter: _BgPainter())),
           SafeArea(
-            child: SingleChildScrollView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    height: 40,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Text(
-                          _formatDayMonth(_selectedDate),
-                          style: const TextStyle(
-                            color: AppColors.burgundy,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: PopupMenuButton<String>(
-                            offset: const Offset(0, 45),
-                            color: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            itemBuilder: (context) => [
-                              _popupItem(
-                                'profile',
-                                Icons.person_outline,
-                                'Profile',
-                              ),
-                              _popupItem(
-                                'settings',
-                                Icons.settings_outlined,
-                                'Settings',
-                              ),
-                              _popupItem('logout', Icons.logout, 'Logout'),
-                            ],
-                            onSelected: (value) {
-                              if (value == 'profile') {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const PlannerProfileScreen(),
-                                  ),
-                                );
-                              } else if (value == 'settings') {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        const PlannerSetting(),
-                                  ),
-                                );
-                              } else if (value == 'logout') {
-                                _handleLogout();
-                              }
-                            },
-                            child: Container(
-                              width: 40,
-                              height: 40,
-                              decoration: const BoxDecoration(
-                                color: AppColors.darkpink,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.person,
-                                color: Colors.white,
-                                size: 22,
-                              ),
+            child: RefreshIndicator(
+              color: AppColors.darkpink,
+              onRefresh: _onPullToRefresh,
+              child: SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      height: 40,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Text(
+                            _formatDayMonth(_selectedDate),
+                            style: const TextStyle(
+                              color: AppColors.burgundy,
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
                             ),
                           ),
-                        ),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: IconButton(
-                            onPressed: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const PlannerNotificationScreen(),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: PopupMenuButton<String>(
+                              offset: const Offset(0, 45),
+                              color: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              itemBuilder: (context) => [
+                                _popupItem(
+                                  'profile',
+                                  Icons.person_outline,
+                                  'Profile',
                                 ),
-                              );
-                              _loadUnreadCount();
-                            },
-                            icon: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                const FaIcon(
-                                  FontAwesomeIcons.bell,
-                                  size: 20,
+                                _popupItem(
+                                  'settings',
+                                  Icons.settings_outlined,
+                                  'Settings',
+                                ),
+                                _popupItem('logout', Icons.logout, 'Logout'),
+                              ],
+                              onSelected: (value) {
+                                if (value == 'profile') {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const PlannerProfileScreen(),
+                                    ),
+                                  );
+                                } else if (value == 'settings') {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const PlannerSetting(),
+                                    ),
+                                  );
+                                } else if (value == 'logout') {
+                                  _handleLogout();
+                                }
+                              },
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                decoration: const BoxDecoration(
                                   color: AppColors.darkpink,
+                                  shape: BoxShape.circle,
                                 ),
-                                if (_unreadNotifications > 0)
-                                  Positioned(
-                                    top: -4,
-                                    right: -4,
-                                    child: Container(
-                                      width: _unreadNotifications > 9 ? 18 : 14,
-                                      height: 14,
-                                      decoration: const BoxDecoration(
-                                        color: AppColors.darkpink,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Center(
-                                        child: Text(
-                                          _unreadNotifications > 9
-                                              ? '9+'
-                                              : '$_unreadNotifications',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 8,
-                                            fontWeight: FontWeight.bold,
+                                child: const Icon(
+                                  Icons.person,
+                                  color: Colors.white,
+                                  size: 22,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: IconButton(
+                              onPressed: () async {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const PlannerNotificationScreen(),
+                                  ),
+                                );
+                                _loadUnreadCount();
+                              },
+                              icon: Stack(
+                                clipBehavior: Clip.none,
+                                children: [
+                                  const FaIcon(
+                                    FontAwesomeIcons.bell,
+                                    size: 20,
+                                    color: AppColors.darkpink,
+                                  ),
+                                  if (_unreadNotifications > 0)
+                                    Positioned(
+                                      top: -4,
+                                      right: -4,
+                                      child: Container(
+                                        width: _unreadNotifications > 9
+                                            ? 18
+                                            : 14,
+                                        height: 14,
+                                        decoration: const BoxDecoration(
+                                          color: AppColors.darkpink,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            _unreadNotifications > 9
+                                                ? '9+'
+                                                : '$_unreadNotifications',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 8,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 18),
-                  Container(
-                    height: 72,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 8,
-                    ),
-                    child: PageView.builder(
-                      controller: _weekController,
-                      onPageChanged: _onWeekPageChanged,
-                      itemBuilder: (context, page) {
-                        final weekStart = _weekStartForPage(page);
-                        final days = List.generate(
-                          7,
-                          (i) => weekStart.add(Duration(days: i)),
-                        );
+                    const SizedBox(height: 18),
+                    Container(
+                      height: 72,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 8,
+                      ),
+                      child: PageView.builder(
+                        controller: _weekController,
+                        onPageChanged: _onWeekPageChanged,
+                        itemBuilder: (context, page) {
+                          final weekStart = _weekStartForPage(page);
+                          final days = List.generate(
+                            7,
+                            (i) => weekStart.add(Duration(days: i)),
+                          );
 
-                        return Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: days.map(_buildWeekDay).toList(),
-                        );
-                      },
+                          return Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: days.map(_buildWeekDay).toList(),
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  _sectionHeader(
-                    icon: Icons.event_available,
-                    title: 'Events - ${_formatFullDate(_selectedDate)}',
-                  ),
-                  const SizedBox(height: 12),
-                  _isLoadingDashboard
-                      ? const Center(child: CircularProgressIndicator())
-                      : eventsToday.isEmpty
-                      ? _emptyBox(
-                          icon: Icons.event_outlined,
-                          message: 'No events on this day',
-                          sub: 'Tap a day in the calendar to see its events',
-                        )
-                      : Column(
-                          children: eventsToday
-                              .map((event) => _buildDayEventCard(event))
-                              .toList(),
-                        ),
-                  const SizedBox(height: 28),
-                  _sectionHeader(
-                    icon: Icons.inbox_outlined,
-                    title: 'Client Requests',
-                    badge: _clientRequests.isNotEmpty
-                        ? '${_clientRequests.length}'
-                        : null,
-                  ),
-                  const SizedBox(height: 12),
-                  _isLoadingRequests
-                      ? const Center(child: CircularProgressIndicator())
-                      : _clientRequests.isEmpty
-                      ? _emptyBox(
-                          icon: Icons.mark_email_read_outlined,
-                          message: 'No pending requests',
-                          sub: 'New client requests will appear here',
-                        )
-                      : Column(
-                          children: _clientRequests
-                              .map((request) => _buildRequestCard(request))
-                              .toList(),
-                        ),
-                ],
+                    const SizedBox(height: 24),
+                    _sectionHeader(
+                      icon: Icons.event_available,
+                      title: 'Events - ${_formatFullDate(_selectedDate)}',
+                    ),
+                    const SizedBox(height: 12),
+                    _isLoadingDashboard
+                        ? const Center(child: CircularProgressIndicator())
+                        : eventsToday.isEmpty
+                        ? _emptyBox(
+                            icon: Icons.event_outlined,
+                            message: 'No events on this day',
+                            sub: 'Tap a day in the calendar to see its events',
+                          )
+                        : Column(
+                            children: eventsToday
+                                .map((event) => _buildDayEventCard(event))
+                                .toList(),
+                          ),
+                    const SizedBox(height: 28),
+                    _sectionHeader(
+                      icon: Icons.inbox_outlined,
+                      title: 'Client Requests',
+                      badge: _clientRequests.isNotEmpty
+                          ? '${_clientRequests.length}'
+                          : null,
+                    ),
+                    const SizedBox(height: 12),
+                    _isLoadingRequests
+                        ? const Center(child: CircularProgressIndicator())
+                        : _clientRequests.isEmpty
+                        ? _emptyBox(
+                            icon: Icons.mark_email_read_outlined,
+                            message: 'No pending requests',
+                            sub: 'New client requests will appear here',
+                          )
+                        : Column(
+                            children: _clientRequests
+                                .map((request) => _buildRequestCard(request))
+                                .toList(),
+                          ),
+                  ],
+                ),
               ),
             ),
           ),

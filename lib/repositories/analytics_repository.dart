@@ -1,5 +1,6 @@
 import 'package:event_planner/models/analytics_model.dart';
 import 'package:flutter/foundation.dart';
+import 'package:event_planner/services/api_service.dart';
 
 class AnalyticsRepository {
   static final ValueNotifier<AnalyticsData?> analytics =
@@ -51,7 +52,14 @@ class AnalyticsRepository {
   }
 
   static Future<AnalyticsData> _fetchAnalytics() async {
-    final data = AnalyticsData.mock();
+    final response = await ApiService.getPlannerAnalytics();
+
+    if (response['success'] == false) {
+      throw Exception(response['message'] ?? 'Failed to load analytics');
+    }
+
+    final data = AnalyticsData.fromApiResponse(response);
+
     analytics.value = data;
     _loadedOnce = true;
     return data;

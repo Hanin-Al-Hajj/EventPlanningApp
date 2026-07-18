@@ -23,16 +23,17 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
   bool _isLoading = true;
   String? _error;
 
-  int get _total => _items.length;
+  int get _total => _items.where((n) {
+    final now = DateTime.now();
+    final created = n.createdAt;
+    return created.year == now.year &&
+        created.month == now.month &&
+        created.day == now.day;
+  }).length;
   int get _unread => _items.where((n) => !n.isRead).length;
-  int get _urgent => _items.where((n) => n.priority == 'urgent').length;
 
   List<plannerNotification> get _filtered {
     if (_filter == 'all') return _items;
-
-    if (_filter == 'urgent') {
-      return _items.where((n) => n.priority == 'urgent').toList();
-    }
 
     return _items.where((n) {
       final type = n.type.toLowerCase();
@@ -234,27 +235,30 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
     return Scaffold(
       backgroundColor: AppColors.cream,
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
-          child: Column(
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 12),
-
-              Text(
-                'Stay on top of everything',
-                style: TextStyle(fontSize: 15, color: AppColors.green),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              _buildSummaryRow(),
-              const SizedBox(height: 20),
-              _buildFilterTabs(),
-              const SizedBox(height: 16),
-              Expanded(child: _buildList()),
-              const SizedBox(height: 16),
-              _buildActionButtons(),
-            ],
+        child: RefreshIndicator(
+          onRefresh: () => _loadNotifications(forceRefresh: true),
+          color: AppColors.darkpink,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
+            child: Column(
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 12),
+                Text(
+                  'Stay on top of everything',
+                  style: TextStyle(fontSize: 15, color: AppColors.green),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                _buildSummaryRow(),
+                const SizedBox(height: 20),
+                _buildFilterTabs(),
+                const SizedBox(height: 16),
+                Expanded(child: _buildList()),
+                const SizedBox(height: 16),
+                _buildActionButtons(),
+              ],
+            ),
           ),
         ),
       ),
@@ -354,33 +358,6 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
             ),
           ],
         ),
-        Column(
-          children: [
-            Container(
-              height: 52,
-              width: 52,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                // ignore: deprecated_member_use
-                color: Colors.pink.withOpacity(0.12),
-              ),
-              child: Icon(Icons.error_rounded, size: 24, color: Colors.pink),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              '$_urgent',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-                color: AppColors.burgundy,
-              ),
-            ),
-            Text(
-              'Urgent',
-              style: TextStyle(color: AppColors.green, fontSize: 13),
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -432,15 +409,6 @@ class _PlannerNotificationScreenState extends State<PlannerNotificationScreen> {
             ontap: () => setState(() => _filter = 'task'),
             icon: Icons.task_alt_rounded,
             isSelected: _filter == 'task',
-          ),
-
-          const SizedBox(width: 10),
-
-          Filtertab(
-            label: 'Urgent',
-            ontap: () => setState(() => _filter = 'urgent'),
-            icon: Icons.error_rounded,
-            isSelected: _filter == 'urgent',
           ),
         ],
       ),
